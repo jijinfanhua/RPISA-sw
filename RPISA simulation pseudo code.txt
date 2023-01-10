@@ -1,0 +1,79 @@
+
+
+// 伪代码，实现背景：每个端口为100Gbps，一条流水线负责16个端口；
+// 数据包的到达时间转换成硬件cycle数，根据数据包长确定数据包间的cycle间隔
+
+rpisa = array[processor_num][max_processor_cycle_num] // 为每个周期的硬件行为创建一个数组表项
+
+// 初期实现可以先不考虑parser
+
+
+while(1): // 读trace，根据上述确定每个cycle是否有包进入流水线
+	pkt = trace.front //如果这个cycle没有数据包，则pkt为空；否则第一个processor接收该pkt
+	for i in (0, processor_num):
+		if wr(i) is READ: // processor i is configured as READ
+			// first step: several cycles to support PI(R)
+			
+			// 创建计时器[寄存器]、流等待队列[双端口RAM]、流调度队列[双端口RAM]、数据包链式队列（P2P、R2P）[两块双端口RAM]；若干寄存器；Table address到每流Timer offset映射[CAM，保证并行查找]
+			PIR cycles
+			
+			// gateway cycles
+			
+			// hash cycles
+			
+			// match cycles; [SRAM/TCAM]，SRAM为精确匹配，hash起作用；TCAM为三态匹配，并行执行，请了解TCAM查找过程[多少cycle等等]
+			
+			// compare after match
+			
+			// action
+			
+			// PIW blank cycle
+			
+			// 注意：接下来是ring节点的处理，ring节点与processor的PIR是并行的，编写时应将其放到同一processor的不同组件结构上
+			//RI process
+			
+			// RO process, 管理R2R及P2R
+		
+		else if wr(i) is WRITE:
+			// PIR blank cycle
+			
+			// gateway cycles
+			
+			// hash cycles
+			
+			// match cycles; [SRAM/TCAM]，SRAM为精确匹配，hash起作用；TCAM为三态匹配，并行执行，请了解TCAM查找过程[多少cycle等等]
+			
+			// compare after match
+			
+			// action
+			
+			// PIW process，此处应维护dirty表[CAM]等结构
+			PIW cycles
+			
+			// 注意：接下来是ring节点的处理，ring节点与processor的PIW是并行的，编写时应将其放到同一processor的不同组件结构上
+			// RI process
+			
+			// RO process, 管理R2R及P2R
+		
+		else: // 被配置成无状态processor
+			// PIR blank cycle
+			
+			// gateway cycles
+			
+			// hash cycles
+			
+			// match cycles; [SRAM/TCAM]，SRAM为精确匹配，hash起作用；TCAM为三态匹配，并行执行，请了解TCAM查找过程[多少cycle等等]
+			
+			// compare after match
+			
+			// action
+			
+			// PIW blank cycle
+			
+			// 注意：接下来是ring节点的处理，ring节点与processor的PIW/PIR是并行的，编写时应将其放到同一processor的不同组件结构上；无状态的processor，ring节点传输更简单一些
+			// RI process
+			
+			// RO process, 管理R2R及P2R
+		
+		trace.pop()
+	
