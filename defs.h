@@ -14,21 +14,24 @@
 using namespace std;
 
 
-
+const int KEY_LENGTH = 1024;
+const int KEY_NUM = 32;
 const int HEADER_NUM = 224;
-const int HASH_NUM = 1024;
 const int PROC_NUM = 16;
-
+const int BUFFER_SIZE = 32;
 
 struct PipeLine;
 using u32 = unsigned int;
-using Key = u32[32];
-using PHV = u32[HEADER_NUM];
+using u64 = unsigned long long;
+using Key = array<u32, KEY_NUM>;
+using PHV = array<u32, HEADER_NUM>; // 这里8位，16位，32位都是使用u32存的，如果真实是8，那当他是8位的就好
 
 struct Logic {
 
     // 每一个Logic都应标识自己所在的processor id
     int processor_id;
+
+    Logic(int processor_id) : processor_id(processor_id) {}
 
     // 每一个Logic都应实现这个时序算法，在pipeline中找到自己应该操控的寄存器，
     // now表示当前时钟的状态，通过对next中的寄存器赋值，来实现对下一个时钟的操作
@@ -43,7 +46,6 @@ struct Logic {
 struct GetKey   ;
 struct PIR      ;
 struct PO       ;
-struct Gateway  ;
 struct Matcher  ;
 struct Executor ;
 struct PIW      ;
@@ -65,11 +67,11 @@ struct PipeLine {
      * log函数，来实时监控各个buffer的长度状态，必要时可以输出csv文件供后续交给python做数据处理
      */
     struct Buffer {
-        queue<PHV> q[HASH_NUM];
+        array<queue<PHV>, BUFFER_SIZE> q;
         void Log();
     };
 
-    struct GetKeyRegister    {};
+    struct GetKeyRegister    ;
     struct PIRegister        {
         Buffer p2r;
     };
@@ -97,7 +99,7 @@ struct PipeLine {
     };
 
     // And god said, let here be processor, and here was processor.
-    ProcessorRegister processors[PROC_NUM];
+    array<ProcessorRegister, PROC_NUM> processors;
 
     PipeLine execute() {
         PipeLine next;
