@@ -5,7 +5,7 @@
 #ifndef RPISA_SW_SRAM_H
 #define RPISA_SW_SRAM_H
 
-#include "../defs.h"
+#include "../../defs.h"
 const int SRAM_NUM = 80;
 const int SRAM_SIZE = 1024;
 

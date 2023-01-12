@@ -57,61 +57,43 @@ struct RO       ;
 struct Processor;
 struct SRAM;
 
-// 这里记录了所有的有关于时序的信息，包括buffer的状态，各种流水的走法等
-// 每一个Register应自己管理好自己所经营范围内的phv流水线
-struct PipeLine {
-
-
-
-    /**
-     * Buffer这里我打算采用最简单的设计，即使用queue来标识buffer长度，然后通过
-     * log函数，来实时监控各个buffer的长度状态，必要时可以输出csv文件供后续交给python做数据处理
-     */
-    struct Buffer {
-        array<queue<PHV>, BUFFER_SIZE> q;
-        void Log();
-    };
-
-    struct GetKeyRegister    ;
-    struct PIRegister        {
-        Buffer p2r;
-    };
-    struct PIRRegister : public PIRegister      {};
-    struct PIWRegister : public PIRegister      {};
-    struct MatcherRegister   ;
-    struct ExecutorRegister  ;
-    struct RIRegister        {};
-    struct RORegister        {};
-
-    struct ProcessorRegister {
-
-        Buffer r2p, p2p;
-        GetKeyRegister getKey;
-        PIRRegister pir;
-        PIWRegister piw;
-        MatcherRegister matcher;
-        ExecutorRegister executor;
-
-    };
-
-    struct RingRegister {
-        struct RI {};
-        struct RO {};
-    };
-
-    // And god said, let here be processor, and here was processor.
-    array<ProcessorRegister, PROC_NUM> processors;
-
-    PipeLine execute() {
-        PipeLine next;
-        // 这里还没完善，就是要调用所有Processor的所有Logic，走完一次时钟
-        // 这里因为Logic都还没写，所以没有进行具体的实现
-        return next;
+/**
+ * Buffer这里我打算采用最简单的设计，即使用queue来标识buffer长度，然后通过
+ * log函数，来实时监控各个buffer的长度状态，必要时可以输出csv文件供后续交给python做数据处理
+ */
+template< class T>
+struct Buffer {
+    map<int, queue<T>> q;
+    void Log();
+    bool contain(int key) const {
+        return q.find(key) != q.end() && !q.at(key).empty();
+    }
+    void push(int key, const T& t) {
+        q[key].push(t);
+    }
+    T pop(int key) {
+        T res = q[key].front();
+        q[key].pop();
+        return res;
     }
 
-    void log();
-
 };
+
+
+
+
+struct GetKeyRegister    ;
+struct PIRRegister       ;
+struct PORegister        ;
+struct P2RElementRegister;
+struct R2PElementRegister;
+struct GetKeyResult;
+struct PIWRegister       ;
+struct MatcherRegister   ;
+struct ExecutorRegister  ;
+struct RIRegister        ;
+struct RORegister        ;
+struct PipeLine          ;
 
 
 #endif //RPISA_SW_DEFS_H

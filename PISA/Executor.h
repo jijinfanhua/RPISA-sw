@@ -4,59 +4,8 @@
 
 #ifndef RPISA_SW_EXECUTOR_H
 #define RPISA_SW_EXECUTOR_H
-#include "../defs.h"
+#include "../PipeLine.h"
 
-
-const int INSTRUCTION_NUM = 8;
-//const int ALUWidth = 128;
-//const int size = ALUWidth / 32;
-//using ALUInt = array<u32, size>;
-using ALUInt = u32;
-typedef ALUInt (*ALU)(ALUInt, ALUInt);
-struct Instruction {
-
-    ALU op;
-
-    struct Parameter {
-        enum Type {
-            CONST, HEADER
-        } type;
-        union {
-            ALUInt value;
-            u32 id;
-        } content ;
-    } a, b;
-
-    u32 id;
-
-
-
-};
-using VLIW = array<Instruction, INSTRUCTION_NUM>;
-
-
-struct PipeLine::ExecutorRegister {
-
-    PHV phvIF;
-    array<bool, READ_TABLE_NUM> readEnable;
-    array<bool, READ_TABLE_NUM> compare;
-    array<Key , READ_TABLE_NUM> value;
-    array<VLIW, READ_TABLE_NUM> vliw;
-
-
-    PHV phvID;
-    array<array<ALU, HEADER_NUM> , READ_TABLE_NUM> alu;
-    array<array<pair<ALUInt, ALUInt>, HEADER_NUM>, READ_TABLE_NUM> parameter;
-    array<array<bool, HEADER_NUM>, READ_TABLE_NUM> writeEnableEX;
-
-    PHV phvEX;
-    array<array<ALUInt , HEADER_NUM>, READ_TABLE_NUM> res;
-    array<array<bool, HEADER_NUM>, READ_TABLE_NUM> writeEnableWB;
-
-    PHV phvWB;
-
-
-};
 
 
 struct ExecutorConfig {
@@ -70,19 +19,23 @@ struct Executor : public Logic {
     array<ExecutorConfig, READ_TABLE_NUM> executorConfig;
 
     void execute(const PipeLine &now, PipeLine &next) override {
-        PipeLine::ExecutorRegister& nextExecutor  = next.processors[processor_id].executor;
-        const PipeLine::ExecutorRegister& executor = now.processors[processor_id].executor;
+        ExecutorRegister& nextExecutor  = next.processors[processor_id].executor;
+        const ExecutorRegister& executor = now.processors[processor_id].executor;
         nextExecutor.writeEnableWB = executor.writeEnableEX;
+        instructionFetch  (executor, nextExecutor);
+        instructionDecode (executor, nextExecutor);
+        instructionExecute(executor, nextExecutor);
+        writeBack         (executor, nextExecutor);
     }
 
-    void instructionFetch(const PipeLine::ExecutorRegister& now, PipeLine::ExecutorRegister& next) {
+    void instructionFetch(const ExecutorRegister& now, ExecutorRegister& next) {
         for (int i = 0; i < READ_TABLE_NUM; i++) {
             int key = now.value[i][0] & 0x1ff;
             next.vliw[i] = executorConfig[i].vliwMap[key];
         }
     }
 
-    void instructionDecode(const PipeLine::ExecutorRegister& now, PipeLine::ExecutorRegister& next) {
+    void instructionDecode(const ExecutorRegister& now, ExecutorRegister& next) {
         for (int i = 0; i < READ_TABLE_NUM; i++) {
             for (int j = 0; j < INSTRUCTION_NUM; j++) {
                 Instruction instruction = now.vliw[i][j];
@@ -105,7 +58,7 @@ struct Executor : public Logic {
         }
     }
 
-    void instructionExecute(const PipeLine::ExecutorRegister& now, PipeLine::ExecutorRegister& next) {
+    void instructionExecute(const ExecutorRegister& now, ExecutorRegister& next) {
         for (int i = 0; i < READ_TABLE_NUM; i++) {
             for (int j = 0; j < HEADER_NUM; j++) {
                 if (now.writeEnableEX[i][j]) {
@@ -115,7 +68,7 @@ struct Executor : public Logic {
         }
     }
 
-    void writeBack(const PipeLine::ExecutorRegister& now, PipeLine::ExecutorRegister& next) {
+    void writeBack(const ExecutorRegister& now, ExecutorRegister& next) {
         for (int i = 0; i < READ_TABLE_NUM; i++) {
             for (int j = 0; j < HEADER_NUM; j++) {
                 if (now.writeEnableWB[i][j]) {
