@@ -8,7 +8,7 @@
 #include <list>
 #include <vector>
 #include <queue>
-
+#include <map>
 #include <unordered_map>
 
 using namespace std;
@@ -19,6 +19,7 @@ const int KEY_NUM = 32;
 const int HEADER_NUM = 224;
 const int PROC_NUM = 16;
 const int BUFFER_SIZE = 32;
+const int READ_TABLE_NUM = 16;
 
 struct PipeLine;
 using u32 = unsigned int;
@@ -77,8 +78,8 @@ struct PipeLine {
     };
     struct PIRRegister : public PIRegister      {};
     struct PIWRegister : public PIRegister      {};
-    struct MatcherRegister   {};
-    struct ExecutorRegister  {};
+    struct MatcherRegister   ;
+    struct ExecutorRegister  ;
     struct RIRegister        {};
     struct RORegister        {};
 

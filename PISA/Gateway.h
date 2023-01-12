@@ -8,25 +8,26 @@
 #include "../defs.h"
 // 这里配置get key所用的时间周期
 const int HASH_CYCLE = 4;
-const int HASH_NUM = 8;
+const int HASH_NUM = 16;
 const int GATEWAY_NUM = 16;
-
+const int ADDRESS_MAX_NUM = 2;
+const int GET_KEY_ALL_CYCLE = HASH_CYCLE + 1 + 1;
 struct PipeLine::GetKeyRegister {
-    PHV phvInput;
+    array<PHV, GET_KEY_ALL_CYCLE> phv;
+
     Key key;
-    array<array<bool, GATEWAY_NUM>, HASH_CYCLE> gatewayResult;
-    array<array<u64, HASH_NUM>,     HASH_CYCLE> hashValue;
+
+    array<array<u32, READ_TABLE_NUM>,     HASH_CYCLE>      hashValue;
+    array<array<bool, READ_TABLE_NUM>,    HASH_CYCLE>     readEnable;
+
 };
 
 struct KeyConfig {
     int id;
     int length;
-
-
 };
 
 struct GatewayConfig {
-    u32 mask;
     struct Parameter {
         enum Type {CONST, HEADER} type;
         union {
@@ -42,9 +43,8 @@ struct GatewayConfig {
 struct HashConfig {
     Key mask;
     u64 (* hash)(const Key&);
+    int length;
 };
-
-
 
 struct GetKey : public Logic {
 
@@ -53,6 +53,7 @@ struct GetKey : public Logic {
     array<KeyConfig, KEY_NUM> keyConfig;
     array<HashConfig, HASH_NUM> hashConfig;
     array<GatewayConfig, GATEWAY_NUM> gatewayConfig;
+    map<array<bool, GATEWAY_NUM>, array<bool, READ_TABLE_NUM>> gatewayTable;
 
     void execute(const PipeLine &now, PipeLine &next) override {
         const PipeLine::GetKeyRegister& getKey = now.processors[processor_id].getKey;
@@ -63,23 +64,30 @@ struct GetKey : public Logic {
         gateway(getKey, nextGetKey);
         getHash(getKey, nextGetKey);
 
+
     }
 
     void getKeyFromPHV(const PipeLine::GetKeyRegister &now, PipeLine::GetKeyRegister &next) {
         next.key = {};
         for (int i = 0; i < keyConfig.size(); i++) {
-            next.key[i] = now.phvInput[keyConfig[i].id] & ((1 << keyConfig[i].length) - 1);
+            next.key[i] = now.phv[0][keyConfig[i].id] & ((1 << keyConfig[i].length) - 1);
+        }
+        for (int i = 1; i < GET_KEY_ALL_CYCLE; i++) {
+            next.phv[i] = now.phv[i - 1];
         }
     }
 
     void gateway(const PipeLine::GetKeyRegister &now, PipeLine::GetKeyRegister &next) {
+
+        array<bool, GATEWAY_NUM>  gatewayResult = {};
         for (int i = 0; i < gatewayConfig.size(); i++) {
             u32 a = gatewayGetValue(gatewayConfig[i].a, now.key);
             u32 b = gatewayGetValue(gatewayConfig[i].b, now.key);
-            next.gatewayResult[0][i] = compare(a, b, gatewayConfig[i].op);
+            gatewayResult[i] = compare(a, b, gatewayConfig[i].op);
         }
+        next.readEnable[0] = gatewayTable[gatewayResult];
         for (int i = 1; i < HASH_CYCLE; i++) {
-            next.gatewayResult[i] = next.gatewayResult[i - 1];
+            next.readEnable[i] = next.readEnable[i - 1];
         }
     }
 
@@ -104,6 +112,7 @@ struct GetKey : public Logic {
     void getHash(const PipeLine::GetKeyRegister &now, PipeLine::GetKeyRegister &next) {
         for (int i = 0; i < hashConfig.size(); i++) {
             next.hashValue[0][i] = hashConfig[i].hash(Mask(now.key, hashConfig[i].mask));
+            next.hashValue[0][i] &= (1 << hashConfig[i].length) - 1;
         }
         for (int i = 1; i < HASH_CYCLE; i++) {
             next.hashValue[i] = next.hashValue[i - 1];
@@ -117,6 +126,8 @@ struct GetKey : public Logic {
             res[j] &= mask[j];
         } return res;
     }
+
+
 };
 
 #endif
