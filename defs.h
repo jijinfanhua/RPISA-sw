@@ -57,7 +57,7 @@ struct Processor;
 struct SRAM;
 
 // 这里记录了所有的有关于时序的信息，包括buffer的状态，各种流水的走法等
-// 每一个Register应自己管理好自己所经营范围内的phv流水线，
+// 每一个Register应自己管理好自己所经营范围内的phv流水线
 struct PipeLine {
 
 

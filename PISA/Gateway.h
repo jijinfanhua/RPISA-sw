@@ -6,6 +6,7 @@
 #define RPISA_SW_GETKEY_H
 
 #include "../defs.h"
+// 这里配置get key所用的时间周期
 const int HASH_CYCLE = 4;
 const int HASH_NUM = 8;
 const int GATEWAY_NUM = 16;
