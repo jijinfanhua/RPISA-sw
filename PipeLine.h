@@ -12,34 +12,24 @@
 
 struct ProcessorRegister {
 
-//        Buffer r2p;
-    Buffer<GetKeyResult> p2p;
-//        Buffer p2rr, p2rw;
+    Buffer<PacketInfo> p2p, r2p;
+    queue<PacketInfo> p2r;
+    queue<PacketInfo> r2r;
     GetKeyRegister getKey;
-    PIRRegister pir;
+
+    PIRegister pi;
     PORegister po;
-    PIWRegister piw;
+    RIRegister ri;
+    RORegister ro;
+
     MatcherRegister matcher;
     ExecutorRegister executor;
 
-};
-
-
-struct RingRegister {
-
-    RI ri;
-    RO ro;
 
 };
+
 
 struct PipeLine {
-
-
-
-
-
-
-
 
     // And god said, let here be processor, and here was processor.
     array<ProcessorRegister, PROC_NUM> processors;

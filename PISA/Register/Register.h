@@ -21,7 +21,7 @@ struct GetKeyRegister {
     Key key;
 
     bool enable2;
-    array<array<u32, READ_TABLE_NUM>,     HASH_CYCLE>      hashValue;
+    array<array<u32,  READ_TABLE_NUM>,    HASH_CYCLE>      hashValue;
     array<array<bool, READ_TABLE_NUM>,    HASH_CYCLE>     readEnable;
     array<array<Key,  READ_TABLE_NUM>,    HASH_CYCLE>           keys;
 
@@ -31,8 +31,7 @@ const int MATCHER_ALL_CYCLE = 4;
 
 struct MatcherRegister {
 
-    array<PHV, MATCHER_ALL_CYCLE> phv;
-
+    array<PHV,  MATCHER_ALL_CYCLE> phv;
 
     array<u32,  READ_TABLE_NUM> hashValue;
     array<Key,  READ_TABLE_NUM> keyCycleMatch;
@@ -48,9 +47,6 @@ struct MatcherRegister {
 
 
 };
-
-
-
 
 const int INSTRUCTION_NUM = 8;
 

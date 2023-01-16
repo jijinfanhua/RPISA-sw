@@ -15,7 +15,7 @@ while(1): // 读trace，根据上述确定每个cycle是否有包进入流水线
 			// first step: several cycles to support PI(R)
 			
 			// 创建计时器[寄存器]、流等待队列[双端口RAM]、流调度队列[双端口RAM]、数据包链式队列（P2P、R2P）[两块双端口RAM]；若干寄存器；Table address到每流Timer offset映射[CAM，保证并行查找]
-			PIR cycles
+			PI cycles
 			
 			// gateway cycles
 			
@@ -35,7 +35,7 @@ while(1): // 读trace，根据上述确定每个cycle是否有包进入流水线
 			// RO process, 管理R2R及P2R
 		
 		else if wr(i) is WRITE:
-			// PIR blank cycle
+			// PI blank cycle
 			
 			// gateway cycles
 			
@@ -56,7 +56,7 @@ while(1): // 读trace，根据上述确定每个cycle是否有包进入流水线
 			// RO process, 管理R2R及P2R
 		
 		else: // 被配置成无状态processor
-			// PIR blank cycle
+			// PI blank cycle
 			
 			// gateway cycles
 			

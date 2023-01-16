@@ -27,6 +27,9 @@ using u64 = unsigned long long;
 using Key = array<u32, KEY_NUM>;
 using PHV = array<u32, HEADER_NUM>; // 这里8位，16位，32位都是使用u32存的，如果真实是8，那当他是8位的就好
 
+
+using HeartBeat = array<bool, PROC_NUM>;
+
 struct Logic {
 
     // 每一个Logic都应标识自己所在的processor id
@@ -45,7 +48,7 @@ struct Logic {
 
 // 这里分成不同的逻辑段来进行实现，他们都应继承Logic，具体的实现应该写在别的文件中
 struct GetKey   ;
-struct PIR      ;
+struct Schedule      ;
 struct PO       ;
 struct Matcher  ;
 struct Executor ;
@@ -87,13 +90,18 @@ struct PIRRegister       ;
 struct PORegister        ;
 struct P2RElementRegister;
 struct R2PElementRegister;
-struct GetKeyResult;
+struct PacketInfo;
 struct PIWRegister       ;
 struct MatcherRegister   ;
 struct ExecutorRegister  ;
 struct RIRegister        ;
 struct RORegister        ;
 struct PipeLine          ;
+
+
+
+const int TimeOutSettingErrorException = 1;
+const int TIME_OUT = 20;
 
 
 #endif //RPISA_SW_DEFS_H
