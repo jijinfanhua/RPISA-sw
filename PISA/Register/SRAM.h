@@ -6,20 +6,22 @@
 #define RPISA_SW_SRAM_H
 
 #include "../../defs.h"
-const int SRAM_NUM = 80;
-const int SRAM_SIZE = 1024;
 
-struct Row {
-    Key key, value;
-};
 
-using SRAM_UNIT = array<Row, SRAM_SIZE>;
 
-struct SRAM {
 
-    array<SRAM_UNIT, SRAM_NUM> content;
-    const Row& get (int id, int key) {
-        return content[id][key];
+using SRAM_UNIT = array<b128, SRAM_SIZE>;
+
+struct SRAMs {
+
+    array<SRAM_UNIT, SRAM_NUM> sram;
+    b1024 get (vector<int> id, int row) {
+        b1024 res = {};
+        for (int i = 0; i < id.size(); i++) {
+            for (int j = 0; j < VALUE_NUM; j++) {
+                res[i * VALUE_NUM + j] = sram[id[i]][row][j];
+            }
+        } return res;
     }
 };
 

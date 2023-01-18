@@ -16,15 +16,22 @@ using namespace std;
 
 const int KEY_LENGTH = 1024;
 const int KEY_NUM = 32;
+const int VALUE_NUM = 4;
 const int HEADER_NUM = 224;
 const int PROC_NUM = 16;
 const int BUFFER_SIZE = 32;
 const int READ_TABLE_NUM = 16;
+const int SRAM_NUM = 80;
+
+const int SRAM_SIZE = 1024;
+const int LOG_SRAM_SIZE = 10;
+
 
 struct PipeLine;
 using u32 = unsigned int;
 using u64 = unsigned long long;
-using Key = array<u32, KEY_NUM>;
+using b1024 = array<u32, KEY_NUM>;
+using b128 = array<u32, VALUE_NUM>;
 using PHV = array<u32, HEADER_NUM>; // 这里8位，16位，32位都是使用u32存的，如果真实是8，那当他是8位的就好
 
 

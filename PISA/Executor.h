@@ -10,7 +10,7 @@
 
 struct ExecutorConfig {
     map<int, VLIW> vliwMap;
-    Key defaultActionVLIW;
+    b1024 defaultActionVLIW;
 };
 
 
@@ -30,7 +30,7 @@ struct Executor : public Logic {
 
     void instructionFetch(const ExecutorRegister& now, ExecutorRegister& next) {
         for (int i = 0; i < READ_TABLE_NUM; i++) {
-            int key = now.value[i][0] & 0x1ff;
+            int key = now.value[i][0] & 0xffff;
             next.vliw[i] = executorConfig[i].vliwMap[key];
         }
     }
@@ -68,6 +68,7 @@ struct Executor : public Logic {
         }
     }
 
+    // todo: 差一个写状态没写
     void writeBack(const ExecutorRegister& now, ExecutorRegister& next) {
         for (int i = 0; i < READ_TABLE_NUM; i++) {
             for (int j = 0; j < HEADER_NUM; j++) {

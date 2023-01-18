@@ -13,6 +13,7 @@
 struct KeyConfig {
     int id;
     int length;
+
 };
 
 struct GatewayConfig {
@@ -29,8 +30,7 @@ struct GatewayConfig {
 };
 
 struct HashConfig {
-    Key mask;
-    u64 (* hash)(const Key&);
+    b1024 mask;
     int length;
 };
 
@@ -38,7 +38,7 @@ struct GetKey : public Logic {
 
     GetKey(int id) : Logic(id) {}
 
-    array<KeyConfig, KEY_NUM> keyConfig;
+    array<KeyConfig, KEY_NUM>    keyConfig;
     array<HashConfig, HASH_NUM> hashConfig;
     array<GatewayConfig, GATEWAY_NUM> gatewayConfig;
     map<array<bool, GATEWAY_NUM>, array<bool, READ_TABLE_NUM>> gatewayTable;
@@ -53,7 +53,6 @@ struct GetKey : public Logic {
         gateway(getKey, nextGetKey);
         getHash(getKey, nextGetKey);
 
-
     }
 
     void getKeyFromPHV(const GetKeyRegister &now, GetKeyRegister &next) {
@@ -65,6 +64,7 @@ struct GetKey : public Logic {
         }
     }
 
+    //todo: Gateway 需要改
     void gateway(const GetKeyRegister &now, GetKeyRegister &next) {
 
         array<bool, GATEWAY_NUM>  gatewayResult;
@@ -83,7 +83,7 @@ struct GetKey : public Logic {
         }
     }
 
-    u32 gatewayGetValue(const GatewayConfig::Parameter& parameter, const Key& key) {
+    u32 gatewayGetValue(const GatewayConfig::Parameter& parameter, const b1024& key) {
         switch (parameter.type) {
             case GatewayConfig::Parameter::CONST:
                 return parameter.content.value;
@@ -101,6 +101,7 @@ struct GetKey : public Logic {
         }
     }
 
+    //todo: 支持一下Cuckoo hash
     void getHash(const GetKeyRegister &now, GetKeyRegister &next) {
         for (int i = 0; i < hashConfig.size(); i++) {
             next.hashValue[0][i] = hashConfig[i].hash(Mask(now.key, hashConfig[i].mask));
@@ -114,8 +115,8 @@ struct GetKey : public Logic {
     }
 
 
-    Key Mask(const Key& key, const Key& mask) {
-        Key res = key;
+    b1024 Mask(const b1024& key, const b1024& mask) {
+        b1024 res = key;
         for (int j = 0; j < key.size(); j++) {
             res[j] &= mask[j];
         } return res;

@@ -14,15 +14,18 @@ struct PacketInfo {
         ONLY_HEARTBEAT, CANCEL_DIRTY, WRITE, BP
     };
     Type type;
+    // todo: 还需要一个state
     PHV phv;
     u32 label;
-    array<Key,  READ_TABLE_NUM> key;
-    array<u32,  READ_TABLE_NUM> hashValue;
+
+    // 一路就够了
+    array<b1024,  READ_TABLE_NUM> key;
+    array<u64,  READ_TABLE_NUM> hashValue;
     array<bool, READ_TABLE_NUM> readEnable;
     PacketInfo(
             int proc_id,
             const PHV& phv,
-            const array<Key,  READ_TABLE_NUM>& key,
+            const array<b1024,  READ_TABLE_NUM>& key,
             const array<u32,  READ_TABLE_NUM>& hashValue,
             const array<bool, READ_TABLE_NUM>& readEnable) :
             phv(phv), key(key), hashValue(hashValue), readEnable(readEnable) {

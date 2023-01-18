@@ -18,12 +18,12 @@ struct GetKeyRegister {
     array<PHV, GET_KEY_ALL_CYCLE> phv;
 
     bool enable1;
-    Key key;
+    b1024 key;
 
     bool enable2;
     array<array<u32,  READ_TABLE_NUM>,    HASH_CYCLE>      hashValue;
     array<array<bool, READ_TABLE_NUM>,    HASH_CYCLE>     readEnable;
-    array<array<Key,  READ_TABLE_NUM>,    HASH_CYCLE>           keys;
+    array<array<b1024,  READ_TABLE_NUM>,    HASH_CYCLE>          keys;
 
 };
 
@@ -33,15 +33,16 @@ struct MatcherRegister {
 
     array<PHV,  MATCHER_ALL_CYCLE> phv;
 
-    array<u32,  READ_TABLE_NUM> hashValue;
-    array<Key,  READ_TABLE_NUM> keyCycleMatch;
+    array<u64,  READ_TABLE_NUM> hashValue;
+    array<b1024,  READ_TABLE_NUM> keyCycleMatch;
     array<bool, READ_TABLE_NUM> readEnableCycleMatch;
 
-    array<Row,  READ_TABLE_NUM> row;
-    array<Key,  READ_TABLE_NUM> keyCycleCompare;
+    array<b1024,  READ_TABLE_NUM> valueMatchCycleCompare;
+    array<b1024,  READ_TABLE_NUM> keyMatchCycleCompare;
+    array<b1024,  READ_TABLE_NUM> keyCycleCompare;
     array<bool, READ_TABLE_NUM> readEnableCycleCompare;
 
-    array<Key,  READ_TABLE_NUM> value;
+    array<b1024,  READ_TABLE_NUM> valueCycleOutput;
     array<bool, READ_TABLE_NUM> compare;
     array<bool, READ_TABLE_NUM> readEnableOutput;
 
@@ -76,7 +77,7 @@ struct ExecutorRegister {
     PHV phvIF;
     array<bool, READ_TABLE_NUM> readEnable;
     array<bool, READ_TABLE_NUM> compare;
-    array<Key , READ_TABLE_NUM> value;
+    array<b1024 , READ_TABLE_NUM> value;
     array<VLIW, READ_TABLE_NUM> vliw;
 
 

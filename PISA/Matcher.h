@@ -10,13 +10,13 @@
 
 
 struct MatcherConfig {
-    int tableBegin;
-    int keyLength;
+    vector<vector<int>> tableSId;
+    int keySWidth;
 };
 
 struct Matcher : public Logic {
 
-    SRAM& sram;
+    SRAMs& sram;
     array<MatcherConfig, READ_TABLE_NUM> matcherConfig;
 
     void execute(const PipeLine &now, PipeLine &next) override {
@@ -35,19 +35,21 @@ struct Matcher : public Logic {
     void match(const MatcherRegister& now, MatcherRegister& next) {
         for (int i = 0; i < READ_TABLE_NUM; i++) {
             if (now.readEnableCycleMatch[i]) {
-                int offset = now.hashValue[i] >> matcherConfig[i].keyLength;
-                int id = matcherConfig[i].tableBegin + offset;
-                next.row[i] = sram.get(id, now.hashValue[i] & ((1 << matcherConfig[i].keyLength) - 1));
-
+                auto row = matcherConfig[i].tableSId[now.hashValue[i] >> LOG_SRAM_SIZE];
+                vector<int> keySId   = vector<int> (row.begin(), row.begin() + matcherConfig[i].keySWidth);
+                vector<int> valueSId = vector<int> (row.begin() + matcherConfig[i].keySWidth, row.end());
+                next.keyMatchCycleCompare  [i] = sram.get(keySId,   now.hashValue[i] % SRAM_SIZE);
+                next.valueMatchCycleCompare[i] = sram.get(valueSId, now.hashValue[i] % SRAM_SIZE);
             }
         }
     }
+    //todo: Cuckoo hash
 
     void compare(const MatcherRegister& now, MatcherRegister& next) {
         for (int i = 0; i < READ_TABLE_NUM; i++) {
             if (now.readEnableCycleCompare[i]) {
-                if (now.row[i].key == now.keyCycleCompare[i]) {
-                    next.value[i] = now.row[i].value;
+                if (now.keyMatchCycleCompare[i] == now.keyCycleCompare[i]) {
+                    next.valueCycleOutput[i] = now.valueMatchCycleCompare[i];
                     next.compare[i] = true;
                 } else {
                     next.compare[i] = false;
@@ -57,7 +59,6 @@ struct Matcher : public Logic {
             }
         }
     }
-
 
 
 };

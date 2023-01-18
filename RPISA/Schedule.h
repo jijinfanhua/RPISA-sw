@@ -71,6 +71,7 @@ struct Schedule : public Logic {
     void RIExecute(const ProcessorRegister &p, ProcessorRegister &n) {
 
         if (p.ri.input.destProcessor == processor_id) {
+            //todo: 这实际PIR的事
             if (p.ri.input.type == PacketInfo::BP) {
                 n.r2p.push(p.ri.input.label, p.ri.input);
             }
@@ -97,7 +98,7 @@ struct Schedule : public Logic {
     void PIRExecute(const ProcessorRegister &p, ProcessorRegister &n) {
 
         PHV phv  = p.getKey.phv.back();
-        array<Key,  READ_TABLE_NUM>        keys = p.getKey.keys      .back();
+        array<b1024,  READ_TABLE_NUM>        keys = p.getKey.keys      .back();
         array<u32,  READ_TABLE_NUM>   hashValue = p.getKey.hashValue .back();
         array<bool, READ_TABLE_NUM>  readEnable = p.getKey.readEnable.back();
         auto packetFromPipeLine = PacketInfo(processor_id, phv, keys, hashValue, readEnable);
