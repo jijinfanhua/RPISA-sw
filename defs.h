@@ -55,7 +55,7 @@ struct Logic {
 
 // 这里分成不同的逻辑段来进行实现，他们都应继承Logic，具体的实现应该写在别的文件中
 struct GetKey   ;
-struct Schedule      ;
+struct Schedule ;
 struct PO       ;
 struct Matcher  ;
 struct Executor ;
@@ -108,7 +108,9 @@ struct PipeLine          ;
 
 
 const int TimeOutSettingErrorException = 1;
-const int TIME_OUT = 20;
 
+
+
+#include "util/BitArray.h"
 
 #endif //RPISA_SW_DEFS_H

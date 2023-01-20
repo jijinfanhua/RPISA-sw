@@ -9,11 +9,9 @@
 // 这里配置get key所用的时间周期
 
 
-
 struct KeyConfig {
     int id;
     int length;
-
 };
 
 struct GatewayConfig {
@@ -30,9 +28,31 @@ struct GatewayConfig {
 };
 
 struct HashConfig {
-    b1024 mask;
-    int length;
+    vector<int> id;
+    vector<int> length;
+    int hashValueLength;
+
+    u64 hash(const b1024& key) const {
+        BitArray bit;
+        for (int i = 0; i < id.size(); i++) {
+            BitArray::Combine(bit, BitArray(key[id[i]], length[i]));
+        }
+
+        u64 hash = (u64) 2166136261L;
+        for (int i = 0; i < bit.Length(); i++) {
+            hash = (hash * 16777619) ^ u64(bit.GetBit(i));
+        }
+
+        return hash & ((1 << hashValueLength) - 1);
+
+    }
+
 };
+
+struct AddressConfig {
+    vector<int> length;
+};
+
 
 struct GetKey : public Logic {
 
@@ -52,6 +72,7 @@ struct GetKey : public Logic {
 
         gateway(getKey, nextGetKey);
         getHash(getKey, nextGetKey);
+        getAddress(getKey, nextGetKey);
 
     }
 
@@ -101,25 +122,32 @@ struct GetKey : public Logic {
         }
     }
 
-    //todo: 支持一下Cuckoo hash
     void getHash(const GetKeyRegister &now, GetKeyRegister &next) {
         for (int i = 0; i < hashConfig.size(); i++) {
-            next.hashValue[0][i] = hashConfig[i].hash(Mask(now.key, hashConfig[i].mask));
-            next.hashValue[0][i] &= (1 << hashConfig[i].length) - 1;
-            next.keys[0][i] = Mask(now.key, hashConfig[i].mask);
+            next.hashValue[0][i] = hashConfig[i].hash(now.key);
         }
         for (int i = 1; i < HASH_CYCLE; i++) {
             next.hashValue[i] = now.hashValue[i - 1];
-            next.keys     [i] = now.keys     [i - 1];
         }
     }
 
 
-    b1024 Mask(const b1024& key, const b1024& mask) {
-        b1024 res = key;
-        for (int j = 0; j < key.size(); j++) {
-            res[j] &= mask[j];
-        } return res;
+
+
+    array<AddressConfig, READ_TABLE_NUM> addressConfig;
+    void getAddress(const GetKeyRegister& now, GetKeyRegister& next) {
+        for (int i = 0; i < READ_TABLE_NUM; i++) {
+            u64 hashValue = now.hashValue[HASH_CYCLE - 1][i];
+            int sum = 0;
+            for (int j : addressConfig[i].length) {
+                sum += j;
+            }
+            hashValue &= (1 << sum) - 1;
+            for (int j = 0; j < addressConfig[i].length.size(); j++) {
+                next.address[i][j] = hashValue & ((1 << addressConfig[i].length[j]) - 1);
+                hashValue >>= addressConfig[i].length[j];
+            }
+        }
     }
 
 

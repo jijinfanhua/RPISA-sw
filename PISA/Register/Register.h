@@ -9,6 +9,7 @@
 #include "SRAM.h"
 
 const int HASH_CYCLE = 4;
+const int ADDRESS_WAY = 4;
 const int HASH_NUM = 16;
 const int GATEWAY_NUM = 16;
 const int ADDRESS_MAX_NUM = 2;
@@ -23,7 +24,8 @@ struct GetKeyRegister {
     bool enable2;
     array<array<u32,  READ_TABLE_NUM>,    HASH_CYCLE>      hashValue;
     array<array<bool, READ_TABLE_NUM>,    HASH_CYCLE>     readEnable;
-    array<array<b1024,  READ_TABLE_NUM>,    HASH_CYCLE>          keys;
+
+    array<array<u32, ADDRESS_WAY>,    READ_TABLE_NUM>        address;
 
 };
 
@@ -31,20 +33,20 @@ const int MATCHER_ALL_CYCLE = 4;
 
 struct MatcherRegister {
 
-    array<PHV,  MATCHER_ALL_CYCLE> phv;
+    array<PHV, MATCHER_ALL_CYCLE> phv;
 
-    array<u64,  READ_TABLE_NUM> hashValue;
-    array<b1024,  READ_TABLE_NUM> keyCycleMatch;
-    array<bool, READ_TABLE_NUM> readEnableCycleMatch;
+    array<array<u32,   ADDRESS_WAY>,  READ_TABLE_NUM>        addressCycleMatch;
+    array<b1024,                      READ_TABLE_NUM>            keyCycleMatch;
+    array<bool,                       READ_TABLE_NUM>     readEnableCycleMatch;
 
-    array<b1024,  READ_TABLE_NUM> valueMatchCycleCompare;
-    array<b1024,  READ_TABLE_NUM> keyMatchCycleCompare;
-    array<b1024,  READ_TABLE_NUM> keyCycleCompare;
-    array<bool, READ_TABLE_NUM> readEnableCycleCompare;
+    array<array<b1024, ADDRESS_WAY>,  READ_TABLE_NUM>   valueMatchCycleCompare;
+    array<array<b1024, ADDRESS_WAY>,  READ_TABLE_NUM>     keyMatchCycleCompare;
+    array<b1024,  READ_TABLE_NUM>        keyCycleCompare;
+    array<bool,   READ_TABLE_NUM> readEnableCycleCompare;
 
-    array<b1024,  READ_TABLE_NUM> valueCycleOutput;
-    array<bool, READ_TABLE_NUM> compare;
-    array<bool, READ_TABLE_NUM> readEnableOutput;
+    array<array<b1024,  READ_TABLE_NUM>, MATCHER_ALL_CYCLE - 1> valueCycleOutput;
+    array<array<bool,   READ_TABLE_NUM>, MATCHER_ALL_CYCLE - 1> compare;
+    array<array<bool,   READ_TABLE_NUM>, MATCHER_ALL_CYCLE - 1> readEnableOutput;
 
 
 };
@@ -75,20 +77,20 @@ using VLIW = array<Instruction, INSTRUCTION_NUM>;
 struct ExecutorRegister {
 
     PHV phvIF;
-    array<bool, READ_TABLE_NUM> readEnable;
-    array<bool, READ_TABLE_NUM> compare;
+    array<bool,   READ_TABLE_NUM> readEnable;
+    array<bool,   READ_TABLE_NUM> compare;
     array<b1024 , READ_TABLE_NUM> value;
-    array<VLIW, READ_TABLE_NUM> vliw;
+    array<VLIW,   READ_TABLE_NUM> vliw;
 
 
     PHV phvID;
-    array<array<ALU, HEADER_NUM> , READ_TABLE_NUM> alu;
+    array<array<ALU,                  HEADER_NUM>, READ_TABLE_NUM> alu;
     array<array<pair<ALUInt, ALUInt>, HEADER_NUM>, READ_TABLE_NUM> parameter;
-    array<array<bool, HEADER_NUM>, READ_TABLE_NUM> writeEnableEX;
+    array<array<bool,                 HEADER_NUM>, READ_TABLE_NUM> writeEnableEX;
 
     PHV phvEX;
-    array<array<ALUInt , HEADER_NUM>, READ_TABLE_NUM> res;
-    array<array<bool, HEADER_NUM>, READ_TABLE_NUM> writeEnableWB;
+    array<array<ALUInt ,              HEADER_NUM>, READ_TABLE_NUM> res;
+    array<array<bool,                 HEADER_NUM>, READ_TABLE_NUM> writeEnableWB;
 
     PHV phvWB;
 

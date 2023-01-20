@@ -10,9 +10,14 @@
 
 
 struct MatcherConfig {
-    vector<vector<int>> tableSId;
-    int keySWidth;
+    struct TableConfig {
+        vector<vector<int>> tableSId;
+        int keySWidth;
+    };
+    vector<TableConfig> tables;
 };
+
+
 
 struct Matcher : public Logic {
 
@@ -24,43 +29,57 @@ struct Matcher : public Logic {
         const MatcherRegister& matcher = now.processors[processor_id].matcher;
         nextMatcher.keyCycleCompare = matcher.keyCycleMatch;
         nextMatcher.readEnableCycleCompare = matcher.readEnableCycleMatch;
-        nextMatcher.readEnableOutput = matcher.readEnableCycleCompare;
+        nextMatcher.readEnableOutput[0] = matcher.readEnableCycleCompare;
         match  (matcher, nextMatcher);
         compare(matcher, nextMatcher);
         for (int i = 1; i < MATCHER_ALL_CYCLE; i++) {
             nextMatcher.phv[i] = matcher.phv[i - 1];
         }
+        for (int i = 1; i < MATCHER_ALL_CYCLE - 1; i++) {
+            nextMatcher.valueCycleOutput[i] = matcher.valueCycleOutput[i - 1];
+            nextMatcher.compare[i] = matcher.compare[i - 1];
+            nextMatcher.readEnableOutput[i] = matcher.readEnableOutput[i - 1];
+        }
     }
+
+
+
+
 
     void match(const MatcherRegister& now, MatcherRegister& next) {
         for (int i = 0; i < READ_TABLE_NUM; i++) {
             if (now.readEnableCycleMatch[i]) {
-                auto row = matcherConfig[i].tableSId[now.hashValue[i] >> LOG_SRAM_SIZE];
-                vector<int> keySId   = vector<int> (row.begin(), row.begin() + matcherConfig[i].keySWidth);
-                vector<int> valueSId = vector<int> (row.begin() + matcherConfig[i].keySWidth, row.end());
-                next.keyMatchCycleCompare  [i] = sram.get(keySId,   now.hashValue[i] % SRAM_SIZE);
-                next.valueMatchCycleCompare[i] = sram.get(valueSId, now.hashValue[i] % SRAM_SIZE);
+                int j = 0;
+                for (const auto& table : matcherConfig[i].tables) {
+                    auto row = table.tableSId[now.addressCycleMatch[i][j] >> LOG_SRAM_SIZE];
+                    vector<int> keySId   = vector<int> (row.begin(), row.begin() + table.keySWidth);
+                    vector<int> valueSId = vector<int> (row.begin() + table.keySWidth,   row.end());
+                    next.keyMatchCycleCompare  [i][j] = sram.get(keySId,   now.addressCycleMatch[i][j] % SRAM_SIZE);
+                    next.valueMatchCycleCompare[i][j] = sram.get(valueSId, now.addressCycleMatch[i][j] % SRAM_SIZE);
+                    j++;
+                }
             }
         }
     }
-    //todo: Cuckoo hash
 
     void compare(const MatcherRegister& now, MatcherRegister& next) {
         for (int i = 0; i < READ_TABLE_NUM; i++) {
             if (now.readEnableCycleCompare[i]) {
-                if (now.keyMatchCycleCompare[i] == now.keyCycleCompare[i]) {
-                    next.valueCycleOutput[i] = now.valueMatchCycleCompare[i];
-                    next.compare[i] = true;
-                } else {
-                    next.compare[i] = false;
+                int j;
+                for (j = 0; j < ADDRESS_WAY; j++) {
+                    if (now.keyMatchCycleCompare[i][j] == now.keyCycleCompare[i]) {
+                        next.valueCycleOutput[0][i] = now.valueMatchCycleCompare[i][j];
+                        next.compare[0][i] = true;
+                        break;
+                    }
                 }
+                if (j == ADDRESS_WAY) next.compare[0][i] = false;
             } else {
-                next.compare[i] = false;
+                next.compare[0][i] = false;
             }
+
         }
     }
-
-
 };
 
 #endif //RPISA_SW_MATCHER_H
