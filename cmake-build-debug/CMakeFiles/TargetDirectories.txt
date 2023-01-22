@@ -1,3 +1,0 @@
-/home/xilinx_0/fengyong/nsdi2024/code/RPISA-sw/cmake-build-debug/CMakeFiles/RPISA_sw.dir
-/home/xilinx_0/fengyong/nsdi2024/code/RPISA-sw/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/xilinx_0/fengyong/nsdi2024/code/RPISA-sw/cmake-build-debug/CMakeFiles/rebuild_cache.dir
