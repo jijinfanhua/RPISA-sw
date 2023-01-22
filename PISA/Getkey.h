@@ -10,7 +10,7 @@
 
 
 struct KeyConfig {
-    int id;
+    int id; // container id in PHV
     int length;
 };
 

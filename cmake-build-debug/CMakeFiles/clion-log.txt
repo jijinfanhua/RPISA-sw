@@ -1,0 +1,4 @@
+/home/xilinx_0/fengyong/clion-2022.1/bin/cmake/linux/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/home/xilinx_0/fengyong/clion-2022.1/bin/ninja/linux/ninja -G Ninja -S /home/xilinx_0/fengyong/nsdi2024/code/RPISA-sw -B /home/xilinx_0/fengyong/nsdi2024/code/RPISA-sw/cmake-build-debug
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/xilinx_0/fengyong/nsdi2024/code/RPISA-sw/cmake-build-debug
