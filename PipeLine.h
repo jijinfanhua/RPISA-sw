@@ -17,6 +17,13 @@ struct ProcessorRegister {
     queue<PacketInfo> r2r;
     GetKeyRegister getKey;
 
+    /****** fengyong add begine ********/
+    GetKeysRegister getKeys;
+    GatewayRegister gateway[2];
+    HashRegister hash;
+    GetAddressRegister getAddress;
+    /****** fengyong add end *********/
+
     PIRegister pi;
     PORegister po;
     RIRegister ri;

@@ -7,6 +7,7 @@
 
 #include "../../defs.h"
 #include "SRAM.h"
+#include "../../dataplane_config.h"
 
 const int HASH_CYCLE = 4;
 const int ADDRESS_WAY = 4;
@@ -14,6 +15,42 @@ const int HASH_NUM = 16;
 const int GATEWAY_NUM = 16;
 const int ADDRESS_MAX_NUM = 2;
 const int GET_KEY_ALL_CYCLE = HASH_CYCLE + 1 + 1;
+
+/*********** fengyong add start ***************/
+struct GetKeysRegister {
+    array<PHV, GET_KEY_ALL_CYCLE> phv;
+
+    bool enable1;
+    array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
+
+    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
+    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
+
+
+//    bool enable2;
+};
+#define GATEWAY_CYCLE_NUM 2
+struct GatewayRegister {
+//    struct Gateway_Per_Cycle {
+    PHV phv;
+    bool enable1;
+    array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
+    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
+    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
+//    };
+//    gate_cycles[GATEWAY_CYCLE_NUM];
+};
+
+struct HashRegister {
+    array<PHV, 2> phv;
+    array<u32, 128> key;
+};
+
+struct GetAddressRegister {
+    array<PHV, 2> phv;
+    array<u32, 128> key;
+};
+/*********** fengyong add end ***************/
 
 struct GetKeyRegister {
     array<PHV, GET_KEY_ALL_CYCLE> phv;
