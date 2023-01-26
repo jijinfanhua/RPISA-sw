@@ -52,27 +52,55 @@ struct Gateway : public Logic {
     void execute(const PipeLine &now, PipeLine &next) override {
         const GatewayRegister & gatewayReg = now.processors[processor_id].gateway[0];
         GatewayRegister & nextGatewayReg = next.processors[processor_id].gateway[1];
+        HashRegister &  hashReg = next.processors[processor_id].hash;
 
         gateway_first_cycle(gatewayReg, nextGatewayReg);
+        gateway_second_cycle(nextGatewayReg, hashReg);
     }
 
     void gateway_first_cycle(const GatewayRegister &now, GatewayRegister &next) {
+        next.enable1 = now.enable1;
         if (!now.enable1) {
-            next.enable1 = now.enable1;
             return;
         }
-        array<bool, MAX_GATEWAY_NUM> gate_enabler;
-        array<bool, MAX_GATEWAY_NUM> gate_res;
+
+        array<bool, MAX_GATEWAY_NUM> gate_res = {false};
         // copy the gateway enabler from bus: enable which gates of 16.
         for (int i = 0; i < MAX_GATEWAY_NUM; i++) {
-            gate_enabler[i] = now.gateway_guider[processor_id * 16 + i];
-            if (gate_enabler[i]) {
+            if (now.gateway_guider[processor_id * 16 + i]) {
                 gate_res[i] = get_gate_res(now, gatewaysConfigs[processor_id].gates[i]);
             }
+            next.gate_res[i] = gate_res[i];
         }
+
+        next.phv = now.phv;
+        next.gateway_guider = now.gateway_guider;
+        next.match_table_guider = now.gateway_guider;
     }
 
-    bool get_gate_res(const GatewayRegister &now, GatewaysConfig::Gate gate) {
+    void gateway_second_cycle(const GatewayRegister &now, HashRegister &next) {
+        auto gatewayConfig = gatewaysConfigs[processor_id];
+        u32 res = bool_array_2_u32(now.gate_res);
+        auto match_bitmap = gatewayConfig.gateway_res_2_match_tables[res];
+        auto gateway_bitmap = gatewayConfig.gateway_res_2_gates[res];
+        // get the newest match table guider and gateway guider
+        for (int i = processor_id * 16; i < MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM; i++) {
+            next.match_table_guider[i] = now.match_table_guider[i] | match_bitmap[i];
+            next.gateway_guider[i] = now.gateway_guider[i] | gateway_bitmap[i];
+        }
+
+        next.phv = now.phv;
+    }
+
+    static u32 bool_array_2_u32(const array<bool, 16> bool_array) {
+        u32 sum = 0;
+        for(int i = 0 ; i < 16; i++) {
+            sum += (1 << (15 - i));
+        }
+        return sum;
+    }
+
+    static bool get_gate_res(const GatewayRegister &now, GatewaysConfig::Gate gate) {
         auto op = gate.op;
         auto operand1 = get_operand_value(now, gate.operand1);
         auto operand2 = get_operand_value(now, gate.operand2);
@@ -84,9 +112,10 @@ struct Gateway : public Logic {
             case GatewaysConfig::Gate::OP::LTE : return operand1 <= operand2;
             default : break;
         }
+        return false;
     }
 
-    u32 get_operand_value(const GatewayRegister &now, GatewaysConfig::Gate::Parameter operand) {
+    static u32 get_operand_value(const GatewayRegister &now, GatewaysConfig::Gate::Parameter operand) {
         switch(operand.type) {
             case GatewaysConfig::Gate::Parameter::CONST:
                 return operand.content.value;
@@ -102,8 +131,16 @@ struct Gateway : public Logic {
             default: break;
         }
     }
-
 };
+
+struct GetHash : public Logic {
+    GetHash(int id) : Logic(id) {}
+
+    void execute(const PipeLine &now, PipeLine &next) override {
+
+    }
+
+}
 
 
 #endif //RPISA_SW_MATCH_H

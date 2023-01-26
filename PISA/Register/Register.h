@@ -35,6 +35,7 @@ struct GatewayRegister {
     PHV phv;
     bool enable1;
     array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
+    std::array<bool, MAX_GATEWAY_NUM> gate_res;
     std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
     std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
 //    };
@@ -42,8 +43,10 @@ struct GatewayRegister {
 };
 
 struct HashRegister {
-    array<PHV, 2> phv;
-    array<u32, 128> key;
+    PHV phv;
+    array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
+    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
+    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
 };
 
 struct GetAddressRegister {
