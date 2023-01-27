@@ -182,6 +182,7 @@ struct GetHash : public Logic {
         for(int i = 0; i < matchTableConfig.match_table_num; i++){
             auto match_table = matchTableConfig.matchTables[i];
             std::vector<u32> match_table_key;
+            // todo: need to modify to 8bit, 16bit and 32bit
             for(int j = 0; j < match_table.match_field_byte_len; j++) {
                 match_table_key.push_back(now.key[match_table.match_field_byte_ids[j]]);
             }
@@ -241,8 +242,82 @@ struct GetAddress : public Logic {
     }
 
     void get_sram_columns(const GetAddressRegister & now, MatchRegister & next) {
-        
+        next.enable1 = now.enable1;
+        if (!now.enable1) {
+            return;
+        }
+        auto matchTableConfig = matchTableConfigs[processor_id];
+
+        // get the sram indexes per way for each match table
+        for(int i = 0; i < matchTableConfig.match_table_num; i++) {
+            auto hash_values = now.hash_values[i];
+            auto match_table = matchTableConfig.matchTables[i];
+            for(int j = 0; j < match_table.number_of_hash_ways; j++) {
+                u32 start_index = (hash_values[j] >> 10);
+                next.on_chip_addrs[i][j] = (hash_values[j] << 22 >> 22);
+                for(int k = 0; k < match_table.key_width; k++) {
+                    next.key_sram_columns[i][j][k] = match_table.key_sram_index_per_hash_way[j][start_index + k];
+                }
+                for(int k = 0; k < match_table.value_width; k++) {
+                    next.value_sram_columns[i][j][k] = match_table.value_sram_index_per_hash_way[j][start_index + k];
+                }
+            }
+        }
+
+        next.phv = now.phv;
+        next.key = now.key;
+        next.match_table_guider = now.match_table_guider;
+        next.gateway_guider = now.gateway_guider;
     }
 };
+
+struct Matches : public Logic {
+    Matches(int id) : Logic(id) {}
+
+    void execute(const PipeLine &now, PipeLine &next) override {
+        const MatchRegister & matchRegister = now.processors[processor_id].match;
+        CompareRegister & compareRegister = next.processors[processor_id].compare;
+
+        get_value_to_compare(matchRegister, compareRegister);
+    }
+
+    void get_value_to_compare(const MatchRegister &now, CompareRegister &next) {
+        next.enable1 = now.enable1;
+        if (!now.enable1) {
+            return;
+        }
+        auto matchTableConfig = matchTableConfigs[processor_id];
+        for(int i = 0; i < matchTableConfig.match_table_num; i++) {
+            // follow match table guider
+            if (!now.match_table_guider[processor_id * 16  + i]) continue;
+            auto match_table = matchTableConfig.matchTables[i];
+            for(int j = 0; j < match_table.number_of_hash_ways; j++) {
+                for(int k = 0; k < match_table.key_width; k++) {
+                    next.obtained_keys[i][j][k] = SRAMs[now.key_sram_columns[i][j][k]].get(now.on_chip_addrs[i][j]);
+                }
+                for(int k = 0; k < match_table.value_width; k++) {
+                    next.obtained_values[i][j][k] = SRAMs[now.value_sram_columns[i][j][k]].get(now.on_chip_addrs[i][j]);
+                }
+            }
+        }
+
+        next.phv = now.phv;
+        next.key = now.key;
+        next.match_table_guider = now.match_table_guider;
+        next.gateway_guider = now.gateway_guider;
+    }
+};
+
+struct Compare : public Logic {
+    Compare(int id) : Logic(id) {}
+
+    void execute(const PipeLine &now, PipeLine &next) override {
+
+        auto matchTableConfig = matchTableConfigs[processor_id];
+        for(int i = 0; i < matchTableConfig.match_table_num; i++) {
+
+        }
+    }
+}
 
 #endif //RPISA_SW_MATCH_H

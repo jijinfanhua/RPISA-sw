@@ -6,6 +6,7 @@
 #define RPISA_SW_DATAPLANE_CONFIG_H
 
 #include <unordered_map>
+#include "PISA/Register/SRAM.h"
 
 #define MAX_PHV_CONTAINER_NUM 224
 #define MAX_MATCH_FIELDS_BYTE_NUM 128
@@ -88,12 +89,15 @@ struct MatchTableConfig {
 
         std::array<int, 4> hash_bit_per_way;
         std::array<int, 4> srams_per_hash_way;
-        std::array<std::array<int, 80>, 4> sram_index_per_hash_way;
+        std::array<std::array<int, 80>, 4> key_sram_index_per_hash_way;
+        std::array<std::array<int, 80>, 4> value_sram_index_per_hash_way;
     };
     int match_table_num;
     MatchTable matchTables[MAX_PARALLEL_MATCH_NUM];
 };
 MatchTableConfig matchTableConfigs[PROCESSOR_NUM];
+
+std::array<SRAM, SRAM_NUM> SRAMs;
 
 // action configs:
 //      action_id to primitive mapping: enable which way of 224

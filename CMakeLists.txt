@@ -8,4 +8,4 @@ add_executable(RPISA_sw
         main.cpp RPISA/Schedule.h PISA/Getkey.h PISA/Matcher.h
         PISA/Register/SRAM.h PISA/Executor.h RPISA/PO.h PipeLine.h
         RPISA/Register/Register.h
-        PISA/Register/Register.h util/BitArray.h dataplane_config.h PISA/match.h)
+        PISA/Register/Register.h util/BitArray.h dataplane_config.h PISA/match.h PISA/action.h)

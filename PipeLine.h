@@ -23,6 +23,7 @@ struct ProcessorRegister {
     HashRegister hashes[4];
     GetAddressRegister getAddress;
     MatchRegister match;
+    CompareRegister compare;
     /****** fengyong add end *********/
 
     PIRegister pi;

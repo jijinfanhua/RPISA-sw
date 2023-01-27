@@ -7,10 +7,17 @@
 
 #include "../../defs.h"
 
-
-
-
 using SRAM_UNIT = array<b128, SRAM_SIZE>;
+
+struct SRAM {
+    b128 get(int index) {
+        return entries[index];
+    }
+    void set(int index, b128 entry) {
+        entries[index] = entry;
+    }
+    private: std::array<b128, SRAM_SIZE> entries;
+};
 
 struct SRAMs {
 
