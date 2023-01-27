@@ -82,9 +82,15 @@ struct MatchTableConfig {
         int value_width;
         int match_field_byte_len;
         std::array<int, MAX_MATCH_FIELDS_BYTE_NUM> match_field_byte_ids;
+
         int number_of_hash_ways;
+        int hash_bit_sum;
+
+        std::array<int, 4> hash_bit_per_way;
         std::array<int, 4> srams_per_hash_way;
+        std::array<std::array<int, 80>, 4> sram_index_per_hash_way;
     };
+    int match_table_num;
     MatchTable matchTables[MAX_PARALLEL_MATCH_NUM];
 };
 MatchTableConfig matchTableConfigs[PROCESSOR_NUM];

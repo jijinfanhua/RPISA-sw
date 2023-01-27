@@ -20,8 +20,9 @@ struct ProcessorRegister {
     /****** fengyong add begine ********/
     GetKeysRegister getKeys;
     GatewayRegister gateway[2];
-    HashRegister hash;
+    HashRegister hashes[4];
     GetAddressRegister getAddress;
+    MatchRegister match;
     /****** fengyong add end *********/
 
     PIRegister pi;

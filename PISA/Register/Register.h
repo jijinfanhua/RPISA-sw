@@ -17,14 +17,22 @@ const int ADDRESS_MAX_NUM = 2;
 const int GET_KEY_ALL_CYCLE = HASH_CYCLE + 1 + 1;
 
 /*********** fengyong add start ***************/
-struct GetKeysRegister {
-    array<PHV, GET_KEY_ALL_CYCLE> phv;
-
+struct BaseRegister {
     bool enable1;
     array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
 
     std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
     std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
+};
+
+struct GetKeysRegister : public BaseRegister{
+    array<PHV, GET_KEY_ALL_CYCLE> phv;
+
+//    bool enable1;
+//    array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
+//
+//    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
+//    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
 
 
 //    bool enable2;
@@ -44,14 +52,34 @@ struct GatewayRegister {
 
 struct HashRegister {
     PHV phv;
-    array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
+    bool enable1;
+
+    std::array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
+    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
+
     std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
     std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
 };
 
 struct GetAddressRegister {
-    array<PHV, 2> phv;
-    array<u32, 128> key;
+    PHV phv;
+    bool enable1;
+
+    std::array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
+    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
+
+    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
+    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
+};
+
+struct MatchRegister {
+    PHV phv;
+    bool enable1;
+
+    std::array<std::array<int, 8>, MAX_PARALLEL_MATCH_NUM> sram_columns;
+    std::array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
+    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
+    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
 };
 /*********** fengyong add end ***************/
 
