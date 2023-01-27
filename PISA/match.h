@@ -318,6 +318,6 @@ struct Compare : public Logic {
 
         }
     }
-}
+};
 
 #endif //RPISA_SW_MATCH_H
