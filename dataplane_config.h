@@ -107,23 +107,6 @@ std::array<SRAM, SRAM_NUM> SRAMs;
 struct ActionConfig {
     int processor_id;
 
-    struct ALU {
-        int alu_id;
-
-        enum OP {
-            SET, PLUS, NONE
-        } op;
-
-        struct Parameter {
-            enum Type {CONST, HEADER, ACTION_DATA} type;
-            union {
-                uint32_t value;
-                int phv_id;
-                int action_data_id;
-            } content;
-        } operand1, operand2;
-    };
-
     struct Action {
         int action_id;
         struct ActionData {
@@ -135,10 +118,28 @@ struct ActionConfig {
         ActionData actionDatas[16];
         int action_data_num;
         std::array<bool, MAX_PHV_CONTAINER_NUM> vliw_enabler;
-        std::array<ALU, MAX_PHV_CONTAINER_NUM> alus;
+//        std::array<ALU, MAX_PHV_CONTAINER_NUM> alus;
     };
     Action actions[4];
 };
 ActionConfig actionConfigs[PROCESSOR_NUM];
+
+struct ALUnit {
+    int alu_id;
+
+    enum OP {
+        SET, PLUS, NONE
+    } op;
+
+    struct Parameter {
+        enum Type {CONST, HEADER, ACTION_DATA} type;
+        union {
+            uint32_t value;
+            int phv_id;
+            int action_data_id;
+        } content;
+    } operand1, operand2;
+};
+ALUnit ALUs[MAX_PHV_CONTAINER_NUM];
 
 #endif //RPISA_SW_DATAPLANE_CONFIG_H

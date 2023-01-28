@@ -19,90 +19,52 @@ const int GET_KEY_ALL_CYCLE = HASH_CYCLE + 1 + 1;
 /*********** fengyong add start ***************/
 struct BaseRegister {
     bool enable1;
-    array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
+    PHV phv;
 
-    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
-    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
+    std::array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM> match_table_guider;
+    std::array<bool, MAX_GATEWAY_NUM * PROCESSOR_NUM> gateway_guider;
 };
 
 struct GetKeysRegister : public BaseRegister{
-    array<PHV, GET_KEY_ALL_CYCLE> phv;
 
-//    bool enable1;
-//    array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
-//
-//    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
-//    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
-
-
-//    bool enable2;
 };
 #define GATEWAY_CYCLE_NUM 2
 struct GatewayRegister : public BaseRegister {
-//    struct Gateway_Per_Cycle {
-    PHV phv;
-    bool enable1;
-//    array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
+    array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
     std::array<bool, MAX_GATEWAY_NUM> gate_res;
-//    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
-//    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
-//    };
-//    gate_cycles[GATEWAY_CYCLE_NUM];
 };
 
 struct HashRegister : public BaseRegister{
-    PHV phv;
-//    bool enable1;
-
-//    std::array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
+    std::array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
-
-//    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
-//    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
 };
 
 struct GetAddressRegister : public BaseRegister {
-    PHV phv;
-//    bool enable1;
-
-//    std::array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
-
-//    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
-//    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
 };
 
 struct MatchRegister : public BaseRegister {
-    PHV phv;
-//    bool enable1;
-
     // 16 matches -> every match has 4 maximum hash ways -> each hash way may have 1024bit (8 * 128(sram_width))
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> key_sram_columns;
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> value_sram_columns;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> on_chip_addrs;
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
-
-//    std::array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
-//    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
-//    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
 };
 
 struct CompareRegister : public BaseRegister {
-    PHV phv;
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
     std::array<std::array<std::array<b128, 8>, 4>, MAX_PARALLEL_MATCH_NUM> obtained_keys;
     std::array<std::array<std::array<b128, 8>, 4>, MAX_PARALLEL_MATCH_NUM> obtained_values;
 };
 
 struct GetActionRegister : public BaseRegister {
-    PHV phv;
     std::array<std::pair<std::array<b128, 8>, bool>, MAX_PARALLEL_MATCH_NUM> final_values;
 };
 
 struct ExecuteActionRegister : public BaseRegister {
-    PHV phv;
+    std::array<ActionConfig::Action::ActionData, 16> action_data_set;
     std::array<bool, MAX_PHV_CONTAINER_NUM> vliw_enabler;
 };
 

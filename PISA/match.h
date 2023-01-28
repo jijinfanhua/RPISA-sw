@@ -28,19 +28,19 @@ struct GetKey : public Logic {
             GetKeyConfig::UsedContainer2MatchFieldByte it = getKeyConfig.used_container_2_match_field_byte[i];
             int id = it.used_container_id;
             if (it.container_type == GetKeyConfig::UsedContainer2MatchFieldByte::U8) {
-                next.key[it.match_field_byte_ids[0]] = now.phv[0][id];
+                next.key[it.match_field_byte_ids[0]] = now.phv[id];
             } else if(it.container_type == GetKeyConfig::UsedContainer2MatchFieldByte::U16) {
-                next.key[it.match_field_byte_ids[0]] = now.phv[0][id] << 16 >> 24;
-                next.key[it.match_field_byte_ids[1]] = now.phv[0][id] << 24 >> 24;
+                next.key[it.match_field_byte_ids[0]] = now.phv[id] << 16 >> 24;
+                next.key[it.match_field_byte_ids[1]] = now.phv[id] << 24 >> 24;
             } else {
-                next.key[it.match_field_byte_ids[0]] = now.phv[0][id] >> 24;
-                next.key[it.match_field_byte_ids[1]] = now.phv[0][id] << 8 >> 24;
-                next.key[it.match_field_byte_ids[2]] = now.phv[0][id] << 16 >> 24;
-                next.key[it.match_field_byte_ids[3]] = now.phv[0][id] << 24 >> 24;
+                next.key[it.match_field_byte_ids[0]] = now.phv[id] >> 24;
+                next.key[it.match_field_byte_ids[1]] = now.phv[id] << 8 >> 24;
+                next.key[it.match_field_byte_ids[2]] = now.phv[id] << 16 >> 24;
+                next.key[it.match_field_byte_ids[3]] = now.phv[id] << 24 >> 24;
             }
         }
 
-        next.phv = now.phv[0];
+        next.phv = now.phv;
         next.gateway_guider = now.gateway_guider;
         next.match_table_guider = now.gateway_guider;
     }
