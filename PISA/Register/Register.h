@@ -56,6 +56,7 @@ struct HashRegister : public BaseRegister{
 
 //    std::array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
+    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
 
 //    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
 //    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
@@ -67,6 +68,7 @@ struct GetAddressRegister : public BaseRegister {
 
 //    std::array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
+    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
 
 //    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
 //    std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM> gateway_guider;
@@ -80,6 +82,7 @@ struct MatchRegister : public BaseRegister {
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> key_sram_columns;
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> value_sram_columns;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> on_chip_addrs;
+    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
 
 //    std::array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
 //    std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM> match_table_guider;
@@ -88,8 +91,19 @@ struct MatchRegister : public BaseRegister {
 
 struct CompareRegister : public BaseRegister {
     PHV phv;
+    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
     std::array<std::array<std::array<b128, 8>, 4>, MAX_PARALLEL_MATCH_NUM> obtained_keys;
     std::array<std::array<std::array<b128, 8>, 4>, MAX_PARALLEL_MATCH_NUM> obtained_values;
+};
+
+struct GetActionRegister : public BaseRegister {
+    PHV phv;
+    std::array<std::pair<std::array<b128, 8>, bool>, MAX_PARALLEL_MATCH_NUM> final_values;
+};
+
+struct ExecuteActionRegister : public BaseRegister {
+    PHV phv;
+    std::array<bool, MAX_PHV_CONTAINER_NUM> vliw_enabler;
 };
 
 /*********** fengyong add end ***************/

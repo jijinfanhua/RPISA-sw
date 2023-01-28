@@ -130,8 +130,10 @@ struct ActionConfig {
             int data_id;
             int byte_len;
             int bit_len;
+            u32 value;
         };
         ActionData actionDatas[16];
+        int action_data_num;
         std::array<bool, MAX_PHV_CONTAINER_NUM> vliw_enabler;
         std::array<ALU, MAX_PHV_CONTAINER_NUM> alus;
     };

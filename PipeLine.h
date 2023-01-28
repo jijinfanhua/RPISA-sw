@@ -24,6 +24,8 @@ struct ProcessorRegister {
     GetAddressRegister getAddress;
     MatchRegister match;
     CompareRegister compare;
+    GetActionRegister getAction;
+    ExecuteActionRegister executeAction;
     /****** fengyong add end *********/
 
     PIRegister pi;

@@ -155,7 +155,7 @@ struct GetHash : public Logic {
             return;
         }
         getAddressRegister.phv = lastHashReg.phv;
-        getAddressRegister.key = lastHashReg.key;
+//        getAddressRegister.key = lastHashReg.key;
         getAddressRegister.hash_values = lastHashReg.hash_values;
         getAddressRegister.match_table_guider = lastHashReg.match_table_guider;
         getAddressRegister.gateway_guider = lastHashReg.gateway_guider;
@@ -168,6 +168,7 @@ struct GetHash : public Logic {
         }
 
         next.key = now.key;
+        next.match_table_keys = now.match_table_keys;
         next.hash_values = now.hash_values;
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
@@ -181,24 +182,28 @@ struct GetHash : public Logic {
         auto matchTableConfig = matchTableConfigs[processor_id];
         for(int i = 0; i < matchTableConfig.match_table_num; i++){
             auto match_table = matchTableConfig.matchTables[i];
-            std::vector<u32> match_table_key;
+//            std::vector<u32> match_table_key;
+            std::array<u32, 32> match_table_key{};
             // todo: need to modify to 8bit, 16bit and 32bit
             for(int j = 0; j < match_table.match_field_byte_len; j++) {
-                match_table_key.push_back(now.key[match_table.match_field_byte_ids[j]]);
+                match_table_key[j] = now.key[match_table.match_field_byte_ids[j]];
             }
-            cal_hash(i, match_table_key, match_table.number_of_hash_ways,
+            cal_hash(i, match_table_key, match_table.match_field_byte_len, match_table.number_of_hash_ways,
                      match_table.hash_bit_per_way, match_table.hash_bit_sum, next);
+            next.match_table_keys[i] = match_table_key;
         }
+
         next.key = now.key;
         next.phv = now.phv;
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
     }
 
-    static void cal_hash(int table_id, const std::vector<u32>& match_table_key, int number_of_hash_ways, std::array<int, 4> hash_bit_per_way, int hash_bit_sum, HashRegister &next) {
+    static void cal_hash(int table_id, const std::array<u32, 32>& match_table_key, int match_field_byte_len,
+                         int number_of_hash_ways, std::array<int, 4> hash_bit_per_way, int hash_bit_sum, HashRegister &next) {
         u64 hash_value = 0;
-        for(auto it : match_table_key) {
-            hash_value += ((u64)it << 32) + it;
+        for(int i = 0; i < match_field_byte_len; i++) {
+            hash_value += ((u64)match_table_key[i] << 32) + match_table_key[i];
         }
 
         // get up to 4 ways hash value to register
@@ -265,7 +270,8 @@ struct GetAddress : public Logic {
         }
 
         next.phv = now.phv;
-        next.key = now.key;
+//        next.key = now.key;
+        next.match_table_keys = now.match_table_keys;
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
     }
@@ -302,7 +308,8 @@ struct Matches : public Logic {
         }
 
         next.phv = now.phv;
-        next.key = now.key;
+//        next.key = now.key;
+        next.match_table_keys = now.match_table_keys;
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
     }
@@ -312,11 +319,113 @@ struct Compare : public Logic {
     Compare(int id) : Logic(id) {}
 
     void execute(const PipeLine &now, PipeLine &next) override {
+        const CompareRegister & compareReg = now.processors[processor_id].compare;
+        GetActionRegister & getActionReg = next.processors[processor_id].getAction;
 
+        get_action(compareReg, getActionReg);
+    }
+
+    void get_action(const CompareRegister & now, GetActionRegister & next) {
+        next.enable1 = now.enable1;
+        if (!now.enable1) {
+            return;
+        }
         auto matchTableConfig = matchTableConfigs[processor_id];
         for(int i = 0; i < matchTableConfig.match_table_num; i++) {
+            if (!now.match_table_guider[processor_id * 16  + i]) {
+                next.final_values[i].second = false;
+                continue;
+            }
+            auto match_table = matchTableConfig.matchTables[i];
+            int found_flag = 1;
+            for(int j = 0; j < match_table.number_of_hash_ways; j ++) {
+                // compare obtained key with original key
+                for(int k = 0; k < match_table.key_width; k++) {
+                    if (now.match_table_keys[i][k * 4 + 0] != now.obtained_keys[i][j][k][0]
+                        || now.match_table_keys[i][k * 4 + 1] != now.obtained_keys[i][j][k][1]
+                        || now.match_table_keys[i][k * 4 + 2] != now.obtained_keys[i][j][k][2]
+                        || now.match_table_keys[i][k * 4 + 3] != now.obtained_keys[i][j][k][3]) {
+                        found_flag = 0;
+                    }
+                }
+                if (found_flag == 1) {
+                    // get the value of this way
+                    next.final_values[i] = std::make_pair(now.obtained_values[i][j], true);
+                    break; // handle next table
+                }
+            }
+            if (found_flag == 0) {
+                next.final_values[i].second = false;
+            }
 
         }
+
+        next.phv = now.phv;
+        next.gateway_guider = now.gateway_guider;
+        next.match_table_guider = now.match_table_guider;
+    }
+};
+
+struct GetAction : public Logic {
+    GetAction(int id) : Logic(id) {}
+
+    void execute(const PipeLine &now, PipeLine &next) override {
+        const GetActionRegister & getActionReg = now.processors[processor_id].getAction;
+        ExecuteActionRegister & executeActionReg = next.processors[processor_id].executeAction;
+
+        get_alus(getActionReg, executeActionReg);
+    }
+
+    void get_alus(const GetActionRegister & now, ExecuteActionRegister & next) {
+        next.enable1 = now.enable1;
+        if (!now.enable1) {
+            return;
+        }
+
+        auto matchTableConfig = matchTableConfigs[processor_id];
+        std::array<bool, MAX_PHV_CONTAINER_NUM> vliw_enabler = {false};
+        int action_data_id_base = 0;
+        for(int i = 0; i < matchTableConfig.match_table_num; i++) {
+            if (!now.final_values[i].second) continue;
+            // 0 ... 16 ... 32 ... 48 ... 64 ... 80 ... 96 ... 112 .. 128
+            // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+            // | action_id |    data1     |    data2     |    data3     |
+            // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+            auto final_value = now.final_values[i].first;
+            u32 action_id = final_value[0][0] >> 16;
+            int para_num = actionConfigs[processor_id].actions[action_id].action_data_num;
+            // 0-0.1  1-0.2  2-0.3  3-1.0  4-1.1  5-1.2  6-1.3  7-2.0   8-2.1  9-2.2  10-2.3  11-3.0
+            // 0-0    3-1    7-2   11-3
+            for(int j = 0; j < para_num; j++) {
+                if (j <= 2) {
+                    actionConfigs[processor_id].actions[action_id].actionDatas[j] = {
+                            action_data_id_base + j, 4, 32, final_value[0][j+1]
+                    };
+                } else {
+                    actionConfigs[processor_id].actions[action_id].actionDatas[j] = {
+                            action_data_id_base + j, 4, 32, final_value[(para_num - 3) / 4 + 1][(para_num - 3) % 4]
+                    };
+                }
+            }
+            action_data_id_base += para_num;
+
+            // "or" all of the actions' ALU enabler
+            for(int k = 0 ; k < MAX_PHV_CONTAINER_NUM; k++) {
+                vliw_enabler[k] = vliw_enabler[k] | actionConfigs[processor_id].actions[action_id].vliw_enabler[k];
+            }
+        }
+        next.vliw_enabler = vliw_enabler;
+        next.phv = now.phv;
+        next.gateway_guider = now.gateway_guider;
+        next.match_table_guider = now.match_table_guider;
+    }
+};
+
+struct ExecuteAction : public Logic {
+    ExecuteAction(int id) : Logic(id) {}
+
+    void execute(const PipeLine &now, PipeLine &next) override {
+
     }
 };
 
