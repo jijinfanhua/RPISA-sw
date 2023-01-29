@@ -7,6 +7,13 @@
 
 #include "../PipeLine.h"
 
+struct PIR : public Logic {
+    void execute(const PipeLine &now, PipeLine &next) override {
+        const PIRegister & piReg = now.processors[processor_id].pi;
+
+        
+    }
+};
 
 struct Schedule : public Logic {
 

@@ -7,6 +7,17 @@
 
 #include "../../defs.h"
 
+/*********** fengyong add start ***************/
+//struct RingRegister {
+//    std::array<bool, PROC_NUM> dst1;
+//    u32 ctrl;
+//    std::array<bool, PROC_NUM> dst2;
+//    u32 addr;
+//    std::array<u32, 128> payload;
+//};
+
+/*********** fengyong add end ***************/
+
 struct PacketInfo {
     HeartBeat heartBeat;
     int destProcessor;

@@ -13,6 +13,7 @@
 #define MAX_GATEWAY_NUM 16
 #define MAX_PARALLEL_MATCH_NUM 16
 #define PROCESSOR_NUM 12
+#define MAX_SALU_NUM 16
 
 // store all configs that dataplane processors need: global variables;
 // can only be configured before dataplane start
@@ -97,7 +98,7 @@ struct MatchTableConfig {
 };
 MatchTableConfig matchTableConfigs[PROCESSOR_NUM];
 
-std::array<SRAM, SRAM_NUM> SRAMs;
+std::array<std::array<SRAM, SRAM_NUM>, PROCESSOR_NUM> SRAMs;
 
 // action configs:
 //      action_id to primitive mapping: enable which way of 224
@@ -140,6 +141,34 @@ struct ALUnit {
         } content;
     } operand1, operand2;
 };
-ALUnit ALUs[MAX_PHV_CONTAINER_NUM];
+std::array<ALUnit[MAX_PHV_CONTAINER_NUM], PROCESSOR_NUM> ALUs;
+//ALUnit ALUs[MAX_PHV_CONTAINER_NUM];
 
-#endif //RPISA_SW_DATAPLANE_CONFIG_H
+struct SALUnit {
+    int salu_id;
+    enum OP {
+        READ, WRITE, RAW, SUB, PRAW, IfElseRAW, NestedIf
+    } op;
+
+    struct Parameter {
+        enum Type {CONST, HEADER, ACTION_DATA, REG} type;
+        enum IfType {EQ, NEQ, GT, LT, GTE, LTE} if_type;
+        union {
+            uint32_t value;
+            int phv_id;
+            int action_data_id;
+            int table_idx; // sram_idx;
+//            struct Praw {
+//                int table_idx;
+//                enum IfType {EQ, NEQ, GT, LT, GTE, LTE} if_type;
+//            } praw;
+        } content;
+    } left_value, operand1, operand2, operand3;
+
+    // caution: max 32bit, so the column num is 1
+    std::array<int, 48> sram_ids;
+    int sram_depth;
+};
+std::array<SALUnit[MAX_SALU_NUM], PROCESSOR_NUM> SALUs;
+
+#endif //RPISA_SW_DATAPLANE_CONFIG_H+
