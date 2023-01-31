@@ -25,7 +25,7 @@ struct GetAction : public Logic {
         }
 
         auto matchTableConfig = matchTableConfigs[processor_id];
-        std::array<bool, MAX_PHV_CONTAINER_NUM> vliw_enabler = {false};
+        std::array<bool, MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM> vliw_enabler = {false};
         int action_data_id_base = 0;
         for(int i = 0; i < matchTableConfig.match_table_num; i++) {
             if (!now.final_values[i].second) continue;
@@ -54,12 +54,13 @@ struct GetAction : public Logic {
             action_data_id_base += para_num;
 
             // "or" all of the actions' ALU enabler
-            for(int k = 0 ; k < MAX_PHV_CONTAINER_NUM; k++) {
+            for(int k = 0 ; k < MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM; k++) {
                 vliw_enabler[k] = vliw_enabler[k] | actionConfigs[processor_id].actions[action_id].vliw_enabler[k];
             }
         }
         next.vliw_enabler = vliw_enabler;
         next.phv = now.phv;
+        next.hash_values = now.hash_values;
         next.gateway_guider = now.gateway_guider;
         next.match_table_guider = now.match_table_guider;
     }
@@ -75,7 +76,7 @@ struct ExecuteAction : public Logic {
         execute_action(executeActionReg, baseReg);
     }
 
-    static void execute_action(const ExecuteActionRegister &now, BaseRegister &next) {
+    void execute_action(const ExecuteActionRegister &now, BaseRegister &next) {
         next.enable1 = now.enable1;
         if (!now.enable1) {
             return;
@@ -86,16 +87,289 @@ struct ExecuteAction : public Logic {
         next.gateway_guider = now.gateway_guider;
         next.match_table_guider = now.match_table_guider;
 
+        // execute stateless action
         for(int i = 0 ; i < MAX_PHV_CONTAINER_NUM; i++) {
             if (!now.vliw_enabler[i]) {
                 continue;
             }
-            auto alu = ALUs[i];
+            auto alu = ALUs[processor_id][i];
             auto op = alu.op;
             auto operand1 = alu.operand1;
             auto operand2 = alu.operand2;
             execute_alu(i, op, operand1, operand2, now, next);
         }
+
+        // todo: execute stateful action
+        for(int i = MAX_PHV_CONTAINER_NUM ; i < MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM; i++) {
+            if (!now.vliw_enabler[i]) {
+                continue;
+            }
+            auto salu = SALUs[processor_id][i - MAX_PHV_CONTAINER_NUM];
+            auto left_value = salu.left_value;
+            auto operand1 = salu.operand1;
+            auto operand2 = salu.operand2;
+            std::array<int, 48> sram_ids = salu.sram_ids;
+            int sram_depth = salu.sram_depth;
+            execute_salu(salu, now, next);
+        }
+    }
+
+    // todo: wait to finish    SALUnit::Parameter &left_value, SALUnit::Parameter &operand1, SALUnit::Parameter &operand2
+    void execute_salu(SALUnit & salu, const ExecuteActionRegister &now, BaseRegister & next) {
+        switch (salu.op) {
+            case SALUnit::READ: {
+                auto left_value = salu.left_value;
+                auto operand1 = salu.operand1;
+                // the stateful table index; >> to get the "cs"
+                // | processor_id | -- | cs | -- | on-chip address |
+                auto return_value = SRAMs[processor_id][salu.sram_ids[(now.hash_values[operand1.content.table_idx][0] >> 10)]]
+                        .get(now.hash_values[operand1.content.table_idx][0] << 22 >> 22);
+                // 0 ... 16 ... 32 ... 48 ... 64 ... 80 ... 96 ... 112 .. 128
+                // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                // |             |             |             |  reg_value  |
+                // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                //                                           high           low
+                u32 reg_value = return_value[3];
+                next.phv[left_value.content.phv_id] = reg_value;
+                break;
+            }
+            case SALUnit::WRITE: {
+                auto left_value = salu.left_value;
+                u32 return_value = get_param_value(salu, left_value, now);
+                auto operand1 = salu.operand1;
+                SRAMs[processor_id][salu.sram_ids[(now.hash_values[operand1.content.table_idx][0] >> 10)]]
+                    .set(now.hash_values[operand1.content.table_idx][0] << 22 >> 22, {0, 0, 0, return_value});
+                break;
+            }
+            case SALUnit::RAW: {
+                auto left_value = salu.left_value;
+                // reg value
+                u32 left_return_value = get_param_value(salu, left_value, now);
+                auto operand1 = salu.operand1;
+                // header, metadata or constant value
+                u32 return_value = get_param_value(salu, operand1, now);
+                SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                        .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value});
+                break;
+            }
+            case SALUnit::PRAW:{
+                auto left_value = salu.left_value;
+                // reg value
+                u32 left_return_value = get_param_value(salu, left_value, now);
+                auto operand1 = salu.operand1;
+                // header, metadata or constant value
+                u32 return_value1 = get_param_value(salu, operand1, now);
+                auto operand2 = salu.operand2;
+                // header, metadata or constant value
+                u32 return_value2 = get_param_value(salu, operand2, now);
+                switch (left_value.if_type) {
+                    case SALUnit::Parameter::EQ: {
+                        if (left_return_value == return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::NEQ: {
+                        if (left_return_value != return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::GT: {
+                        if (left_return_value > return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::LT: {
+                        if (left_return_value < return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::GTE: {
+                        if (left_return_value >= return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::LTE: {
+                        if (left_return_value <= return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                        }
+                        break;
+                    }
+                    default: break;
+                }
+                break;
+            }
+            case SALUnit::SUB: {
+                auto left_value = salu.left_value;
+                // reg value
+                u32 left_return_value = get_param_value(salu, left_value, now);
+                auto operand1 = salu.operand1;
+                // header, metadata or constant value
+                u32 return_value1 = get_param_value(salu, operand1, now);
+                auto operand2 = salu.operand2;
+                // header, metadata or constant value
+                u32 return_value2 = get_param_value(salu, operand2, now);
+                switch (left_value.if_type) {
+                    case SALUnit::Parameter::EQ: {
+                        if (left_return_value == return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value - return_value2});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::NEQ: {
+                        if (left_return_value != return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value - return_value2});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::GT: {
+                        if (left_return_value > return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value - return_value2});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::LT: {
+                        if (left_return_value < return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value - return_value2});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::GTE: {
+                        if (left_return_value >= return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value - return_value2});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::LTE: {
+                        if (left_return_value <= return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(int(now.hash_values[left_value.content.table_idx][0] << 22 >> 22), {0, 0, 0, left_return_value - return_value2});
+                        }
+                        break;
+                    }
+                    default: break;
+                }
+                break;
+            }
+            case SALUnit::IfElseRAW: {
+                auto left_value = salu.left_value;
+                // reg value
+                u32 left_return_value = get_param_value(salu, left_value, now);
+                auto operand1 = salu.operand1;
+                // header, metadata or constant value
+                u32 return_value1 = get_param_value(salu, operand1, now);
+                auto operand2 = salu.operand2;
+                // header, metadata or constant value
+                u32 return_value2 = get_param_value(salu, operand2, now);
+                auto operand3 = salu.operand3;
+                // header, metadata or constant value
+                u32 return_value3 = get_param_value(salu, operand3, now);
+                switch (left_value.if_type) {
+                    case SALUnit::Parameter::EQ: {
+                        if (left_return_value == return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                        } else {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value3});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::NEQ: {
+                        if (left_return_value != return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                        } else {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value3});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::GT: {
+                        if (left_return_value > return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                        } else {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value3});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::LT: {
+                        if (left_return_value < return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                        } else {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value3});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::GTE: {
+                        if (left_return_value >= return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                        } else {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value3});
+                        }
+                        break;
+                    }
+                    case SALUnit::Parameter::LTE: {
+                        if (left_return_value <= return_value1) {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                        } else {
+                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
+                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value3});
+                        }
+                        break;
+                    }
+                    default: break;
+                }
+                break;
+            }
+            case SALUnit::NestedIf:
+                break;
+        }
+    }
+
+    u32 get_param_value(SALUnit & salu, SALUnit::Parameter & param, const ExecuteActionRegister &now) {
+        switch (param.type) {
+            case SALUnit::Parameter::CONST: {
+                return param.content.value;
+                break;
+            }
+            case SALUnit::Parameter::HEADER: {
+                return now.phv[param.content.phv_id];
+                break;
+            }
+            case SALUnit::Parameter::ACTION_DATA: {
+                return now.action_data_set[param.content.action_data_id].value;
+                break;
+            }
+            case SALUnit::Parameter::REG: {
+                return SRAMs[processor_id][salu.sram_ids[(now.hash_values[param.content.table_idx][0] >> 10)]]
+                        .get(now.hash_values[param.content.table_idx][0] << 22 >> 22)[3];
+            }
+            default: break;
+        }
+        return 0;
     }
 
     static void execute_alu(int alu_idx, ALUnit::OP op, ALUnit::Parameter operand1, ALUnit::Parameter operand2,

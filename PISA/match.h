@@ -270,7 +270,7 @@ struct GetAddress : public Logic {
         }
 
         next.phv = now.phv;
-//        next.key = now.key;
+        next.hash_values = now.hash_values;
         next.match_table_keys = now.match_table_keys;
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
@@ -299,16 +299,16 @@ struct Matches : public Logic {
             auto match_table = matchTableConfig.matchTables[i];
             for(int j = 0; j < match_table.number_of_hash_ways; j++) {
                 for(int k = 0; k < match_table.key_width; k++) {
-                    next.obtained_keys[i][j][k] = SRAMs[now.key_sram_columns[i][j][k]].get(now.on_chip_addrs[i][j]);
+                    next.obtained_keys[i][j][k] = SRAMs[processor_id][now.key_sram_columns[i][j][k]].get(now.on_chip_addrs[i][j]);
                 }
                 for(int k = 0; k < match_table.value_width; k++) {
-                    next.obtained_values[i][j][k] = SRAMs[now.value_sram_columns[i][j][k]].get(now.on_chip_addrs[i][j]);
+                    next.obtained_values[i][j][k] = SRAMs[processor_id][now.value_sram_columns[i][j][k]].get(now.on_chip_addrs[i][j]);
                 }
             }
         }
 
         next.phv = now.phv;
-//        next.key = now.key;
+        next.hash_values = now.hash_values;
         next.match_table_keys = now.match_table_keys;
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
@@ -361,6 +361,7 @@ struct Compare : public Logic {
         }
 
         next.phv = now.phv;
+        next.hash_values = now.hash_values;
         next.gateway_guider = now.gateway_guider;
         next.match_table_guider = now.match_table_guider;
     }

@@ -51,21 +51,26 @@ struct MatchRegister : public BaseRegister {
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> value_sram_columns;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> on_chip_addrs;
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
+    // caution: hash_value should be transferred to action, becase it should serve the SALU
+    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
 };
 
 struct CompareRegister : public BaseRegister {
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
     std::array<std::array<std::array<b128, 8>, 4>, MAX_PARALLEL_MATCH_NUM> obtained_keys;
     std::array<std::array<std::array<b128, 8>, 4>, MAX_PARALLEL_MATCH_NUM> obtained_values;
+    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
 };
 
 struct GetActionRegister : public BaseRegister {
     std::array<std::pair<std::array<b128, 8>, bool>, MAX_PARALLEL_MATCH_NUM> final_values;
+    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
 };
 
 struct ExecuteActionRegister : public BaseRegister {
     std::array<ActionConfig::Action::ActionData, 16> action_data_set;
-    std::array<bool, MAX_PHV_CONTAINER_NUM> vliw_enabler;
+    std::array<bool, MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM> vliw_enabler;
+    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
 };
 
 /*********** fengyong add end ***************/
