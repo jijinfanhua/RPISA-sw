@@ -30,6 +30,7 @@ struct ProcessorConfig {
         getKeyConfig.used_container_num = 0;
         gatewaysConfig.processor_id = id;
         matchTableConfig.processor_id = id;
+        matchTableConfig.match_table_num = 0;
         actionConfig.processor_id = id;
     }
 
@@ -139,29 +140,45 @@ public:
 
     }
 
-/*
- * struct MatchTableConfig {
-    int processor_id;
-    struct MatchTable {
-        int depth;
-        int key_width;
-        int value_width;
-        int match_field_byte_len;
-        std::array<int, MAX_MATCH_FIELDS_BYTE_NUM> match_field_byte_ids;
+    void push_back_match_table_config(
+            int depth, int key_width, int value_width) {
+        int k = matchTableConfig.match_table_num;
+        if (k >= 4) {
+            throw "match table config already full";
+        }
+        auto& config = matchTableConfig.matchTables[k];
+        config.depth = depth;
+        config.key_width = key_width;
+        config.value_width = value_width;
+        config.match_field_byte_len = 0;
+        config.number_of_hash_ways = 0;
+        config.hash_bit_sum = 0;
+    }
 
-        int number_of_hash_ways;
-        int hash_bit_sum;
+    void set_back_match_table_match_field_byte(
+            const vector<int>& ids) {
+        auto& config = matchTableConfig.matchTables[matchTableConfig.match_table_num - 1];
+        for (int id : ids) {
+            config.match_field_byte_ids[config.match_field_byte_len++] = id;
+        }
+    }
 
-        std::array<int, 4> hash_bit_per_way;
-        std::array<int, 4> srams_per_hash_way;
-        std::array<std::array<int, 80>, 4> key_sram_index_per_hash_way;
-        std::array<std::array<int, 80>, 4> value_sram_index_per_hash_way;
-    };
-    int match_table_num;
-    MatchTable matchTables[MAX_PARALLEL_MATCH_NUM];
-};
-MatchTableConfig matchTableConfigs[PROCESSOR_NUM];
- */
+    void push_back_hash_way_config(
+            int hash_bit, int srams,
+            const array<int, 80>& key_sram_index,
+            const array<int, 80>& value_sram_index) {
+        auto& config = matchTableConfig.matchTables[matchTableConfig.match_table_num - 1];
+        int k = config.number_of_hash_ways;
+        config.hash_bit_per_way[k] = hash_bit;
+        config.srams_per_hash_way[k] = srams;
+        config.key_sram_index_per_hash_way[k] = key_sram_index;
+        config.value_sram_index_per_hash_way[k] = value_sram_index;
+        config.hash_bit_sum += config.hash_bit_per_way[k];
+        config.number_of_hash_ways ++;
+
+    }
+
+
 
 
     void set_action_param_num(int id, int action_id, int action_data_num, const array<bool, MAX_PHV_CONTAINER_NUM>& vliw_enabler) {
