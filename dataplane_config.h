@@ -171,4 +171,13 @@ struct SALUnit {
 };
 std::array<SALUnit[MAX_SALU_NUM], PROCESSOR_NUM> SALUs;
 
+std::array<int, PROCESSOR_NUM> stateful_table_ids;
+
+enum ProcType {
+    NONE, READ, WRITE
+};
+std::array<ProcType, PROCESSOR_NUM> proc_types;
+
+std::array<std::array<int, 16>, PROCESSOR_NUM> state_idx_in_phv;
+
 #endif //RPISA_SW_DATAPLANE_CONFIG_H+

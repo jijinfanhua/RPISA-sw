@@ -51,10 +51,11 @@ struct Gateway : public Logic {
 
     void execute(const PipeLine &now, PipeLine &next) override {
         const GatewayRegister & gatewayReg = now.processors[processor_id].gateway[0];
-        GatewayRegister & nextGatewayReg = next.processors[processor_id].gateway[1];
+        GatewayRegister & nextPipeGatewayReg = next.processors[processor_id].gateway[1];
+        const GatewayRegister & nextGatewayReg = now.processors[processor_id].gateway[1];
         HashRegister &  hashReg = next.processors[processor_id].hashes[0];
 
-        gateway_first_cycle(gatewayReg, nextGatewayReg);
+        gateway_first_cycle(gatewayReg, nextPipeGatewayReg);
         gateway_second_cycle(nextGatewayReg, hashReg);
     }
 
@@ -145,10 +146,10 @@ struct GetHash : public Logic {
 
         get_hash(hashReg, nextHashReg);
         for(int i = 1; i < HASH_CYCLE - 1; i++) {
-            get_left_hash(next.processors[processor_id].hashes[i], next.processors[processor_id].hashes[i+1]);
+            get_left_hash(now.processors[processor_id].hashes[i], next.processors[processor_id].hashes[i+1]);
         }
 
-        HashRegister & lastHashReg = next.processors[processor_id].hashes[HASH_CYCLE - 1];
+        const HashRegister & lastHashReg = now.processors[processor_id].hashes[HASH_CYCLE - 1];
 
         getAddressRegister.enable1 = lastHashReg.enable1;
         if (!lastHashReg.enable1) {
@@ -253,6 +254,29 @@ struct GetAddress : public Logic {
         }
         auto matchTableConfig = matchTableConfigs[processor_id];
 
+        if (now.backward_pkt) {
+            // todo: only lookup the stateful table using hash_value
+            int stateful_table_id = stateful_table_ids[processor_id];
+            auto match_table = matchTableConfig.matchTables[stateful_table_id];
+            u32 start_index = (now.hash_value >> 10);
+            next.on_chip_addrs[stateful_table_id][0] = (now.hash_value << 54 >> 54); // u64
+            for(int k = 0; k < match_table.key_width; k++) {
+                next.key_sram_columns[stateful_table_id][0][k] = match_table.key_sram_index_per_hash_way[0][start_index + k];
+            }
+            for(int k = 0; k < match_table.value_width; k++) {
+                next.value_sram_columns[stateful_table_id][0][k] = match_table.value_sram_index_per_hash_way[0][start_index + k];
+            }
+
+            next.phv = now.phv;
+//            next.hash_values = now.hash_values;
+//            next.match_table_keys = now.match_table_keys;
+            next.match_table_keys[stateful_table_id][0];
+            next.match_table_guider = now.match_table_guider;
+            next.gateway_guider = now.gateway_guider;
+
+            return;
+        }
+
         // get the sram indexes per way for each match table
         for(int i = 0; i < matchTableConfig.match_table_num; i++) {
             auto hash_values = now.hash_values[i];
@@ -292,6 +316,22 @@ struct Matches : public Logic {
         if (!now.enable1) {
             return;
         }
+
+        if (now.backward_pkt) {
+            int stateful_table_id = stateful_table_ids[processor_id];
+            auto match_table = matchTableConfigs[processor_id].matchTables[stateful_table_id];
+            for(int k = 0; k < match_table.value_width; k++) {
+                next.obtained_values[stateful_table_id][0][k] = SRAMs[processor_id][now.value_sram_columns[stateful_table_id][0][k]]
+                        .get(now.on_chip_addrs[stateful_table_id][0]);
+            }
+
+            next.phv = now.phv;
+            next.match_table_guider = now.match_table_guider;
+            next.gateway_guider = now.gateway_guider;
+            next.backward_pkt = true;
+            return;
+        }
+
         auto matchTableConfig = matchTableConfigs[processor_id];
         for(int i = 0; i < matchTableConfig.match_table_num; i++) {
             // follow match table guider
@@ -331,6 +371,22 @@ struct Compare : public Logic {
             return;
         }
         auto matchTableConfig = matchTableConfigs[processor_id];
+
+        // only enable the stateful result; don't compare yet
+        if (now.backward_pkt) {
+            for(int i = 0; i < matchTableConfig.match_table_num; i++) {
+                if (i != stateful_table_ids[processor_id]) {
+                    next.final_values[i].second = false;
+                } else {
+                    next.final_values[i] = std::make_pair(now.obtained_values[stateful_table_ids[processor_id]][0], true);;
+                }
+            }
+            next.phv = now.phv;
+            next.gateway_guider = now.gateway_guider;
+            next.match_table_guider = now.match_table_guider;
+            return;
+        }
+
         for(int i = 0; i < matchTableConfig.match_table_num; i++) {
             if (!now.match_table_guider[processor_id * 16  + i]) {
                 next.final_values[i].second = false;
