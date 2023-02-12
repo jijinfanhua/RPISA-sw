@@ -180,4 +180,11 @@ std::array<ProcType, PROCESSOR_NUM> proc_types;
 
 std::array<std::array<int, 16>, PROCESSOR_NUM> state_idx_in_phv;
 
+struct SavedState {
+    std::array<int, 4> saved_state_idx_in_phv;
+    std::array<int ,4> state_lengths;
+    int state_num;
+};
+std::array<SavedState, PROCESSOR_NUM> state_saved_idxs;
+
 #endif //RPISA_SW_DATAPLANE_CONFIG_H+

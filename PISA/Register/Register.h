@@ -77,6 +77,11 @@ struct ExecuteActionRegister : public BaseRegister {
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
 };
 
+struct VerifyStateChangeRegister : public BaseRegister {
+    std::array<bool, 224> phv_changed_tags = {false};
+    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
+};
+
 /*********** fengyong add end ***************/
 
 struct GetKeyRegister {

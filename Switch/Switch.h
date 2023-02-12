@@ -265,10 +265,9 @@ struct Switch {
         }
     }
 
-    void Config()
+    void Config() {
 
-
-
+    }
 
 };
 

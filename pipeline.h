@@ -23,6 +23,9 @@ struct WriteInfo {
     u64 addr;
     std::array<u32, 128> state;
 };
+struct CDInfo { // cancel_dirty info
+    u64 addr;
+};
 struct RP2R_REG {
     RingRegister rr;
     std::array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM> match_table_guider;
@@ -32,7 +35,7 @@ struct RP2R_REG {
 
 struct ProcessorState {
     u32 decrease_clk, increase_clk;
-    bool clk_enable = false;
+//    bool clk_enable = false;
     // hash of four ways (32bit) -> flow info
     std::unordered_map<u64, flow_info_in_cam> dirty_cam;
     bool normal_pipe_pkt;
@@ -76,6 +79,7 @@ struct ProcessorRegister {
     CompareRegister compare;
     GetActionRegister getAction;
     ExecuteActionRegister executeAction;
+    VerifyStateChangeRegister verifyState;
     /****** fengyong add end *********/
 
     PIRegister pi[2];

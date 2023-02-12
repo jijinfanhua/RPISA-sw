@@ -6,6 +6,7 @@
 using namespace std;
 
 #include "defs.h"
+#include "pipeline.h"
 
 
 int main(int argc, char** argv) {

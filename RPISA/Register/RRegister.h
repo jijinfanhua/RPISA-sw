@@ -90,9 +90,14 @@ struct PIWRegister : public RingBaseRegister {
 //    RingRegister ringReg;
 //    bool normal_pipe_schedule;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
+    u64 hash_value;
+
+    u64 cd_addr;
+    bool cd_come = false;
+
     flow_info_in_cam flow_info;
-    bool state_changed;
-    bool wb_flag; // need write state
+    bool state_changed; // need to write state
+//    bool wb_flag; // need write state
     bool state_writeback;
     bool pkt_backward;
 };

@@ -5,7 +5,7 @@
 #ifndef RPISA_SW_ACTION_H
 #define RPISA_SW_ACTION_H
 
-#include "../PipeLine.h"
+#include "../pipeline.h"
 #include "../dataplane_config.h"
 
 struct GetAction : public Logic {
@@ -38,6 +38,12 @@ struct GetAction : public Logic {
             int para_num = actionConfigs[processor_id].actions[action_id].action_data_num;
             // 0-0.1  1-0.2  2-0.3  3-1.0  4-1.1  5-1.2  6-1.3  7-2.0   8-2.1  9-2.2  10-2.3  11-3.0
             // 0-0    3-1    7-2   11-3
+            // stateful (128bit) : set | value1 | value2 | value3
+//            set() {
+//                phva = value1;
+//                phvb = value2;
+//                phvc = value3;
+//            }
             for(int j = 0; j < para_num; j++) {
                 if (j <= 2) {
                     next.action_data_set[action_data_id_base + j] =
@@ -71,12 +77,22 @@ struct ExecuteAction : public Logic {
 
     void execute(const PipeLine &now, PipeLine &next) override {
         const ExecuteActionRegister & executeActionReg = now.processors[processor_id].executeAction;
-        BaseRegister & baseReg = next.processors[processor_id + 1].base;
+        VerifyStateChangeRegister & verifyReg = next.processors[processor_id].verifyState;
 
-        execute_action(executeActionReg, baseReg);
+        verifyReg.enable1 = executeActionReg.enable1;
+        if (!executeActionReg.enable1) {
+            return;
+        }
+
+        execute_action(executeActionReg, verifyReg);
+
+        verifyReg.phv = executeActionReg.phv;
+        verifyReg.gateway_guider = executeActionReg.gateway_guider;
+        verifyReg.match_table_guider = executeActionReg.match_table_guider;
+        verifyReg.hash_values = executeActionReg.hash_values;
     }
 
-    void execute_action(const ExecuteActionRegister &now, BaseRegister &next) {
+    void execute_action(const ExecuteActionRegister &now, VerifyStateChangeRegister &next) {
         next.enable1 = now.enable1;
         if (!now.enable1) {
             return;
@@ -115,7 +131,7 @@ struct ExecuteAction : public Logic {
     }
 
     // todo: wait to finish    SALUnit::Parameter &left_value, SALUnit::Parameter &operand1, SALUnit::Parameter &operand2
-    void execute_salu(SALUnit & salu, const ExecuteActionRegister &now, BaseRegister & next) {
+    void execute_salu(SALUnit & salu, const ExecuteActionRegister &now, VerifyStateChangeRegister & next) {
         switch (salu.op) {
             case SALUnit::READ: {
                 auto left_value = salu.left_value;
@@ -131,6 +147,9 @@ struct ExecuteAction : public Logic {
                 //                                           high           low
                 u32 reg_value = return_value[3];
                 next.phv[left_value.content.phv_id] = reg_value;
+                if (now.phv[left_value.content.phv_id] != next.phv[left_value.content.phv_id]) {
+                    next.phv_changed_tags[left_value.content.phv_id] = true;
+                }
                 break;
             }
             case SALUnit::WRITE: {
@@ -373,14 +392,22 @@ struct ExecuteAction : public Logic {
     }
 
     static void execute_alu(int alu_idx, ALUnit::OP op, ALUnit::Parameter operand1, ALUnit::Parameter operand2,
-                     const ExecuteActionRegister &now, BaseRegister &next) {
+                     const ExecuteActionRegister &now, VerifyStateChangeRegister &next) {
         u32 param1 = get_operand_value(operand1, now);
         switch (op) {
-            case ALUnit::SET: next.phv[alu_idx] = param1;
+            case ALUnit::SET: {
+                next.phv[alu_idx] = param1;
+                if (now.phv[alu_idx] != next.phv[alu_idx]) {
+                    next.phv_changed_tags[alu_idx] = true;
+                }
                 break;
+            }
             case ALUnit::PLUS: {
                 u32 param2 = get_operand_value(operand2, now);
                 next.phv[alu_idx] = param1 + param2;
+                if (now.phv[alu_idx] != next.phv[alu_idx]) {
+                    next.phv_changed_tags[alu_idx] = true;
+                }
                 break;
             }
             case ALUnit::NONE:

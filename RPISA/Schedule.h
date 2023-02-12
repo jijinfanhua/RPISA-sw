@@ -7,6 +7,37 @@
 
 #include "../pipeline.h"
 
+struct VerifyStateChange : public Logic {
+    VerifyStateChange(int id) : Logic(id) {}
+
+    // state change verification is only executed in the WRITE processor,
+    // so the state_changed variable will not be passed to next processor
+    void execute(const PipeLine &now, PipeLine &next) override {
+        const VerifyStateChangeRegister & verifyReg = now.processors[processor_id].verifyState;
+        PIWRegister & piwReg = next.processors[processor_id].piw[0];
+
+        piwReg.enable1 = verifyReg.enable1;
+        if (!verifyReg.enable1) {
+            return;
+        }
+
+        auto state_saved = state_saved_idxs[processor_id];
+        for(int i = 0; i < state_saved.state_num; i++) {
+            if (verifyReg.phv_changed_tags[state_saved.saved_state_idx_in_phv[i]]) {
+                piwReg.state_changed = true;
+            }
+        }
+
+        piwReg.enable1 = verifyReg.enable1;
+        piwReg.phv = verifyReg.phv;
+        piwReg.match_table_guider = verifyReg.match_table_guider;
+        piwReg.gateway_guider = verifyReg.gateway_guider;
+
+        piwReg.hash_values = verifyReg.hash_values;
+    }
+};
+
+// after action and before PIW, there should be one cycle to determine whether states are changed
 struct PIW : public Logic {
     PIW(int id) : Logic(id) {}
 
@@ -60,6 +91,11 @@ struct PIW : public Logic {
 
     void piw_first_cycle(const PIWRegister &now, PIWRegister &next, const ProcessorState &now_proc,
                          ProcessorState &next_proc) {
+        // handle asyn RI's input -> cancel_dirty
+        if (now.cd_come) {
+            next_proc.dirty_cam.erase(now.cd_addr);
+        }
+
         // search the dirty table in PIW using hash addr
         next.enable1 = now.enable1;
         if (!now.enable1) {
@@ -73,22 +109,23 @@ struct PIW : public Logic {
         auto flow_cam = now_proc.dirty_cam;
         if (flow_cam.find(hash_value) == flow_cam.end()) {
             // if need to writeback: stateless / stateful
-            if (now.wb_flag) { // first stateful pkt
-                if (now.state_changed) { // state changed; state is in PHV
-                    next.state_writeback = true;
-                    next.pkt_backward = false;
-                } else { // state not changed
-                    next.state_writeback = false;
-                    next.pkt_backward = false;
-                }
-            } else { // not stateful pkt
+            if (now.state_changed) { // state changed; state is in PHV
+                next.state_writeback = true;
+                next.pkt_backward = false;
+            } else { // state not changed / not stateful pkt
                 next.state_writeback = false;
                 next.pkt_backward = false;
             }
         } else {
-            next.state_writeback = false;
-            next.pkt_backward = true;
-            next.flow_info = flow_cam[hash_value];
+            if (now.cd_come && now.cd_addr == hash_value) {
+                next.state_writeback = false;
+                next.pkt_backward = false;
+                next.flow_info = flow_cam[hash_value];
+            } else {
+                next.state_writeback = false;
+                next.pkt_backward = true;
+                next.flow_info = flow_cam[hash_value];
+            }
         }
         next.phv = now.phv;
         next.match_table_guider = now.match_table_guider;
@@ -348,12 +385,53 @@ struct RI : public Logic {
         PIRAsynRegister & pi_asynReg = next.processors[processor_id].pi_asyn[0];
         RORegister & roReg = next.processors[processor_id].ro;
 
-        handle_ri_signal(riReg, pi_asynReg, next_proc);
+        // add piw
+        PIWRegister & piwReg = next.processors[processor_id].piw[0];
+
+        handle_ri_signal(riReg, pi_asynReg, piwReg, next_proc);
     }
 
-    void handle_ri_signal(const RIRegister & riReg, PIRAsynRegister & pi_asynReg, ProcessorState & next_proc) {
+    void handle_ri_signal(const RIRegister & riReg, PIRAsynRegister & pi_asynReg, PIWRegister & piwReg, ProcessorState & next_proc) {
+        if (!riReg.enable1) {
+            return;
+        }
         // get the one-hot code of the processor
         u32 proc_bitmap = 1 << (PROCESSOR_NUM - processor_id - 1);
+
+        if (proc_types[processor_id] == ProcType::WRITE) {
+            // get cancel_dirty down
+            RP2R_REG it{};
+            if (riReg.ringReg.dst2 == proc_bitmap) {
+                piwReg.cd_addr = riReg.ringReg.addr;
+                piwReg.cd_come = true;
+                // if left something, left to r2r; else: nothing
+                if (riReg.ringReg.dst1 != 0) {
+                    it.rr.ctrl = 0b11;
+                    it.rr.dst1 = riReg.ringReg.dst1;
+                    next_proc.r2r.push(it);
+                } else {
+                    // nothing
+                }
+            } else {
+                // directly to r2r
+                it.rr = riReg.ringReg;
+                if (riReg.ringReg.ctrl == 0b01) {
+                    it.match_table_guider = riReg.match_table_guider;
+                    it.gateway_guider = riReg.gateway_guider;
+                    it.hash_value = riReg.hash_value;
+                }
+                next_proc.r2r.push(it);
+            }
+            return;
+        } else if (proc_types[processor_id] == ProcType::NONE) { // just send: it will not be blocked in this processor
+            RP2R_REG it{};
+            it.rr = riReg.ringReg;
+            it.hash_value = riReg.hash_value;
+            it.match_table_guider = riReg.match_table_guider;
+            it.gateway_guider = riReg.gateway_guider;
+            next_proc.r2r.push(it);
+        }
+        // READ processor
 
         // if dst2 == proc_bitmap: dst1-ctrl-dst2-addr-payload to pi_asyn; left dst1 to roReg
         // else :
@@ -478,6 +556,7 @@ struct RO : public Logic {
         if (now_proc.p2r.empty() && now_proc.r2r.empty()) { // no signal (i.e., cancel_dirty, hb, write, bp)
             riReg.enable1 = false;
         } else if (now_proc.p2r.empty() && !now_proc.r2r.empty()) {
+            riReg.enable1 = true;
             auto r2r_reg = now_proc.r2r.front();
             riReg.ringReg = {
                     r2r_reg.rr.dst1,
@@ -493,6 +572,7 @@ struct RO : public Logic {
             }
             next_proc.r2r.pop();
         } else if (!now_proc.p2r.empty() && now_proc.r2r.empty()) {
+            riReg.enable1 = true;
             auto p2r_reg = now_proc.p2r.front();
             riReg.ringReg.dst1 = 0; // no hb
             riReg.ringReg.ctrl = p2r_reg.rr.ctrl;
@@ -501,31 +581,50 @@ struct RO : public Logic {
             riReg.ringReg.payload = p2r_reg.rr.payload;
             next_proc.p2r.pop();
         } else {
+            riReg.enable1 = true;
             auto p2r_reg = now_proc.p2r.front();
             auto r2r_reg = now_proc.r2r.front();
 
-
-
-            if (r2r_reg.rr.ctrl == 0b11) { // hb + cancel_dirty
-                riReg.ringReg.dst1 = r2r_reg.rr.dst1;
-                riReg.ringReg.ctrl = 0b10;
+            // hb with other -> merge
+            int flag = 0; // r2r is 0, p2r is 1
+            if (r2r_reg.rr.ctrl == 0b11) {
+                riReg.ringReg.dst1 = r2r_reg.rr.dst1 | p2r_reg.rr.dst1;
+                riReg.ringReg.ctrl = p2r_reg.rr.ctrl;
                 riReg.ringReg.dst2 = p2r_reg.rr.dst2;
                 riReg.ringReg.addr = p2r_reg.rr.addr;
                 riReg.ringReg.payload = p2r_reg.rr.payload;
-            } else if (r2r_reg.rr.ctrl == 0b10 || r2r_reg.rr.ctrl == 0b00 || r2r_reg.rr.ctrl == 0b01) {
-                // cancel_dirty | [cancel_dirty | write | bp]
+                flag = 1;
+                next_proc.p2r.pop();
+                next_proc.r2r.pop();
+            } else if (p2r_reg.rr.ctrl == 0b11) {
+                riReg.ringReg.dst1 = r2r_reg.rr.dst1 | p2r_reg.rr.dst1;
+                riReg.ringReg.ctrl = r2r_reg.rr.ctrl;
+                riReg.ringReg.dst2 = r2r_reg.rr.dst2;
+                riReg.ringReg.addr = r2r_reg.rr.addr;
+                riReg.ringReg.payload = r2r_reg.rr.payload;
+                flag = 0;
+                next_proc.p2r.pop();
+                next_proc.r2r.pop();
+            } else {
                 if (now_proc.round_robin_flag == 0) {
                     riReg.ringReg = r2r_reg.rr;
+                    flag = 0;
                     next_proc.r2r.pop();
                 } else {
                     riReg.ringReg = p2r_reg.rr;
+                    flag = 1;
                     next_proc.p2r.pop();
                 }
                 next_proc.round_robin_flag = 1 - now_proc.round_robin_flag;//round robin schedule r2r and p2r
-                if (riReg.ringReg.ctrl == 0b01) {
+                // carry the guider from -
+                if (flag == 0 && riReg.ringReg.ctrl == 0b01) {
                     riReg.match_table_guider = r2r_reg.match_table_guider;
                     riReg.gateway_guider = r2r_reg.gateway_guider;
                     riReg.hash_value = r2r_reg.hash_value; // todo: verify if it is needed
+                } else if (flag == 1 && riReg.ringReg.ctrl == 0b01) {
+                    riReg.match_table_guider = p2r_reg.match_table_guider;
+                    riReg.gateway_guider = p2r_reg.gateway_guider;
+                    riReg.hash_value = p2r_reg.hash_value; // todo: verify if it is needed
                 }
             }
         }
@@ -551,7 +650,7 @@ struct PIR_asyn : public Logic {
         // current cycle's second PIAsyn-level pipe
         const PIRAsynRegister & cur_secondPIAsynReg = now.processors[processor_id].pi_asyn[1];
 
-        RORegister & roReg = next.processors[processor_id].ro;
+//        RORegister & roReg = next.processors[processor_id].ro;
         // next cycle's second PO-level pipe, to receive pkt from second PIAsyn-level
         PORegister & poReg = next.processors[processor_id].po;
 
