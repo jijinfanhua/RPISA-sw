@@ -41,6 +41,7 @@ struct ProcessorState {
     bool normal_pipe_pkt;
 
     std::array<FlowInfo, 128> rp2p;
+    // 指示下一个对象在rp2p中的位置
     std::array<u32, 128> rp2p_pointer;
     int rp2p_tail = 0;
     std::queue<FlowInfo> r2p_stash;

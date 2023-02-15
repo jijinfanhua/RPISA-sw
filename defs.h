@@ -6,6 +6,7 @@
 #define RPISA_SW_DEFS_H
 
 #include <list>
+#include <array>
 #include <vector>
 #include <queue>
 #include <map>

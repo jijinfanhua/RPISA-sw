@@ -1,0 +1,14 @@
+Determining if the C compiler works failed with the following output:
+Change Dir: C:/Users/29668/OneDrive/大四上/毕设/RPISA-sw/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):C:/MinGW/bin/make.exe cmTC_7e5e4/fast && C:/MinGW/bin/make.exe -f CMakeFiles/cmTC_7e5e4.dir/build.make CMakeFiles/cmTC_7e5e4.dir/build
+make.exe[1]: Entering directory 'C:/Users/29668/OneDrive/大四上/毕设/RPISA-sw/build/CMakeFiles/CMakeTmp'
+系统找不到指定的路径。
+CMakeFiles/cmTC_7e5e4.dir/build.make:65: recipe for target 'CMakeFiles/cmTC_7e5e4.dir/testCCompiler.c.obj' failed
+make.exe[1]: *** [CMakeFiles/cmTC_7e5e4.dir/testCCompiler.c.obj] Error 1
+make.exe[1]: Leaving directory 'C:/Users/29668/OneDrive/大四上/毕设/RPISA-sw/build/CMakeFiles/CMakeTmp'
+Makefile:121: recipe for target 'cmTC_7e5e4/fast' failed
+make.exe: *** [cmTC_7e5e4/fast] Error 2
+
+
+
