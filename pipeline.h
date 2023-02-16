@@ -143,7 +143,11 @@ struct PipeLine {
         return next;
     }
 
-    void log();
+    void log(){
+        for(int i = 0; i < PROC_NUM; i++){
+            proc_states[i].log();
+        }
+    };
 
 };
 
