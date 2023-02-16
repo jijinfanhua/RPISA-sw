@@ -7,6 +7,9 @@
 
 #include "PISA/Register/Register.h"
 #include "RPISA/Register/RRegister.h"
+#include "PISA/match.h"
+#include "PISA/action.h"
+#include "RPISA/Schedule.h"
 // 这里记录了所有的有关于时序的信息，包括buffer的状态，各种流水的走法等
 // 每一个Register应自己管理好自己所经营范围内的phv流水线
 
@@ -15,12 +18,13 @@ struct FlowInfo {
     std::array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM> match_table_guider;
     std::array<bool, MAX_GATEWAY_NUM * PROCESSOR_NUM> gateway_guider;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
-    u64 hash_value;
+    b128 hash_value;
     bool backward_pkt;
-    int table_id;
+    std::array<int, 4> table_id;
 };
 struct WriteInfo {
-    u64 addr;
+    u32 flow_addr;
+    b128 write_addr;
     std::array<u32, 128> state;
 };
 struct CDInfo { // cancel_dirty info
@@ -30,14 +34,14 @@ struct RP2R_REG {
     RingRegister rr;
     std::array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM> match_table_guider;
     std::array<bool, MAX_GATEWAY_NUM * PROCESSOR_NUM> gateway_guider;
-    u64 hash_value;
+    std::array<u32, 4> hash_value;
 };
 
 struct ProcessorState {
     u32 decrease_clk, increase_clk;
 //    bool clk_enable = false;
     // hash of four ways (32bit) -> flow info
-    std::unordered_map<u64, flow_info_in_cam> dirty_cam;
+    std::unordered_map<u32, flow_info_in_cam> dirty_cam;
     bool normal_pipe_pkt;
 
     std::array<FlowInfo, 128> rp2p;
@@ -102,6 +106,40 @@ struct PipeLine {
         PipeLine next;
         // 这里还没完善，就是要调用所有Processor的所有Logic，走完一次时钟
         // 这里因为Logic都还没写，所以没有进行具体的实现
+        for(int i = 0; i < PROC_NUM; i++){
+            GetKey get_key = GetKey(i);
+            get_key.execute(*this, next);
+            Gateway gateway = Gateway(i);
+            gateway.execute(*this, next);
+            GetHash get_hash = GetHash(i);
+            get_hash.execute(*this, next);
+            GetAddress get_address = GetAddress(i);
+            get_address.execute(*this, next);
+            Matches matches = Matches(i);
+            matches.execute(*this, next);
+            Compare compare = Compare(i);
+            compare.execute(*this, next);
+
+            GetAction get_action = GetAction(i);
+            get_action.execute(*this, next);
+            ExecuteAction execute_action = ExecuteAction(i);
+            execute_action.execute(*this, next);
+
+            VerifyStateChange verify = VerifyStateChange(i);
+            verify.execute(*this, next);
+            PIR pir = PIR(i);
+            pir.execute(*this, next);
+            PIW piw = PIW(i);
+            piw.execute(*this, next);
+            PO po = PO(i);
+            po.execute(*this, next);
+            RI ri = RI(i);
+            ri.execute(*this, next);
+            RO ro = RO(i);
+            ro.execute(*this, next);
+            PIR_asyn pir_asyn = PIR_asyn(i);
+            pir_asyn.execute(*this, next);
+        }
         return next;
     }
 

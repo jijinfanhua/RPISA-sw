@@ -31,7 +31,7 @@ struct PacketInfo {
 
     // 一路就够了
     array<b1024,  READ_TABLE_NUM> key;
-    array<u64,  READ_TABLE_NUM> hashValue;
+    array<u32,  READ_TABLE_NUM> hashValue;
     array<bool, READ_TABLE_NUM> readEnable;
     PacketInfo(
             int proc_id,

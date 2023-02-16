@@ -56,16 +56,23 @@ struct Logic {
 
 // 这里分成不同的逻辑段来进行实现，他们都应继承Logic，具体的实现应该写在别的文件中
 struct GetKey   ;
-struct Schedule ;
-struct PO       ;
-struct Matcher  ;
-struct Executor ;
-struct PIW      ;
-struct RI       ;
-struct RO       ;
+struct Gateway  ;
+struct GetHash  ;
+struct GetAddress;
+struct Matches;
+struct Compare;
 
+struct GetAction;
+struct ExecuteAction;
 
-struct Processor;
+struct VerifyStateChange;
+struct PIW;
+struct PIR;
+struct PO;
+struct RI;
+struct RO;
+struct PIR_asyn;
+
 struct SRAM;
 
 /**

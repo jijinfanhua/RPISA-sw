@@ -44,7 +44,7 @@ struct GetAddressRegister : public BaseRegister {
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
     bool backward_pkt;
-    u64 hash_value;
+    b128 hash_value;
 };
 
 struct MatchRegister : public BaseRegister {

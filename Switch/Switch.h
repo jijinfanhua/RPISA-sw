@@ -12,6 +12,7 @@
 #include "../PISA/action.h"
 
 #include <memory>
+#include <string>
 const int PACKET_SIZE_MAX = 1600;
 using byte = unsigned char;
 

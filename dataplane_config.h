@@ -171,7 +171,11 @@ struct SALUnit {
 };
 std::array<SALUnit[MAX_SALU_NUM], PROCESSOR_NUM> SALUs;
 
-std::array<int, PROCESSOR_NUM> stateful_table_ids;
+// 每个 processor 中带状态表的数量, 最大为4
+
+std::array<int, PROCESSOR_NUM> num_of_stateful_tables;
+
+std::array<std::array<int, 4>, PROCESSOR_NUM> stateful_table_ids;
 
 enum ProcType {
     NONE, READ, WRITE
