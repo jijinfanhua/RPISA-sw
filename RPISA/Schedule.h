@@ -7,6 +7,16 @@
 
 #include "../pipeline.h"
 
+b128 get_flow_id(PHV phv)
+{
+    b128 flow_id;
+    for (int i = 0; i < phv_num_for_flow_id; i++)
+    {
+        flow_id[i] = phv[phvs_for_flow_id[i]];
+    }
+    return flow_id;
+}
+
 struct VerifyStateChange : public Logic
 {
     VerifyStateChange(int id) : Logic(id) {}
@@ -125,12 +135,10 @@ struct PIW : public Logic
             return;
         }
 
-        auto table_id = stateful_table_ids[processor_id];
-        // get the hash value
-        // caution: stateful table only has one way hash
-        auto hash_value = now.hash_values[table_id[0]][0];
+        // todo: change
+        auto flow_id = get_flow_id(now.phv);
         auto flow_cam = now_proc.dirty_cam;
-        if (flow_cam.find(hash_value) == flow_cam.end())
+        if (flow_cam.find(flow_id) == flow_cam.end())
         {
             // if need to writeback: stateless / stateful
             if (now.state_changed)
@@ -146,17 +154,17 @@ struct PIW : public Logic
         }
         else
         {
-            if (now.cd_come && now.cd_addr == hash_value)
+            if (now.cd_come && now.cd_addr == flow_id)
             {
                 next.state_writeback = false;
                 next.pkt_backward = false;
-                next.flow_info = flow_cam[hash_value];
+                next.flow_info = flow_cam[flow_id];
             }
             else
             {
                 next.state_writeback = false;
                 next.pkt_backward = true;
-                next.flow_info = flow_cam[hash_value];
+                next.flow_info = flow_cam[flow_id];
             }
         }
         next.phv = now.phv;
@@ -182,14 +190,9 @@ struct PIW : public Logic
         if (now.state_writeback)
         {
             // build ringreg
-            for (int i = 0; i < num_of_stateful_tables[processor_id]; i++)
-            {
-                it.hash_value[i] = now.hash_values[stateful_table_ids[processor_id][i]][0];
-            }
             it.rr.ctrl = 0b00;
             it.rr.dst2 = it.rr.dst1;
-            // 流地址用第一个hash值表示
-            it.rr.addr = now.hash_values[stateful_table_ids[processor_id][0]][0];
+            it.rr.addr = get_flow_id(now.phv);
             for (int i = 0; i < 16; i++)
             {
                 int tmp_idx = state_idx_in_phv[processor_id][i];
@@ -215,13 +218,9 @@ struct PIW : public Logic
         }
         else if (now.pkt_backward)
         {
-            for (int i = 0; i < num_of_stateful_tables[processor_id]; i++)
-            {
-                it.hash_value[i] = now.hash_values[stateful_table_ids[processor_id][i]][0];
-            }
             it.rr.ctrl = 0b01;
             it.rr.dst2 = it.rr.dst1;
-            it.rr.addr = now.hash_values[stateful_table_ids[processor_id][0]][0];
+            it.rr.addr = get_flow_id(now.phv);
             it.rr.payload = transfer_from_phv_to_payload(now.phv); // todo: transform from phv(32bit*224) to payload(32bit * 128)
             it.gateway_guider = now.gateway_guider;
             it.match_table_guider = now.match_table_guider;
@@ -263,7 +262,7 @@ struct PIW : public Logic
 struct PIR : public Logic
 {
 
-    PIR(int id): Logic(id){}
+    PIR(int id) : Logic(id) {}
 
     void execute(const PipeLine &now, PipeLine &next) override
     {
@@ -304,16 +303,13 @@ struct PIR : public Logic
 
         // table_id 指示了哪个表是带状态表，带状态表的hash value 只使用128位中的32位。
         auto table_id = stateful_table_ids[processor_id];
-        b128 hash_value;
-        for (int i = 0; i < num_of_stateful_tables[processor_id]; i++)
-        {
-            hash_value[i] = now.hash_values[stateful_table_ids[processor_id][i]][0];
-        }
+
+        auto flow_id = get_flow_id(now.phv);
 
         // now 用来 read，next 用来 write
         const flow_info_in_cam &flow_info = now.flow_info;
         //        const flow_info_in_cam & flow_info = now_proc.dirty_cam.at(hash_value);
-        flow_info_in_cam &next_flow_info = next_proc.dirty_cam[hash_value[0]];
+        flow_info_in_cam &next_flow_info = next_proc.dirty_cam[flow_id];
 
         // 这是p2p队列中的第一个包
         if (flow_info.p2p_first_pkt_idx == -1)
@@ -321,7 +317,7 @@ struct PIR : public Logic
             next_flow_info.p2p_first_pkt_idx = next_flow_info.p2p_last_pkt_idx = now_proc.rp2p_tail;
             next_proc.rp2p[now_proc.rp2p_tail] =
                 {now.phv, now.match_table_guider, now.gateway_guider,
-                 now.hash_values, hash_value, false, table_id};
+                 now.hash_values, false, table_id};
             next_flow_info.left_pkt_num = flow_info.left_pkt_num + 1;
             next_proc.rp2p_pointer[flow_info.p2p_last_pkt_idx] = -1;
         }
@@ -329,7 +325,7 @@ struct PIR : public Logic
         { // have buffered pkt -> SUSPEND/READY
             next_proc.rp2p[now_proc.rp2p_tail] =
                 {now.phv, now.match_table_guider, now.gateway_guider,
-                 now.hash_values, hash_value, false, table_id};
+                 now.hash_values, false, table_id};
             next_flow_info.left_pkt_num = flow_info.left_pkt_num + 1;
             next_proc.rp2p_pointer[flow_info.p2p_last_pkt_idx] = now_proc.rp2p_tail;
             next_flow_info.p2p_last_pkt_idx = now_proc.rp2p_tail;
@@ -357,13 +353,11 @@ struct PIR : public Logic
             return;
         }
 
-        int table_id = stateful_table_ids[processor_id][0];
-        // get the hash value
-        // caution: stateful table only has one way hash
-        auto hash_value = now.hash_values[table_id][0];
+        auto flow_id = get_flow_id(now.phv);
+
         auto flow_cam = now_proc.dirty_cam;
         // the normal pipeline pkt
-        if (flow_cam.find(hash_value) == flow_cam.end())
+        if (flow_cam.find(flow_id) == flow_cam.end())
         {
             // go to normal match-action,
             // but need to go through the second cycle of PIR without processing
@@ -375,7 +369,7 @@ struct PIR : public Logic
         }
         else
         {
-            next.flow_info = flow_cam[hash_value];
+            next.flow_info = flow_cam[flow_id];
             next.phv = now.phv;
             next.need_to_block = true;
             next.match_table_guider = now.match_table_guider;
@@ -421,7 +415,6 @@ struct PO : public Logic
         }
 
         flow_info_in_cam &schedule_flow = next_proc.schedule_queue.front();
-        // 这里lazy的话为什么不调度队列中的下一个而是直接不调度数据包？？
         if (schedule_flow.lazy)
         { // ready -> suspend
             next_proc.schedule_queue.pop();
@@ -449,7 +442,6 @@ struct PO : public Logic
             if (pkt.backward_pkt)
             {
                 next.backward_pkt = true;
-                next.hash_value = pkt.hash_value;
             }
             else
             {
@@ -457,7 +449,6 @@ struct PO : public Logic
             }
             schedule_flow.p2p_first_pkt_idx = now_proc.rp2p_pointer[schedule_flow.p2p_first_pkt_idx];
             // todo: set the rp2p to null
-            // 数据包调度掉之后空出的位置怎么办？？
         }
     }
 };
@@ -531,7 +522,6 @@ struct RI : public Logic
                 {
                     it.match_table_guider = riReg.match_table_guider;
                     it.gateway_guider = riReg.gateway_guider;
-                    it.hash_value = riReg.hash_value;
                 }
                 next_proc.r2r.push(it);
             }
@@ -541,7 +531,6 @@ struct RI : public Logic
         { // just send: it will not be blocked in this processor
             RP2R_REG it{};
             it.rr = riReg.ringReg;
-            it.hash_value = riReg.hash_value;
             it.match_table_guider = riReg.match_table_guider;
             it.gateway_guider = riReg.gateway_guider;
             next_proc.r2r.push(it);
@@ -637,7 +626,6 @@ struct RI : public Logic
                     {
                         it.gateway_guider = riReg.gateway_guider;
                         it.match_table_guider = riReg.match_table_guider;
-                        it.hash_value = riReg.hash_value;
                     }
                     next_proc.r2r.push(it);
                 };
@@ -648,7 +636,6 @@ struct RI : public Logic
             {
                 pi_asynReg.gateway_guider = riReg.gateway_guider;
                 pi_asynReg.match_table_guider = riReg.match_table_guider;
-                pi_asynReg.hash_value = riReg.hash_value; // returned hash value, used to search dirty_table; in fact, 'addr' is enough?
                 pi_asynReg.enable1 = true;
             }
         }
@@ -696,7 +683,6 @@ struct RO : public Logic
             { // bp
                 riReg.gateway_guider = r2r_reg.gateway_guider;
                 riReg.match_table_guider = r2r_reg.match_table_guider;
-                riReg.hash_value = r2r_reg.hash_value; // todo: verify if it is needed
             }
             next_proc.r2r.pop();
         }
@@ -762,13 +748,11 @@ struct RO : public Logic
                 {
                     riReg.match_table_guider = r2r_reg.match_table_guider;
                     riReg.gateway_guider = r2r_reg.gateway_guider;
-                    riReg.hash_value = r2r_reg.hash_value; // todo: verify if it is needed
                 }
                 else if (flag == 1 && riReg.ringReg.ctrl == 0b01)
                 {
                     riReg.match_table_guider = p2r_reg.match_table_guider;
                     riReg.gateway_guider = p2r_reg.gateway_guider;
-                    riReg.hash_value = p2r_reg.hash_value; // todo: verify if it is needed
                 }
             }
         }
@@ -809,11 +793,11 @@ struct PIR_asyn : public Logic
 
     void pi_asyn_second_cycle(const ProcessorState &now_proc, ProcessorState &next_proc, const PIRAsynRegister &now)
     {
+        b128 flow_id = now.ringReg.addr;
         switch (now.cam_search_res)
         {
         case BP_NOT_FOUND:
         {
-            // 为什么会出现 write lost??
             // write lost
             // set Increase CLK to this addr -> offset = I; I = 0
             // [addr, offset] -> wait_queue (tail)
@@ -824,11 +808,11 @@ struct PIR_asyn : public Logic
             next_proc.increase_clk = 0;
             flow_info.r2p_first_pkt_idx = flow_info.r2p_last_pkt_idx = now_proc.rp2p_tail;
             next_proc.rp2p_tail = (now_proc.rp2p_tail + 1) % 128;
-            flow_info.flow_addr = now.hash_value[0];
+            flow_info.flow_addr = flow_id;
             flow_info.left_pkt_num = 1;
             flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
 
-            next_proc.dirty_cam[now.hash_value[0]] = flow_info;
+            next_proc.dirty_cam[flow_id] = flow_info;
 
             FlowInfo pkt_info{
                 now.phv,
@@ -850,8 +834,8 @@ struct PIR_asyn : public Logic
             // 3. update tail
             // 4. update pointer
             // todo: at
-            const flow_info_in_cam &flow_info = now_proc.dirty_cam.at(now.hash_value[0]);
-            flow_info_in_cam &next_flow_info = next_proc.dirty_cam[now.hash_value[0]];
+            const flow_info_in_cam &flow_info = now_proc.dirty_cam.at(flow_id);
+            flow_info_in_cam &next_flow_info = next_proc.dirty_cam[flow_id];
 
             next_flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
             FlowInfo pkt_info{
@@ -886,12 +870,12 @@ struct PIR_asyn : public Logic
             flow_info.timer_offset = now_proc.increase_clk;
             next_proc.increase_clk = 0;
             flow_info.r2p_first_pkt_idx = flow_info.r2p_last_pkt_idx = -1;
-            flow_info.flow_addr = now.hash_value[0];
+            flow_info.flow_addr = flow_id;
             flow_info.left_pkt_num = 0;
             flow_info.cur_state = flow_info_in_cam::FSMState::WAIT;
 
             // add to dirty table
-            next_proc.dirty_cam[now.hash_value[0]] = flow_info;
+            next_proc.dirty_cam[flow_id] = flow_info;
             // add to wait_queue
             next_proc.wait_queue.push(flow_info);
 
@@ -905,8 +889,8 @@ struct PIR_asyn : public Logic
             // 4. flow.offset=I, I=0;
             // 5. set packet buffer.
 
-            const flow_info_in_cam &flow_info = now_proc.dirty_cam.at(now.hash_value[0]);
-            flow_info_in_cam &next_flow_info = next_proc.dirty_cam[now.hash_value[0]];
+            const flow_info_in_cam &flow_info = now_proc.dirty_cam.at(flow_id);
+            flow_info_in_cam &next_flow_info = next_proc.dirty_cam[flow_id];
 
             if (flow_info.left_pkt_num == 0)
             {
@@ -936,35 +920,42 @@ struct PIR_asyn : public Logic
     void handle_write(const ProcessorState &now_proc, ProcessorState &next_proc, PIRAsynRegister &next)
     {
         auto write = now_proc.write_stash.front();
-        b128 hash_value = write.write_addr;
         auto state = write.state;
 
         // Write State to the State table
         auto table_id = stateful_table_ids[processor_id];
-        for (int j = 0; j < num_of_stateful_tables[processor_id]; j++)
+        for (int i = 0; i < phv_num_for_flow_id; i++)
         {
-
-            auto match_table = matchTableConfigs[processor_id].matchTables[table_id[j]];
-            u32 start_index = (hash_value[j] >> 10) * match_table.value_width;
-            u64 on_chip_addr = hash_value[j] << 22 >> 22;
-            for (int i = 0; i < match_table.value_width; i++)
+            for (int j = 0; j < num_of_stateful_tables[processor_id]; j++)
             {
-                SRAMs[processor_id][match_table.value_sram_index_per_hash_way[0][start_index + i]]
-                    .set(int(on_chip_addr), {state[i * 4], state[i * 4 + 1], state[i * 4 + 2], state[i * 4 + 3]});
+                auto match_table = matchTableConfigs[processor_id].matchTables[table_id[j]];
+                if (match_table.hash_in_phv == phvs_for_flow_id[i])
+                {
+
+                    u32 start_index = (write.addr[j] >> 10) * match_table.value_width;
+                    u64 on_chip_addr = write.addr[j] << 22 >> 22;
+                    for (int i = 0; i < match_table.value_width; i++)
+                    {
+                        SRAMs[processor_id][match_table.value_sram_index_per_hash_way[0][start_index + i]]
+                            .set(int(on_chip_addr), {state[i * 4], state[i * 4 + 1], state[i * 4 + 2], state[i * 4 + 3]});
+                    }
+                }
+                else
+                {
+                    continue;
+                }
             }
         }
 
         auto flow_cam = now_proc.dirty_cam;
-        if (flow_cam.find(hash_value[0]) == flow_cam.end())
+        if (flow_cam.find(write.addr) == flow_cam.end())
         {
             //
             next.cam_search_res = WRITE_NOT_FOUND;
-            next.hash_value = hash_value;
         }
         else
         {
             next.cam_search_res = WRITE_FOUND;
-            next.hash_value = hash_value;
         }
 
         next_proc.write_stash.pop();
@@ -995,12 +986,9 @@ struct PIR_asyn : public Logic
                 auto pkt = now_proc.r2p_stash.front();
                 next_proc.r2p_stash.pop();
                 // search
-                auto table_id = stateful_table_ids[processor_id];
-                // get the hash value
-                // caution: stateful table only has one way hash
-                auto hash_value = now.hash_values[table_id[0]][0];
+
                 auto flow_cam = now_proc.dirty_cam;
-                if (flow_cam.find(hash_value) == flow_cam.end())
+                if (flow_cam.find(get_flow_id(pkt.phv)) == flow_cam.end())
                 {
                     next.cam_search_res = BP_NOT_FOUND; // write lost. create timer of this flow
                     next.hash_values = pkt.hash_values;
@@ -1057,7 +1045,7 @@ struct PIR_asyn : public Logic
                 // caution: stateful table only has one way hash
                 auto hash_value = now.hash_values[table_id[0]][0];
                 auto flow_cam = now_proc.dirty_cam;
-                if (flow_cam.find(hash_value) == flow_cam.end())
+                if (flow_cam.find(get_flow_id(pkt.phv)) == flow_cam.end())
                 {
                     next.cam_search_res = BP_NOT_FOUND; // write lost. create timer of this flow
                     next.hash_values = pkt.hash_values;
@@ -1097,16 +1085,14 @@ struct PIR_asyn : public Logic
             if (now_proc.normal_pipe_pkt)
             {
                 WriteInfo it{};
-                it.flow_addr = now.ringReg.addr;
-                it.write_addr = now.hash_value;
+                it.addr = now.ringReg.addr;
                 it.state = now.ringReg.payload;
                 next_proc.write_stash.push(it);
             }
             else
             {
                 WriteInfo it{};
-                it.flow_addr = now.ringReg.addr;
-                it.write_addr = now.hash_value;
+                it.addr = now.ringReg.addr;
                 it.state = now.ringReg.payload;
                 next_proc.write_stash.push(it);
 
@@ -1117,6 +1103,7 @@ struct PIR_asyn : public Logic
         {
             // nothing
         }
+        next.ringReg = now.ringReg;
     }
 
     PHV transfer_from_payload_to_phv(std::array<u32, 128> payload)
@@ -1157,7 +1144,7 @@ struct PIR_asyn : public Logic
                 flow_info_in_cam next_schedule_flow = next_proc.wait_queue_head;
 
                 // caution: send cancel_dirty
-                u32 flow_addr = wait_flow.flow_addr;
+                b128 flow_addr = wait_flow.flow_addr;
                 RP2R_REG it = {
                     0,
                     0b10,
@@ -1180,7 +1167,7 @@ struct PIR_asyn : public Logic
                         next_proc.wait_queue_head_flag = false;
                         next_proc.wait_queue_head = {};
                     }
-                    next_proc.dirty_cam.erase(wait_flow.hash_value[0]);
+                    next_proc.dirty_cam.erase(wait_flow.flow_addr);
                 }
                 else if (wait_flow.cur_state == flow_info_in_cam::FSMState::SUSPEND)
                 {
@@ -1227,7 +1214,7 @@ struct PIR_asyn : public Logic
                         if (wait_flow.left_pkt_num <= 1)
                         {
                             // delete it in dirty table & wait_queue
-                            next_proc.dirty_cam.erase(wait_flow.hash_value[0]);
+                            next_proc.dirty_cam.erase(wait_flow.flow_addr);
                             if (!now_proc.wait_queue.empty())
                             {
                                 next_proc.wait_queue_head = now_proc.wait_queue.front();
@@ -1279,8 +1266,6 @@ struct PIR_asyn : public Logic
                         poReg.gateway_guider = now_proc.rp2p[wait_flow.p2p_first_pkt_idx].gateway_guider;
                         poReg.phv = now_proc.rp2p[wait_flow.p2p_first_pkt_idx].phv;
                         poReg.hash_values = now_proc.rp2p[wait_flow.p2p_first_pkt_idx].hash_values;
-                        // todo: to verify
-                        poReg.hash_value = now_proc.rp2p[wait_flow.p2p_first_pkt_idx].hash_value;
                     }
                 }
                 else

@@ -22,18 +22,18 @@ struct RingRegister {
     u32 dst1;
     u32 ctrl;
     u32 dst2;
-    u32 addr;
+    // todo: 在配置中加入指定哪个phv id的内容作为addr
+    b128 addr;
     std::array<u32, 128> payload;
 };
 
 struct flow_info_in_cam {
-    b128 hash_value;
     u32 timer_offset;
     int r2p_first_pkt_idx;
     int r2p_last_pkt_idx;
     int p2p_first_pkt_idx;
     int p2p_last_pkt_idx;
-    u32 flow_addr;
+    b128 flow_addr;
     bool lazy = false;
 
     u32 left_pkt_num;
@@ -62,7 +62,6 @@ struct PIRegister : public RingBaseRegister{
 
 struct RIRegister : public RingBaseRegister {
     RingRegister ringReg;
-    b128 hash_value;
 };
 
 struct PORegister : public RingBaseRegister {
@@ -70,7 +69,6 @@ struct PORegister : public RingBaseRegister {
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
     bool normal_pipe_schedule;
-    b128 hash_value;
 };
 
 struct RORegister : public RingBaseRegister {
@@ -81,7 +79,6 @@ struct RORegister : public RingBaseRegister {
 struct PIRAsynRegister : public RingBaseRegister {
     RingRegister ringReg;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
-    b128 hash_value;
 //    bool cam_hit;
     CAM_SEARCH_RES cam_search_res;
 };
@@ -90,9 +87,8 @@ struct PIWRegister : public RingBaseRegister {
 //    RingRegister ringReg;
 //    bool normal_pipe_schedule;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
-    b128 hash_value;
 
-    u64 cd_addr;
+    b128 cd_addr;
     bool cd_come = false;
 
     flow_info_in_cam flow_info;

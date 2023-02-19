@@ -216,6 +216,7 @@ struct GetHash : public Logic
 
     void get_hash(const HashRegister &now, HashRegister &next)
     {
+        auto phv = now.phv;
         next.enable1 = now.enable1;
         if (!now.enable1)
         {
@@ -225,22 +226,36 @@ struct GetHash : public Logic
         for (int i = 0; i < matchTableConfig.match_table_num; i++)
         {
             auto match_table = matchTableConfig.matchTables[i];
-            //            std::vector<u32> match_table_key;
             std::array<u32, 32> match_table_key{};
             // todo: need to modify to 8bit, 16bit and 32bit
             for (int j = 0; j < match_table.match_field_byte_len; j++)
             {
                 match_table_key[j] = now.key[match_table.match_field_byte_ids[j]];
             }
-            cal_hash(i, match_table_key, match_table.match_field_byte_len, match_table.number_of_hash_ways,
-                     match_table.hash_bit_per_way, match_table.hash_bit_sum, next);
-            next.match_table_keys[i] = match_table_key;
+            if (match_table.type == 0)
+            { // stateless table
+                cal_hash(i, match_table_key, match_table.match_field_byte_len, match_table.number_of_hash_ways,
+                         match_table.hash_bit_per_way, match_table.hash_bit_sum, next);
+                next.match_table_keys[i] = match_table_key;
+            }
+            else
+            { // stateful table
+                u32 result = cal_stateful_hash(match_table_key, match_table.match_field_byte_len);
+                next.hash_values[i][0] = result;
+                next.match_table_keys[i] = match_table_key;
+                phv[match_table.hash_in_phv] = result;
+            }
         }
 
         next.key = now.key;
-        next.phv = now.phv;
+        next.phv = phv;
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
+    }
+
+    static u32 cal_stateful_hash(const std::array<u32, 32> &match_table_key, int match_field_byte_len)
+    {
+        // todo: 用户定制 hash 算法
     }
 
     static void cal_hash(int table_id, const std::array<u32, 32> &match_table_key, int match_field_byte_len,
@@ -313,15 +328,15 @@ struct GetAddress : public Logic
 
         if (now.backward_pkt)
         {
-            // todo: change it into 4 ways
             // todo: only lookup the stateful table using hash_value
             for (int i = 0; i < num_of_stateful_tables[processor_id]; i++)
             {
 
                 int stateful_table_id = stateful_table_ids[processor_id][i];
                 auto match_table = matchTableConfig.matchTables[stateful_table_id];
-                u32 start_index = (now.hash_value[i] >> 10);
-                next.on_chip_addrs[stateful_table_id][0] = (now.hash_value[i] << 22 >> 22); // u64
+                auto hash_value = now.phv[match_table.hash_in_phv];
+                u32 start_index = (hash_value >> 10);
+                next.on_chip_addrs[stateful_table_id][0] = (hash_value << 22 >> 22); // u64
                 for (int k = 0; k < match_table.key_width; k++)
                 {
                     next.key_sram_columns[stateful_table_id][0][k] = match_table.key_sram_index_per_hash_way[0][start_index + k];
@@ -333,9 +348,7 @@ struct GetAddress : public Logic
             }
 
             next.phv = now.phv;
-            //            next.hash_values = now.hash_values;
             next.match_table_keys = now.match_table_keys;
-            // next.match_table_keys[stateful_table_id][0];
             next.match_table_guider = now.match_table_guider;
             next.gateway_guider = now.gateway_guider;
             next.backward_pkt = true;
@@ -363,7 +376,6 @@ struct GetAddress : public Logic
                 }
             }
         }
-
         next.phv = now.phv;
         next.hash_values = now.hash_values;
         next.match_table_keys = now.match_table_keys;
@@ -467,17 +479,18 @@ struct Compare : public Logic
         {
             for (int i = 0; i < matchTableConfig.match_table_num; i++)
             {
-                for(int j = 0; j < num_of_stateful_tables[processor_id]; j++){
+                for (int j = 0; j < num_of_stateful_tables[processor_id]; j++)
+                {
 
-                if (i != stateful_table_ids[processor_id][j])
-                {
-                    next.final_values[i].second = false;
-                }
-                else
-                {
-                    next.final_values[i] = std::make_pair(now.obtained_values[stateful_table_ids[processor_id][j]][0], true);
-                    ;
-                }
+                    if (i != stateful_table_ids[processor_id][j])
+                    {
+                        next.final_values[i].second = false;
+                    }
+                    else
+                    {
+                        next.final_values[i] = std::make_pair(now.obtained_values[stateful_table_ids[processor_id][j]][0], true);
+                        ;
+                    }
                 }
             }
             next.phv = now.phv;

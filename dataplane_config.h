@@ -79,13 +79,15 @@ GatewaysConfig gatewaysConfigs[PROCESSOR_NUM];
 struct MatchTableConfig {
     int processor_id;
     struct MatchTable {
+        int type; // 0: stateless table; 1: stateful table;
+        int hash_in_phv; // id of 32 bit container
         int depth;
         int key_width;
         int value_width;
         int match_field_byte_len;
         std::array<int, MAX_MATCH_FIELDS_BYTE_NUM> match_field_byte_ids;
 
-        int number_of_hash_ways;
+        int number_of_hash_ways; // stateful table 必定为 1
         int hash_bit_sum;
 
         std::array<int, 4> hash_bit_per_way;
@@ -110,15 +112,8 @@ struct ActionConfig {
 
     struct Action {
         int action_id;
-        struct ActionData {
-            int data_id;
-            int byte_len;
-            int bit_len;
-            u32 value;
-        };
-        ActionData actionDatas[16];
         int action_data_num;
-        std::array<bool, MAX_PHV_CONTAINER_NUM> vliw_enabler;
+        std::array<bool, MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM> vliw_enabler;
 //        std::array<ALU, MAX_PHV_CONTAINER_NUM> alus;
     };
     Action actions[4];
@@ -190,5 +185,8 @@ struct SavedState {
     int state_num;
 };
 std::array<SavedState, PROCESSOR_NUM> state_saved_idxs;
+
+int phv_num_for_flow_id;
+array<int, 4> phvs_for_flow_id;
 
 #endif //RPISA_SW_DATAPLANE_CONFIG_H+

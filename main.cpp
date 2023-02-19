@@ -6,14 +6,15 @@
 using namespace std;
 
 #include "defs.h"
-#include "pipeline.h"
+#include "Switch/Switch.h"
 
 
 int main(int argc, char** argv) {
-    PipeLine pipeline = PipeLine(); // 初始化
+    
     while (true) {
-        pipeline.log();
-        pipeline = pipeline.execute(); // execute 代表一次时钟上升沿到来，开始计算下一个状态
+        Packet input_packet = Packet();
+        Switch switch_ = Switch();
+        switch_.Execute(1, input_packet); 
     }
     return 0;
 }

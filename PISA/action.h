@@ -37,7 +37,7 @@ struct GetAction : public Logic {
             u32 action_id = final_value[0][0] >> 16;
             int para_num = actionConfigs[processor_id].actions[action_id].action_data_num;
             // 0-0.1  1-0.2  2-0.3  3-1.0  4-1.1  5-1.2  6-1.3  7-2.0   8-2.1  9-2.2  10-2.3  11-3.0
-            // 0-0    3-1    7-2   11-3
+            // 0-0    3-1    7-2   11-3 
             // stateful (128bit) : set | value1 | value2 | value3
 //            set() {
 //                phva = value1;
@@ -47,12 +47,12 @@ struct GetAction : public Logic {
             for(int j = 0; j < para_num; j++) {
                 if (j <= 2) {
                     next.action_data_set[action_data_id_base + j] =
-                    actionConfigs[processor_id].actions[action_id].actionDatas[j] = {
+                    {
                             action_data_id_base + j, 4, 32, final_value[0][j+1]
                     };
                 } else {
                     next.action_data_set[action_data_id_base + j] =
-                    actionConfigs[processor_id].actions[action_id].actionDatas[j] = {
+                    {
                             action_data_id_base + j, 4, 32, final_value[(para_num - 3) / 4 + 1][(para_num - 3) % 4]
                     };
                 }
@@ -125,7 +125,6 @@ struct ExecuteAction : public Logic {
             auto operand1 = salu.operand1;
             auto operand2 = salu.operand2;
             std::array<int, 48> sram_ids = salu.sram_ids;
-            int sram_depth = salu.sram_depth;
             execute_salu(salu, now, next);
         }
     }
