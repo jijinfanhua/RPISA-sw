@@ -21,20 +21,26 @@
 // getKey configs for N processors:
 //      use which containers;
 //      map containers to 1024bits
-struct GetKeyConfig {
+struct GetKeyConfig
+{
     int processor_id;
     int used_container_num;
 
-    struct UsedContainer2MatchFieldByte {
+    struct UsedContainer2MatchFieldByte
+    {
         int used_container_id;
-        enum ContainerType{
-            U8, U16, U32
+        enum ContainerType
+        {
+            U8,
+            U16,
+            U32
         } container_type;
         std::array<int, 4> match_field_byte_ids;
     };
 
     std::array<UsedContainer2MatchFieldByte,
-            MAX_MATCH_FIELDS_BYTE_NUM> used_container_2_match_field_byte;
+               MAX_MATCH_FIELDS_BYTE_NUM>
+        used_container_2_match_field_byte;
 };
 GetKeyConfig getKeyConfigs[PROCESSOR_NUM];
 
@@ -43,18 +49,33 @@ GetKeyConfig getKeyConfigs[PROCESSOR_NUM];
 //      ops
 //      operands: from which match_fields
 //      map result to match tables; map result to next gateways.
-struct GatewaysConfig {
+struct GatewaysConfig
+{
     int processor_id;
-    struct Gate {
-        enum OP {
-            EQ, GT, LT, GTE, LTE, NONE
+    struct Gate
+    {
+        enum OP
+        {
+            EQ,
+            GT,
+            LT,
+            GTE,
+            LTE,
+            NONE
         } op;
 
-        struct Parameter {
-            enum Type {CONST, HEADER} type;
-            union {
+        struct Parameter
+        {
+            enum Type
+            {
+                CONST,
+                HEADER
+            } type;
+            union
+            {
                 uint32_t value;
-                struct operand_match_field_byte {
+                struct operand_match_field_byte
+                {
                     int len;
                     std::array<int, 4> match_field_byte_ids;
                 } operand_match_field_byte;
@@ -63,9 +84,11 @@ struct GatewaysConfig {
     };
     Gate gates[MAX_GATEWAY_NUM];
     std::unordered_map<uint32_t,
-        std::array<bool, MAX_PARALLEL_MATCH_NUM*PROCESSOR_NUM>> gateway_res_2_match_tables;
+                       std::array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM>>
+        gateway_res_2_match_tables;
     std::unordered_map<uint32_t,
-            std::array<bool, MAX_GATEWAY_NUM*PROCESSOR_NUM>> gateway_res_2_gates;
+                       std::array<bool, MAX_GATEWAY_NUM * PROCESSOR_NUM>>
+        gateway_res_2_gates;
 };
 GatewaysConfig gatewaysConfigs[PROCESSOR_NUM];
 
@@ -76,10 +99,12 @@ GatewaysConfig gatewaysConfigs[PROCESSOR_NUM];
 //      size: depth & width [key + value]
 //      fields from which match_fields
 //      number of hash ways
-struct MatchTableConfig {
+struct MatchTableConfig
+{
     int processor_id;
-    struct MatchTable {
-        int type; // 0: stateless table; 1: stateful table;
+    struct MatchTable
+    {
+        int type;        // 0: stateless table; 1: stateful table;
         int hash_in_phv; // id of 32 bit container
         int depth;
         int key_width;
@@ -107,29 +132,50 @@ std::array<std::array<SRAM, SRAM_NUM>, PROCESSOR_NUM> SRAMs;
 //      ALU: alu_id and op;
 //      ALU operands: from PHV (field & metadata), from constant registers, from action_data
 //      action_data: extract from value, action_data_id
-struct ActionConfig {
+struct ActionConfig
+{
     int processor_id;
 
-    struct Action {
+    struct ActionData
+    {
+        int data_id;
+        int byte_len;
+        int bit_len;
+        u32 value;
+    };
+
+    struct Action
+    {
         int action_id;
         int action_data_num;
         std::array<bool, MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM> vliw_enabler;
-//        std::array<ALU, MAX_PHV_CONTAINER_NUM> alus;
+        //        std::array<ALU, MAX_PHV_CONTAINER_NUM> alus;
     };
     Action actions[4];
 };
 ActionConfig actionConfigs[PROCESSOR_NUM];
 
-struct ALUnit {
+struct ALUnit
+{
     int alu_id;
 
-    enum OP {
-        SET, PLUS, NONE
+    enum OP
+    {
+        SET,
+        PLUS,
+        NONE
     } op;
 
-    struct Parameter {
-        enum Type {CONST, HEADER, ACTION_DATA} type;
-        union {
+    struct Parameter
+    {
+        enum Type
+        {
+            CONST,
+            HEADER,
+            ACTION_DATA
+        } type;
+        union
+        {
             uint32_t value;
             int phv_id;
             int action_data_id;
@@ -137,26 +183,48 @@ struct ALUnit {
     } operand1, operand2;
 };
 std::array<ALUnit[MAX_PHV_CONTAINER_NUM], PROCESSOR_NUM> ALUs;
-//ALUnit ALUs[MAX_PHV_CONTAINER_NUM];
+// ALUnit ALUs[MAX_PHV_CONTAINER_NUM];
 
-struct SALUnit {
+struct SALUnit
+{
     int salu_id;
-    enum OP {
-        READ, WRITE, RAW, SUB, PRAW, IfElseRAW, NestedIf
+    enum OP
+    {
+        READ,
+        WRITE,
+        RAW,
+        SUB,
+        PRAW,
+        IfElseRAW,
+        NestedIf
     } op;
 
-    struct Parameter {
-        enum Type {CONST, HEADER, ACTION_DATA, REG} type;
-        enum IfType {EQ, NEQ, GT, LT, GTE, LTE} if_type;
-        union {
+    struct Parameter
+    {
+        enum Type
+        {
+            CONST,
+            HEADER,
+            ACTION_DATA,
+            REG,
+        } type;
+        enum IfType
+        {
+            EQ,
+            NEQ,
+            GT,
+            LT,
+            GTE,
+            LTE
+        } if_type;
+        union
+        {
             uint32_t value;
             int phv_id;
             int action_data_id;
-            int table_idx; // sram_idx;
-//            struct Praw {
-//                int table_idx;
-//                enum IfType {EQ, NEQ, GT, LT, GTE, LTE} if_type;
-//            } praw;
+            int table_idx; 
+            int key_table_id;
+            int value_table_id;
         } content;
     } left_value, operand1, operand2, operand3;
 
@@ -172,16 +240,20 @@ std::array<int, PROCESSOR_NUM> num_of_stateful_tables;
 
 std::array<std::array<int, 4>, PROCESSOR_NUM> stateful_table_ids;
 
-enum ProcType {
-    NONE, READ, WRITE
+enum ProcType
+{
+    NONE,
+    READ,
+    WRITE
 };
 std::array<ProcType, PROCESSOR_NUM> proc_types;
 
 std::array<std::array<int, 16>, PROCESSOR_NUM> state_idx_in_phv;
 
-struct SavedState {
+struct SavedState
+{
     std::array<int, 4> saved_state_idx_in_phv;
-    std::array<int ,4> state_lengths;
+    std::array<int, 4> state_lengths;
     int state_num;
 };
 std::array<SavedState, PROCESSOR_NUM> state_saved_idxs;
@@ -189,4 +261,6 @@ std::array<SavedState, PROCESSOR_NUM> state_saved_idxs;
 int phv_num_for_flow_id;
 array<int, 4> phvs_for_flow_id;
 
-#endif //RPISA_SW_DATAPLANE_CONFIG_H+
+std::array<std::array<int, MAX_PARALLEL_MATCH_NUM>, PROCESSOR_NUM> salu_id; 
+
+#endif // RPISA_SW_DATAPLANE_CONFIG_H+

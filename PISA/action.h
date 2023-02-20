@@ -28,6 +28,11 @@ struct GetAction : public Logic {
         std::array<bool, MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM> vliw_enabler = {false};
         int action_data_id_base = 0;
         for(int i = 0; i < matchTableConfig.match_table_num; i++) {
+
+            if(matchTableConfig.matchTables[i].type == 1){
+                vliw_enabler[salu_id[processor_id][i]] = true;
+            }
+
             if (!now.final_values[i].second) continue;
             // 0 ... 16 ... 32 ... 48 ... 64 ... 80 ... 96 ... 112 .. 128
             // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -69,6 +74,8 @@ struct GetAction : public Logic {
         next.hash_values = now.hash_values;
         next.gateway_guider = now.gateway_guider;
         next.match_table_guider = now.match_table_guider;
+        next.compare_result_for_salu = now.compare_result_for_salu;
+        next.obtained_value_for_salu = now.obtained_value_for_salu;
     }
 };
 
@@ -121,10 +128,6 @@ struct ExecuteAction : public Logic {
                 continue;
             }
             auto salu = SALUs[processor_id][i - MAX_PHV_CONTAINER_NUM];
-            auto left_value = salu.left_value;
-            auto operand1 = salu.operand1;
-            auto operand2 = salu.operand2;
-            std::array<int, 48> sram_ids = salu.sram_ids;
             execute_salu(salu, now, next);
         }
     }
@@ -384,6 +387,7 @@ struct ExecuteAction : public Logic {
             case SALUnit::Parameter::REG: {
                 return SRAMs[processor_id][salu.sram_ids[(now.hash_values[param.content.table_idx][0] >> 10)]]
                         .get(now.hash_values[param.content.table_idx][0] << 22 >> 22)[3];
+                break;
             }
             default: break;
         }

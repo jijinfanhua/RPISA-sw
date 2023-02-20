@@ -475,29 +475,33 @@ struct Compare : public Logic
         auto matchTableConfig = matchTableConfigs[processor_id];
 
         // only enable the stateful result; don't compare yet
-        if (now.backward_pkt)
-        {
-            for (int i = 0; i < matchTableConfig.match_table_num; i++)
-            {
-                for (int j = 0; j < num_of_stateful_tables[processor_id]; j++)
-                {
-
-                    if (i != stateful_table_ids[processor_id][j])
-                    {
-                        next.final_values[i].second = false;
-                    }
-                    else
-                    {
-                        next.final_values[i] = std::make_pair(now.obtained_values[stateful_table_ids[processor_id][j]][0], true);
-                        ;
-                    }
-                }
-            }
-            next.phv = now.phv;
-            next.gateway_guider = now.gateway_guider;
-            next.match_table_guider = now.match_table_guider;
-            return;
-        }
+        // if (now.backward_pkt)
+        // {
+        //     for (int i = 0; i < matchTableConfig.match_table_num; i++)
+        //     {
+        //         auto match_table = matchTableConfig.matchTables[i];
+        //         if (match_table.type == 1)
+        //         {
+        //             next.final_values[i] = std::make_pair(now.obtained_values[i][0], true);
+        //             for (int k = 0; k < match_table.key_width; k++)
+        //             {
+        //                 next.obtained_stateful_keys[i][k] = now.obtained_keys[i][0][k];
+        //             }
+        //             for (int k = 0; k < match_table.value_width; k++)
+        //             {
+        //                 next.obtained_stateful_values[i][k] = now.obtained_values[i][0][k];
+        //             }
+        //         }
+        //         else
+        //         {
+        //             continue;
+        //         }
+        //     }
+        //     next.phv = now.phv;
+        //     next.gateway_guider = now.gateway_guider;
+        //     next.match_table_guider = now.match_table_guider;
+        //     return;
+        // }
 
         for (int i = 0; i < matchTableConfig.match_table_num; i++)
         {
@@ -507,6 +511,21 @@ struct Compare : public Logic
                 continue;
             }
             auto match_table = matchTableConfig.matchTables[i];
+            if (match_table.type == 1)
+            {
+                // stateful table,  pass value to next stage
+                next.final_values[i] = std::make_pair(now.obtained_values[i][0], true);
+                int found_flag = 1;
+                for (int k = 0; k < match_table.key_width; k++){
+                    if(now.match_table_keys[i][k] != now.obtained_keys[i][0][0][k]){
+                        found_flag = 0;
+                    }
+                }
+                int saluid = salu_id[processor_id][i];
+                next.compare_result_for_salu[saluid] = found_flag;
+                next.obtained_value_for_salu[saluid] = now.obtained_values[i][0][0][3];
+                continue;
+            }
             int found_flag = 1;
             for (int j = 0; j < match_table.number_of_hash_ways; j++)
             {
@@ -535,6 +554,7 @@ struct Compare : public Logic
         next.hash_values = now.hash_values;
         next.gateway_guider = now.gateway_guider;
         next.match_table_guider = now.match_table_guider;
+        // newly added
     }
 };
 
