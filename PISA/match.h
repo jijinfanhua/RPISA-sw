@@ -5,7 +5,7 @@
 #ifndef RPISA_SW_MATCH_H
 #define RPISA_SW_MATCH_H
 
-#include "../PipeLine.h"
+#include "../pipeline.h"
 #include "../dataplane_config.h"
 
 struct GetKey : public Logic
@@ -240,6 +240,8 @@ struct GetHash : public Logic
             }
             else
             { // stateful table
+                // todo: normal hash, but save hash value in particular position into phv
+                // todo: translate 128 bit hash value into 64 bit, low 16 bit per 32 bit, save it into two particular phvs
                 u32 result = cal_stateful_hash(match_table_key, match_table.match_field_byte_len);
                 next.hash_values[i][0] = result;
                 next.match_table_keys[i] = match_table_key;
@@ -253,10 +255,10 @@ struct GetHash : public Logic
         next.gateway_guider = now.gateway_guider;
     }
 
-    static u32 cal_stateful_hash(const std::array<u32, 32> &match_table_key, int match_field_byte_len)
-    {
-        // todo: 用户定制 hash 算法
-    }
+    // static u32 cal_stateful_hash(const std::array<u32, 32> &match_table_key, int match_field_byte_len)
+    // {
+    //     // todo: 用户定制 hash 算法
+    // }
 
     static void cal_hash(int table_id, const std::array<u32, 32> &match_table_key, int match_field_byte_len,
                          int number_of_hash_ways, std::array<int, 4> hash_bit_per_way, int hash_bit_sum, HashRegister &next)
@@ -334,9 +336,11 @@ struct GetAddress : public Logic
 
                 int stateful_table_id = stateful_table_ids[processor_id][i];
                 auto match_table = matchTableConfig.matchTables[stateful_table_id];
+                // todo: hash value is 64 bit, translate it into b128, 16 in per 32 bit
                 auto hash_value = now.phv[match_table.hash_in_phv];
                 u32 start_index = (hash_value >> 10);
                 next.on_chip_addrs[stateful_table_id][0] = (hash_value << 22 >> 22); // u64
+                // todo: four ways
                 for (int k = 0; k < match_table.key_width; k++)
                 {
                     next.key_sram_columns[stateful_table_id][0][k] = match_table.key_sram_index_per_hash_way[0][start_index + k];
@@ -411,6 +415,7 @@ struct Matches : public Logic
 
                 int stateful_table_id = stateful_table_ids[processor_id][i];
                 auto match_table = matchTableConfigs[processor_id].matchTables[stateful_table_id];
+                // todo: four ways
                 for (int k = 0; k < match_table.value_width; k++)
                 {
                     next.obtained_values[stateful_table_id][0][k] = SRAMs[processor_id][now.value_sram_columns[stateful_table_id][0][k]]
@@ -473,6 +478,8 @@ struct Compare : public Logic
             return;
         }
         auto matchTableConfig = matchTableConfigs[processor_id];
+
+        // todo: 
 
         // only enable the stateful result; don't compare yet
         // if (now.backward_pkt)

@@ -38,21 +38,6 @@ using PHV = array<u32, HEADER_NUM>; // 这里8位，16位，32位都是使用u32
 
 using HeartBeat = array<bool, PROC_NUM>;
 
-struct Logic {
-
-    // 每一个Logic都应标识自己所在的processor id
-    int processor_id;
-
-    Logic(int processor_id) : processor_id(processor_id) {}
-
-    // 每一个Logic都应实现这个时序算法，在pipeline中找到自己应该操控的寄存器，
-    // now表示当前时钟的状态，通过对next中的寄存器赋值，来实现对下一个时钟的操作
-    // 说起来简单，但务必注意，所有的时序寄存器都在PipeLine的Register结构体中，与Logic是割离的
-    // Logic中不应存有任何与时序有关的Register的值，而只负责组合行为和必要配置
-    virtual void execute(const PipeLine& now, PipeLine& next) = 0;
-
-};
-
 
 // 这里分成不同的逻辑段来进行实现，他们都应继承Logic，具体的实现应该写在别的文件中
 struct GetKey   ;

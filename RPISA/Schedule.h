@@ -7,14 +7,41 @@
 
 #include "../pipeline.h"
 
-b128 get_flow_id(PHV phv)
+u64 u32_to_u64(u32 high, u32 low){
+    u64 high = high;
+    return (high << 32) + low;
+}
+
+u64 u16_array_to_u64 (std::array<u32, 4> input){
+    // input from high to low
+    u64 first16 = input[0] << 16 >> 16;
+    u64 second16 = input[1] << 16 >> 16;
+    u64 third16 = input[2] << 16 >> 16;
+    u64 fourth16 = input[3] << 16 >> 16;
+    return (first16 << 48) + (second16 << 32) + (third16 << 16) + fourth16;
+}
+
+std::array<u32, 4> u64_to_u16_array (u64 input){
+    std::array<u32, 4> output;
+    output[0] = input >> 48;
+    output[1] = input << 16 >> 48;
+    output[2] = input << 32 >> 48;
+    output[3] = input << 48 >> 48;
+    return output;
+}
+
+u64 get_flow_id(PHV phv)
 {
-    b128 flow_id;
-    for (int i = 0; i < phv_num_for_flow_id; i++)
-    {
-        flow_id[i] = phv[phvs_for_flow_id[i]];
+    // done: fetch flow id from two particular positions of phv
+    return u32_to_u64(phv[flow_id_in_phv[0]], phv[flow_id_in_phv[1]]);
+}
+
+std::array<u64, 4> get_write_addr(PHV phv, u32 read_proc_id){
+    std::array<u64, 4> output;
+    for(int i = 0; i < num_of_stateful_tables[read_proc_id]; i++){
+        output[i] = u32_to_u64(phv[phv_id_to_save_hash_value[read_proc_id][i][0]], phv[phv_id_to_save_hash_value[read_proc_id][i][1]]);
     }
-    return flow_id;
+    return output;
 }
 
 struct VerifyStateChange : public Logic
@@ -192,7 +219,8 @@ struct PIW : public Logic
             // build ringreg
             it.rr.ctrl = 0b00;
             it.rr.dst2 = it.rr.dst1;
-            it.rr.addr = get_flow_id(now.phv);
+            it.rr.write_addr = get_write_addr(now.phv, now_proc.read_proc_id);
+            it.rr.flow_addr = get_flow_id(now.phv);
             for (int i = 0; i < 16; i++)
             {
                 int tmp_idx = state_idx_in_phv[processor_id][i];
@@ -220,7 +248,8 @@ struct PIW : public Logic
         {
             it.rr.ctrl = 0b01;
             it.rr.dst2 = it.rr.dst1;
-            it.rr.addr = get_flow_id(now.phv);
+            it.rr.flow_addr = get_flow_id(now.phv);
+            it.rr.write_addr = get_write_addr(now.phv, now_proc.read_proc_id);
             it.rr.payload = transfer_from_phv_to_payload(now.phv); // todo: transform from phv(32bit*224) to payload(32bit * 128)
             it.gateway_guider = now.gateway_guider;
             it.match_table_guider = now.match_table_guider;
@@ -301,7 +330,6 @@ struct PIR : public Logic
         // pkt is blocked
         next.enable1 = false;
 
-        // table_id 指示了哪个表是带状态表，带状态表的hash value 只使用128位中的32位。
         auto table_id = stateful_table_ids[processor_id];
 
         auto flow_id = get_flow_id(now.phv);
@@ -498,7 +526,7 @@ struct RI : public Logic
             // 当目标processor的type为write时且与dst2相同时，该信号只能是cancel dirty
             if (riReg.ringReg.dst2 == proc_bitmap)
             {
-                piwReg.cd_addr = riReg.ringReg.addr;
+                piwReg.cd_addr = riReg.ringReg.flow_addr;
                 piwReg.cd_come = true;
                 // if left something, left to r2r; else: nothing
                 // cancel dirty被处理，如果有剩余的heartbeat则继续向下传
@@ -545,7 +573,6 @@ struct RI : public Logic
             // if ctrl == 0b11: get dst1 to pi_asyn, left to ro; ctrl = 0b11
             // else: get dst1 to pi_asyn, pi.ctrl = 0b11; left to ro
             int flag = 0;
-            // todo: it is not sure if need to pass enable; -> no
             RP2R_REG it{};
             if (riReg.ringReg.dst2 == proc_bitmap)
             { // the signal dst is this proc
@@ -553,7 +580,8 @@ struct RI : public Logic
                     proc_bitmap & riReg.ringReg.dst1,
                     riReg.ringReg.ctrl,
                     riReg.ringReg.dst2,
-                    riReg.ringReg.addr,
+                    riReg.ringReg.write_addr,
+                    riReg.ringReg.flow_addr,
                     riReg.ringReg.payload};
                 flag = 1; // bp, write to pi
                 if (riReg.ringReg.dst1 - proc_bitmap)
@@ -561,7 +589,6 @@ struct RI : public Logic
                     it.rr = {
                         riReg.ringReg.dst1 - proc_bitmap,
                         0b11,
-                        0,
                         0};
                     next_proc.r2r.push(it);
                 }
@@ -582,7 +609,6 @@ struct RI : public Logic
                             it.rr = {
                                 riReg.ringReg.dst1 - proc_bitmap,
                                 0b11,
-                                0,
                                 0};
                             next_proc.r2r.push(it);
                         }
@@ -592,7 +618,6 @@ struct RI : public Logic
                         it.rr = {
                             riReg.ringReg.dst1,
                             0b11,
-                            0,
                             0};
                         next_proc.r2r.push(it);
                     }
@@ -609,7 +634,8 @@ struct RI : public Logic
                             riReg.ringReg.dst1 - proc_bitmap,
                             riReg.ringReg.ctrl,
                             riReg.ringReg.dst2,
-                            riReg.ringReg.addr,
+                            riReg.ringReg.write_addr,
+                            riReg.ringReg.flow_addr,
                             riReg.ringReg.payload};
                     }
                     else
@@ -618,7 +644,8 @@ struct RI : public Logic
                             riReg.ringReg.dst1,
                             riReg.ringReg.ctrl,
                             riReg.ringReg.dst2,
-                            riReg.ringReg.addr,
+                            riReg.ringReg.write_addr,
+                            riReg.ringReg.flow_addr,
                             riReg.ringReg.payload};
                     }
 
@@ -677,7 +704,8 @@ struct RO : public Logic
                 r2r_reg.rr.dst1,
                 r2r_reg.rr.ctrl,
                 r2r_reg.rr.dst2,
-                r2r_reg.rr.addr,
+                r2r_reg.rr.write_addr,
+                r2r_reg.rr.flow_addr,
                 r2r_reg.rr.payload};
             if (riReg.ringReg.ctrl == 0b01)
             { // bp
@@ -693,7 +721,8 @@ struct RO : public Logic
             riReg.ringReg.dst1 = 0; // no hb
             riReg.ringReg.ctrl = p2r_reg.rr.ctrl;
             riReg.ringReg.dst2 = p2r_reg.rr.dst2;
-            riReg.ringReg.addr = p2r_reg.rr.addr;
+            riReg.ringReg.write_addr = p2r_reg.rr.write_addr;
+            riReg.ringReg.flow_addr = p2r_reg.rr.flow_addr;
             riReg.ringReg.payload = p2r_reg.rr.payload;
             next_proc.p2r.pop();
         }
@@ -711,7 +740,8 @@ struct RO : public Logic
                 riReg.ringReg.dst1 = r2r_reg.rr.dst1 | p2r_reg.rr.dst1;
                 riReg.ringReg.ctrl = p2r_reg.rr.ctrl;
                 riReg.ringReg.dst2 = p2r_reg.rr.dst2;
-                riReg.ringReg.addr = p2r_reg.rr.addr;
+                riReg.ringReg.write_addr = p2r_reg.rr.write_addr;
+                riReg.ringReg.flow_addr = p2r_reg.rr.flow_addr;
                 riReg.ringReg.payload = p2r_reg.rr.payload;
                 flag = 1;
                 next_proc.p2r.pop();
@@ -722,7 +752,8 @@ struct RO : public Logic
                 riReg.ringReg.dst1 = r2r_reg.rr.dst1 | p2r_reg.rr.dst1;
                 riReg.ringReg.ctrl = r2r_reg.rr.ctrl;
                 riReg.ringReg.dst2 = r2r_reg.rr.dst2;
-                riReg.ringReg.addr = r2r_reg.rr.addr;
+                riReg.ringReg.write_addr = r2r_reg.rr.write_addr;
+                riReg.ringReg.flow_addr = r2r_reg.rr.flow_addr;
                 riReg.ringReg.payload = r2r_reg.rr.payload;
                 flag = 0;
                 next_proc.p2r.pop();
@@ -793,7 +824,7 @@ struct PIR_asyn : public Logic
 
     void pi_asyn_second_cycle(const ProcessorState &now_proc, ProcessorState &next_proc, const PIRAsynRegister &now)
     {
-        b128 flow_id = now.ringReg.addr;
+        u64 flow_id = now.ringReg.flow_addr;
         switch (now.cam_search_res)
         {
         case BP_NOT_FOUND:
@@ -822,7 +853,6 @@ struct PIR_asyn : public Logic
             next_proc.rp2p[flow_info.r2p_last_pkt_idx] = pkt_info;
             next_proc.rp2p_pointer[flow_info.r2p_last_pkt_idx] = -1;
 
-            // todo: add this flow to wait_queue
             next_proc.wait_queue.push(flow_info);
 
             break;
@@ -833,7 +863,6 @@ struct PIR_asyn : public Logic
             // 2. store this pkt to the tail (get the flow's tail)
             // 3. update tail
             // 4. update pointer
-            // todo: at
             const flow_info_in_cam &flow_info = now_proc.dirty_cam.at(flow_id);
             flow_info_in_cam &next_flow_info = next_proc.dirty_cam[flow_id];
 
@@ -857,7 +886,6 @@ struct PIR_asyn : public Logic
 
             next_flow_info.left_pkt_num += 1;
 
-            // todo: update rp2p_tail; this is not a good update method
             next_proc.rp2p_tail = (now_proc.rp2p_tail + 1) % 128;
             break;
         }

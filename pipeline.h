@@ -7,9 +7,7 @@
 
 #include "PISA/Register/Register.h"
 #include "RPISA/Register/RRegister.h"
-#include "PISA/match.h"
-#include "PISA/action.h"
-#include "RPISA/Schedule.h"
+#include "defs.h"
 // 这里记录了所有的有关于时序的信息，包括buffer的状态，各种流水的走法等
 // 每一个Register应自己管理好自己所经营范围内的phv流水线
 
@@ -22,7 +20,8 @@ struct FlowInfo {
     std::array<int, 4> table_id;
 };
 struct WriteInfo {
-    b128 addr;
+    std::array<u64, 4> write_addr;
+    u64 flow_addr;
     std::array<u32, 128> state;
 };
 struct CDInfo { // cancel_dirty info
@@ -38,7 +37,7 @@ struct ProcessorState {
     u32 decrease_clk, increase_clk;
 //    bool clk_enable = false;
     // hash of four ways (32bit) -> flow info
-    std::unordered_map<b128, flow_info_in_cam> dirty_cam;
+    std::unordered_map<u64, flow_info_in_cam> dirty_cam;
     bool normal_pipe_pkt;
 
     std::array<FlowInfo, 128> rp2p;
@@ -98,6 +97,21 @@ struct PipeLine {
     // And god said, let here be processor, and here was processor.
     array<ProcessorRegister, PROC_NUM> processors;
     array<ProcessorState, PROC_NUM> proc_states;
+
+};
+
+struct Logic {
+
+    // 每一个Logic都应标识自己所在的processor id
+    int processor_id;
+
+    Logic(int processor_id) : processor_id(processor_id) {}
+
+    // 每一个Logic都应实现这个时序算法，在pipeline中找到自己应该操控的寄存器，
+    // now表示当前时钟的状态，通过对next中的寄存器赋值，来实现对下一个时钟的操作
+    // 说起来简单，但务必注意，所有的时序寄存器都在PipeLine的Register结构体中，与Logic是割离的
+    // Logic中不应存有任何与时序有关的Register的值，而只负责组合行为和必要配置
+    virtual void execute(const PipeLine& now, PipeLine& next) = 0;
 
 };
 

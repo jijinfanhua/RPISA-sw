@@ -6,7 +6,7 @@
 #define RPISA_SW_SWITCH_H
 
 #include "Parser.h"
-#include "../PipeLine.h"
+#include "../pipeline.h"
 #include "../PISA/match.h"
 #include "../dataplane_config.h"
 #include "../PISA/action.h"

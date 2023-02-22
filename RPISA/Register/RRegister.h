@@ -22,8 +22,9 @@ struct RingRegister {
     u32 dst1;
     u32 ctrl;
     u32 dst2;
-    // todo: 在配置中加入指定哪个phv id的内容作为addr
-    b128 addr;
+    // done: 在配置中加入指定哪个phv id的内容作为addr
+    std::array<u64, 4> write_addr; // 用于写回的地址
+    u64 flow_addr; // 流地址
     std::array<u32, 128> payload;
 };
 
@@ -33,7 +34,7 @@ struct flow_info_in_cam {
     int r2p_last_pkt_idx;
     int p2p_first_pkt_idx;
     int p2p_last_pkt_idx;
-    b128 flow_addr;
+    u64 flow_addr;
     bool lazy = false;
 
     u32 left_pkt_num;
@@ -88,7 +89,7 @@ struct PIWRegister : public RingBaseRegister {
 //    bool normal_pipe_schedule;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
 
-    b128 cd_addr;
+    u64 cd_addr;
     bool cd_come = false;
 
     flow_info_in_cam flow_info;

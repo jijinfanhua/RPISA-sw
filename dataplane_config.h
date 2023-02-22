@@ -105,7 +105,7 @@ struct MatchTableConfig
     struct MatchTable
     {
         int type;        // 0: stateless table; 1: stateful table;
-        int hash_in_phv; // id of 32 bit container
+        array<int, 2> hash_in_phv; // two ids of 32 bit container
         int depth;
         int key_width;
         int value_width;
@@ -223,8 +223,6 @@ struct SALUnit
             int phv_id;
             int action_data_id;
             int table_idx; 
-            int key_table_id;
-            int value_table_id;
         } content;
     } left_value, operand1, operand2, operand3;
 
@@ -258,8 +256,11 @@ struct SavedState
 };
 std::array<SavedState, PROCESSOR_NUM> state_saved_idxs;
 
-int phv_num_for_flow_id;
-array<int, 4> phvs_for_flow_id;
+// every processor has up to 4 stateful tables, every stateful table have 64 bit hash value, need to be saved in two phvs
+std::array<std::array<std::array<u32, 2>, 4> ,PROCESSOR_NUM> phv_id_to_save_hash_value;
+
+// two positions in phv for flow id; can use any of the hash result
+std::array<int, 2> flow_id_in_phv;
 
 std::array<std::array<int, MAX_PARALLEL_MATCH_NUM>, PROCESSOR_NUM> salu_id; 
 
