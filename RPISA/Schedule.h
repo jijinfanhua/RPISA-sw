@@ -7,28 +7,7 @@
 
 #include "../pipeline.h"
 
-u64 u32_to_u64(u32 high, u32 low){
-    u64 high = high;
-    return (high << 32) + low;
-}
 
-u64 u16_array_to_u64 (std::array<u32, 4> input){
-    // input from high to low
-    u64 first16 = input[0] << 16 >> 16;
-    u64 second16 = input[1] << 16 >> 16;
-    u64 third16 = input[2] << 16 >> 16;
-    u64 fourth16 = input[3] << 16 >> 16;
-    return (first16 << 48) + (second16 << 32) + (third16 << 16) + fourth16;
-}
-
-std::array<u32, 4> u64_to_u16_array (u64 input){
-    std::array<u32, 4> output;
-    output[0] = input >> 48;
-    output[1] = input << 16 >> 48;
-    output[2] = input << 32 >> 48;
-    output[3] = input << 48 >> 48;
-    return output;
-}
 
 u64 get_flow_id(PHV phv)
 {
@@ -36,9 +15,11 @@ u64 get_flow_id(PHV phv)
     return u32_to_u64(phv[flow_id_in_phv[0]], phv[flow_id_in_phv[1]]);
 }
 
-std::array<u64, 4> get_write_addr(PHV phv, u32 read_proc_id){
+std::array<u64, 4> get_write_addr(PHV phv, u32 read_proc_id)
+{
     std::array<u64, 4> output;
-    for(int i = 0; i < num_of_stateful_tables[read_proc_id]; i++){
+    for (int i = 0; i < num_of_stateful_tables[read_proc_id]; i++)
+    {
         output[i] = u32_to_u64(phv[phv_id_to_save_hash_value[read_proc_id][i][0]], phv[phv_id_to_save_hash_value[read_proc_id][i][1]]);
     }
     return output;
@@ -947,38 +928,70 @@ struct PIR_asyn : public Logic
     // write信号到来之后立刻修改状态
     void handle_write(const ProcessorState &now_proc, ProcessorState &next_proc, PIRAsynRegister &next)
     {
+        //
         auto write = now_proc.write_stash.front();
         auto state = write.state;
 
-        // Write State to the State table
-        auto table_id = stateful_table_ids[processor_id];
-        for (int i = 0; i < phv_num_for_flow_id; i++)
-        {
-            for (int j = 0; j < num_of_stateful_tables[processor_id]; j++)
-            {
-                auto match_table = matchTableConfigs[processor_id].matchTables[table_id[j]];
-                if (match_table.hash_in_phv == phvs_for_flow_id[i])
-                {
+        int offset = 0;
 
-                    u32 start_index = (write.addr[j] >> 10) * match_table.value_width;
-                    u64 on_chip_addr = write.addr[j] << 22 >> 22;
-                    for (int i = 0; i < match_table.value_width; i++)
-                    {
-                        SRAMs[processor_id][match_table.value_sram_index_per_hash_way[0][start_index + i]]
-                            .set(int(on_chip_addr), {state[i * 4], state[i * 4 + 1], state[i * 4 + 2], state[i * 4 + 3]});
-                    }
-                }
-                else
+        // Write State to the State table
+        for (int i = 0; i < state_saved_idxs[processor_id].state_num; i++)
+        {
+            // every stateful table
+            // get value to write
+            b128 value;
+            for (int j = 0; j < state_saved_idxs[processor_id].state_lengths[i]; j++)
+            {
+                // every 32 bit of state
+                value[j] = state[offset + j];
+            }
+
+            // get hash to find addr
+            u64 hash_value = write.write_addr[i];
+            b128 hash_values = u64_to_u16_array(hash_value);
+
+            auto match_table = matchTableConfigs[processor_id].matchTables[stateful_table_ids[processor_id][i]];
+
+            bool found_flag = false;
+
+            for (int j = 0; j < match_table.number_of_hash_ways; j++)
+            {
+                if(found_flag) continue;
+                // translate from hash to addr
+                u32 start_key_index = (hash_values[j] >> 10) * match_table.key_width;
+                u32 start_value_index = (hash_values[j] >> 10) * match_table.value_width;
+                auto on_chip_addr = (hash_values[j] << 22 >> 22);
+                std::array<int, 8> key_sram_columns;
+                std::array<int, 8> value_sram_columns;
+                std::array<b128, 8> obtained_key;
+
+                for (int k = 0; k < match_table.key_width; k++)
                 {
-                    continue;
+                    // in fact, key_width & value_width here must be 1
+                    key_sram_columns[k] = match_table.key_sram_index_per_hash_way[j][start_key_index + k];
+                    obtained_key[k] = SRAMs[processor_id][key_sram_columns[k]].get(on_chip_addr);
+                }
+                for (int k = 0; k < match_table.value_width; k++)
+                {
+                    value_sram_columns[k] = match_table.value_sram_index_per_hash_way[j][start_value_index + k];
+                }
+
+                // compare key & flow_id (here use flow_id as identifier of a match key)
+                if(u32_to_u64(obtained_key[0][2], obtained_key[0][3]) == write.flow_addr){
+                    // key compare success
+                    found_flag = true;
+
+                    // write value to proper position
+                    SRAMs[processor_id][value_sram_columns[0]].set(int(on_chip_addr), value);
                 }
             }
+
+            offset += state_saved_idxs[processor_id].state_lengths[i];
         }
 
         auto flow_cam = now_proc.dirty_cam;
-        if (flow_cam.find(write.addr) == flow_cam.end())
+        if (flow_cam.find(write.flow_addr) == flow_cam.end())
         {
-            //
             next.cam_search_res = WRITE_NOT_FOUND;
         }
         else
@@ -1092,7 +1105,6 @@ struct PIR_asyn : public Logic
             }
             else if (!now_proc.write_stash.empty())
             {
-                // 这里BP不需要push进r2p stash吗？？
                 FlowInfo it{
                     transfer_from_payload_to_phv(now.ringReg.payload),
                     now.gateway_guider,
@@ -1113,14 +1125,16 @@ struct PIR_asyn : public Logic
             if (now_proc.normal_pipe_pkt)
             {
                 WriteInfo it{};
-                it.addr = now.ringReg.addr;
+                it.write_addr = now.ringReg.write_addr;
+                it.flow_addr = now.ringReg.flow_addr;
                 it.state = now.ringReg.payload;
                 next_proc.write_stash.push(it);
             }
             else
             {
                 WriteInfo it{};
-                it.addr = now.ringReg.addr;
+                it.write_addr = now.ringReg.write_addr;
+                it.flow_addr = now.ringReg.flow_addr;
                 it.state = now.ringReg.payload;
                 next_proc.write_stash.push(it);
 
@@ -1172,7 +1186,7 @@ struct PIR_asyn : public Logic
                 flow_info_in_cam next_schedule_flow = next_proc.wait_queue_head;
 
                 // caution: send cancel_dirty
-                b128 flow_addr = wait_flow.flow_addr;
+                u64 flow_addr = wait_flow.flow_addr;
                 RP2R_REG it = {
                     0,
                     0b10,

@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "*.m": "matlab",
+        "**/*.html": "html",
+        "**/templates/**/*.html": "django-html",
         "array": "cpp",
         "vector": "cpp",
         "algorithm": "cpp",
@@ -48,6 +50,11 @@
         "xtree": "cpp",
         "xutility": "cpp",
         "cctype": "cpp",
-        "string": "cpp"
+        "string": "cpp",
+        "atomic": "cpp",
+        "bit": "cpp",
+        "clocale": "cpp",
+        "compare": "cpp",
+        "ctime": "cpp"
     }
 }

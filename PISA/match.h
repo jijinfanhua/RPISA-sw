@@ -225,28 +225,46 @@ struct GetHash : public Logic
         auto matchTableConfig = matchTableConfigs[processor_id];
         for (int i = 0; i < matchTableConfig.match_table_num; i++)
         {
+            // operate stateless table
             auto match_table = matchTableConfig.matchTables[i];
             std::array<u32, 32> match_table_key{};
-            // todo: need to modify to 8bit, 16bit and 32bit
             for (int j = 0; j < match_table.match_field_byte_len; j++)
             {
                 match_table_key[j] = now.key[match_table.match_field_byte_ids[j]];
             }
             if (match_table.type == 0)
-            { // stateless table
+            {
                 cal_hash(i, match_table_key, match_table.match_field_byte_len, match_table.number_of_hash_ways,
                          match_table.hash_bit_per_way, match_table.hash_bit_sum, next);
                 next.match_table_keys[i] = match_table_key;
             }
             else
-            { // stateful table
-                // todo: normal hash, but save hash value in particular position into phv
-                // todo: translate 128 bit hash value into 64 bit, low 16 bit per 32 bit, save it into two particular phvs
-                u32 result = cal_stateful_hash(match_table_key, match_table.match_field_byte_len);
-                next.hash_values[i][0] = result;
-                next.match_table_keys[i] = match_table_key;
-                phv[match_table.hash_in_phv] = result;
+            {
+                continue;
             }
+        }
+
+        for (int i = 0; i < num_of_stateful_tables[processor_id]; i++)
+        {
+            // operate stateful table
+            auto match_table = matchTableConfig.matchTables[stateful_table_ids[processor_id][i]];
+            std::array<u32, 32> match_table_key{};
+            for (int j = 0; j < match_table.match_field_byte_len; j++)
+            {
+                match_table_key[j] = now.key[match_table.match_field_byte_ids[j]];
+            }
+            // done: normal hash, but save hash value in particular position into phv
+            // done: translate 128 bit hash value into 64 bit, low 16 bit per 32 bit, save it into two particular phvs
+            cal_hash(i, match_table_key, match_table.match_field_byte_len, match_table.number_of_hash_ways,
+                     match_table.hash_bit_per_way, match_table.hash_bit_sum, next);
+            b128 hash_values = next.hash_values[i];
+            u64 hash_value = u16_array_to_u64(hash_values);
+
+            next.match_table_keys[i] = match_table_key;
+            // high 32 bit
+            phv[phv_id_to_save_hash_value[processor_id][i][0]] = hash_value >> 32;
+            // low 32 bit
+            phv[phv_id_to_save_hash_value[processor_id][i][0]] = hash_value;
         }
 
         next.key = now.key;
@@ -254,11 +272,6 @@ struct GetHash : public Logic
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
     }
-
-    // static u32 cal_stateful_hash(const std::array<u32, 32> &match_table_key, int match_field_byte_len)
-    // {
-    //     // todo: 用户定制 hash 算法
-    // }
 
     static void cal_hash(int table_id, const std::array<u32, 32> &match_table_key, int match_field_byte_len,
                          int number_of_hash_ways, std::array<int, 4> hash_bit_per_way, int hash_bit_sum, HashRegister &next)
@@ -330,24 +343,29 @@ struct GetAddress : public Logic
 
         if (now.backward_pkt)
         {
-            // todo: only lookup the stateful table using hash_value
+            // done: only lookup the stateful table using hash_value
             for (int i = 0; i < num_of_stateful_tables[processor_id]; i++)
             {
 
                 int stateful_table_id = stateful_table_ids[processor_id][i];
                 auto match_table = matchTableConfig.matchTables[stateful_table_id];
-                // todo: hash value is 64 bit, translate it into b128, 16 in per 32 bit
-                auto hash_value = now.phv[match_table.hash_in_phv];
-                u32 start_index = (hash_value >> 10);
-                next.on_chip_addrs[stateful_table_id][0] = (hash_value << 22 >> 22); // u64
-                // todo: four ways
-                for (int k = 0; k < match_table.key_width; k++)
+                // done: hash value is 64 bit, translate it into b128, 16 in per 32 bit
+                u64 hash_value = u32_to_u64(phv_id_to_save_hash_value[processor_id][i][0], phv_id_to_save_hash_value[processor_id][i][1]);
+                b128 hash_values = u64_to_u16_array(hash_value);
+
+                for (int j = 0; j < match_table.number_of_hash_ways; j++)
                 {
-                    next.key_sram_columns[stateful_table_id][0][k] = match_table.key_sram_index_per_hash_way[0][start_index + k];
-                }
-                for (int k = 0; k < match_table.value_width; k++)
-                {
-                    next.value_sram_columns[stateful_table_id][0][k] = match_table.value_sram_index_per_hash_way[0][start_index + k];
+                    // done: up to four ways
+                    u32 start_index = (hash_values[j] >> 10);
+                    next.on_chip_addrs[stateful_table_id][j] = (hash_values[j] << 22 >> 22); // u64
+                    for (int k = 0; k < match_table.key_width; k++)
+                    {
+                        next.key_sram_columns[stateful_table_id][j][k] = match_table.key_sram_index_per_hash_way[j][start_index + k];
+                    }
+                    for (int k = 0; k < match_table.value_width; k++)
+                    {
+                        next.value_sram_columns[stateful_table_id][j][k] = match_table.value_sram_index_per_hash_way[j][start_index + k];
+                    }
                 }
             }
 
@@ -415,11 +433,14 @@ struct Matches : public Logic
 
                 int stateful_table_id = stateful_table_ids[processor_id][i];
                 auto match_table = matchTableConfigs[processor_id].matchTables[stateful_table_id];
-                // todo: four ways
-                for (int k = 0; k < match_table.value_width; k++)
+                for (int j = 0; j < match_table.number_of_hash_ways; j++)
                 {
-                    next.obtained_values[stateful_table_id][0][k] = SRAMs[processor_id][now.value_sram_columns[stateful_table_id][0][k]]
-                                                                        .get(now.on_chip_addrs[stateful_table_id][0]);
+                    // done: four ways
+                    for (int k = 0; k < match_table.value_width; k++)
+                    {
+                        next.obtained_values[stateful_table_id][j][k] = SRAMs[processor_id][now.value_sram_columns[stateful_table_id][j][k]]
+                                                                            .get(now.on_chip_addrs[stateful_table_id][j]);
+                    }
                 }
             }
 
@@ -479,7 +500,7 @@ struct Compare : public Logic
         }
         auto matchTableConfig = matchTableConfigs[processor_id];
 
-        // todo: 
+        // todo:
 
         // only enable the stateful result; don't compare yet
         // if (now.backward_pkt)
@@ -520,17 +541,28 @@ struct Compare : public Logic
             auto match_table = matchTableConfig.matchTables[i];
             if (match_table.type == 1)
             {
-                // stateful table,  pass value to next stage
-                next.final_values[i] = std::make_pair(now.obtained_values[i][0], true);
+                // stateful table, do not compare, pass key & value to next
+                // todo: four ways; fit the salu
                 int found_flag = 1;
-                for (int k = 0; k < match_table.key_width; k++){
-                    if(now.match_table_keys[i][k] != now.obtained_keys[i][0][0][k]){
+                b128 key_to_compare = u64_to_u16_array(u32_to_u64(now.phv[flow_id_in_phv[0]], flow_id_in_phv[1]));
+                for (int j = 0; j < match_table.number_of_hash_ways; j++)
+                {
+                    // key is only 128 bit long
+                    if (key_to_compare[0] != now.obtained_keys[i][j][0][0] || key_to_compare[1] != now.obtained_keys[i][j][0][1] || key_to_compare[2] != now.obtained_keys[i][j][0][2] || key_to_compare[3] != now.obtained_keys[i][j][0][3])
+                    {
                         found_flag = 0;
                     }
+
+                    if (found_flag == 1)
+                    {
+                        next.final_values[i] = std::make_pair(now.obtained_values[i][j], true);
+                        break;
+                    }
                 }
-                int saluid = salu_id[processor_id][i];
-                next.compare_result_for_salu[saluid] = found_flag;
-                next.obtained_value_for_salu[saluid] = now.obtained_values[i][0][0][3];
+                if (found_flag == 0)
+                {
+                    next.final_values[i].second = false;
+                }
                 continue;
             }
             int found_flag = 1;

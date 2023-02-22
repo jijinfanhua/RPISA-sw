@@ -66,16 +66,12 @@ struct CompareRegister : public BaseRegister {
 };
 
 struct GetActionRegister : public BaseRegister {
-    std::array<bool, 16> compare_result_for_salu;
-    std::array<u32, 16> obtained_value_for_salu;
     std::array<std::pair<std::array<b128, 8>, bool>, MAX_PARALLEL_MATCH_NUM> final_values;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
 };
 
 struct ExecuteActionRegister : public BaseRegister {
     std::array<ActionConfig::ActionData, 16> action_data_set;
-    std::array<bool, 16> compare_result_for_salu;
-    std::array<u32, 16> obtained_value_for_salu;
     std::array<bool, MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM> vliw_enabler;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
 };

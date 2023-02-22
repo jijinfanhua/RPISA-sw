@@ -228,7 +228,6 @@ struct SALUnit
 
     // caution: max 32bit, so the column num is 1
     std::array<int, 48> sram_ids;
-    int sram_depth;
 };
 std::array<SALUnit[MAX_SALU_NUM], PROCESSOR_NUM> SALUs;
 

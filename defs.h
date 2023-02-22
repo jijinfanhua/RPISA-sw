@@ -102,6 +102,32 @@ struct PipeLine          ;
 
 const int TimeOutSettingErrorException = 1;
 
+u64 u32_to_u64(u32 high, u32 low)
+{
+    u64 high = high;
+    return (high << 32) + low;
+}
+
+u64 u16_array_to_u64(std::array<u32, 4> input)
+{
+    // input from high to low
+    u64 first16 = input[0] << 16 >> 16;
+    u64 second16 = input[1] << 16 >> 16;
+    u64 third16 = input[2] << 16 >> 16;
+    u64 fourth16 = input[3] << 16 >> 16;
+    return (first16 << 48) + (second16 << 32) + (third16 << 16) + fourth16;
+}
+
+std::array<u32, 4> u64_to_u16_array(u64 input)
+{
+    std::array<u32, 4> output;
+    output[0] = input >> 48;
+    output[1] = input << 16 >> 48;
+    output[2] = input << 32 >> 48;
+    output[3] = input << 48 >> 48;
+    return output;
+}
+
 
 
 #include "util/BitArray.h"

@@ -74,8 +74,6 @@ struct GetAction : public Logic {
         next.hash_values = now.hash_values;
         next.gateway_guider = now.gateway_guider;
         next.match_table_guider = now.match_table_guider;
-        next.compare_result_for_salu = now.compare_result_for_salu;
-        next.obtained_value_for_salu = now.obtained_value_for_salu;
     }
 };
 
