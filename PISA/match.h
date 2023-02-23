@@ -556,12 +556,15 @@ struct Compare : public Logic
                     if (found_flag == 1)
                     {
                         next.final_values[i] = std::make_pair(now.obtained_values[i][j], true);
+                        // 将匹配的 hash way 保存
+                        next.stateful_matched_hash_way[i] = j;
                         break;
                     }
                 }
                 if (found_flag == 0)
                 {
                     next.final_values[i].second = false;
+                    next.stateful_matched_hash_way[i] = -1;
                 }
                 continue;
             }

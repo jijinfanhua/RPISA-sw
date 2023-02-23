@@ -27,10 +27,20 @@ struct GetAction : public Logic {
         auto matchTableConfig = matchTableConfigs[processor_id];
         std::array<bool, MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM> vliw_enabler = {false};
         int action_data_id_base = 0;
+        for(int i = 0; i < num_of_stateful_tables[processor_id]; i++){
+            // 处理带状态表
+            auto match_table_id = stateful_table_ids[processor_id][i];
+            vliw_enabler[salu_id[processor_id][match_table_id]] = true;
+            if(now.final_values[match_table_id].second){
+                next.salu_value_data_set[i] = now.final_values[match_table_id].first[0];
+            }
+            next.salu_compare_result[salu_id[processor_id][match_table_id]] = now.final_values[match_table_id].second;
+        }
+
         for(int i = 0; i < matchTableConfig.match_table_num; i++) {
 
             if(matchTableConfig.matchTables[i].type == 1){
-                vliw_enabler[salu_id[processor_id][i]] = true;
+                continue;
             }
 
             if (!now.final_values[i].second) continue;
@@ -74,6 +84,7 @@ struct GetAction : public Logic {
         next.hash_values = now.hash_values;
         next.gateway_guider = now.gateway_guider;
         next.match_table_guider = now.match_table_guider;
+        next.stateful_matched_hash_way = now.stateful_matched_hash_way;
     }
 };
 
@@ -130,35 +141,46 @@ struct ExecuteAction : public Logic {
         }
     }
 
+    void salu_write(u32 value_to_write, SALUnit::Parameter to_write, int processor_id, const ExecuteActionRegister& now, VerifyStateChangeRegister& next){
+        if(to_write.type == SALUnit::Parameter::Type::REG){
+            auto table_value_idx = to_write.content.table_value_idx;
+            auto table_id = stateful_table_ids[processor_id][table_value_idx.first];
+            auto match_table = matchTableConfigs[processor_id].matchTables[table_id];
+            auto hash_value = now.hash_values[table_id][now.stateful_matched_hash_way[table_id]];
+            auto sram_id = match_table.value_sram_index_per_hash_way[now.stateful_matched_hash_way[table_id]][hash_value >> 10];
+            b128 value = SRAMs[processor_id][sram_id].get(hash_value << 22 >> 22);
+            value[table_value_idx.second] = value_to_write;
+            SRAMs[processor_id][sram_id].set(hash_value << 22 >> 22, value);
+        }
+        else if(to_write.type == SALUnit::Parameter::Type::HEADER){
+            next.phv[to_write.content.phv_id] = value_to_write;
+        }
+    }
+
     // todo: wait to finish    SALUnit::Parameter &left_value, SALUnit::Parameter &operand1, SALUnit::Parameter &operand2
-    void execute_salu(SALUnit & salu, const ExecuteActionRegister &now, VerifyStateChangeRegister & next) {
+    u32 execute_salu(SALUnit & salu, const ExecuteActionRegister &now, VerifyStateChangeRegister & next) {
         switch (salu.op) {
             case SALUnit::READ: {
                 auto left_value = salu.left_value;
                 auto operand1 = salu.operand1;
                 // the stateful table index; >> to get the "cs"
                 // | processor_id | -- | cs | -- | on-chip address |
-                auto return_value = SRAMs[processor_id][salu.sram_ids[(now.hash_values[operand1.content.table_idx][0] >> 10)]]
-                        .get(now.hash_values[operand1.content.table_idx][0] << 22 >> 22);
-                // 0 ... 16 ... 32 ... 48 ... 64 ... 80 ... 96 ... 112 .. 128
-                // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                // |             |             |             |  reg_value  |
-                // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                //                                           high           low
-                u32 reg_value = return_value[3];
-                next.phv[left_value.content.phv_id] = reg_value;
+                u32 read_value = now.salu_value_data_set[operand1.content.table_value_idx.first][operand1.content.table_value_idx.second];
+
+                next.phv[left_value.content.phv_id] = read_value;
                 if (now.phv[left_value.content.phv_id] != next.phv[left_value.content.phv_id]) {
                     next.phv_changed_tags[left_value.content.phv_id] = true;
                 }
-                break;
+
+                return read_value;
             }
             case SALUnit::WRITE: {
                 auto left_value = salu.left_value;
-                u32 return_value = get_param_value(salu, left_value, now);
+                u32 write_value = get_param_value(salu, left_value, now);
                 auto operand1 = salu.operand1;
-                SRAMs[processor_id][salu.sram_ids[(now.hash_values[operand1.content.table_idx][0] >> 10)]]
-                    .set(now.hash_values[operand1.content.table_idx][0] << 22 >> 22, {0, 0, 0, return_value});
-                break;
+                // todo: 传hash way进来，先读在修改最后写
+                salu_write(write_value, operand1, processor_id, now, next);                
+                return 0;
             }
             case SALUnit::RAW: {
                 auto left_value = salu.left_value;
@@ -167,9 +189,10 @@ struct ExecuteAction : public Logic {
                 auto operand1 = salu.operand1;
                 // header, metadata or constant value
                 u32 return_value = get_param_value(salu, operand1, now);
-                SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                        .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value});
-                break;
+
+                salu_write(left_return_value + return_value, left_value, processor_id, now, next);
+
+                return left_return_value;
             }
             case SALUnit::PRAW:{
                 auto left_value = salu.left_value;
@@ -182,51 +205,52 @@ struct ExecuteAction : public Logic {
                 // header, metadata or constant value
                 u32 return_value2 = get_param_value(salu, operand2, now);
                 switch (left_value.if_type) {
+                    case SALUnit::Parameter::COMPARE_EQ: {
+                        if(now.salu_compare_result[salu.salu_id]){
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
+                        }
+                        break;
+                    }
+
                     case SALUnit::Parameter::EQ: {
                         if (left_return_value == return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
                         }
                         break;
                     }
                     case SALUnit::Parameter::NEQ: {
                         if (left_return_value != return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
                         }
                         break;
                     }
                     case SALUnit::Parameter::GT: {
                         if (left_return_value > return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
                         }
                         break;
                     }
                     case SALUnit::Parameter::LT: {
                         if (left_return_value < return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
                         }
                         break;
                     }
                     case SALUnit::Parameter::GTE: {
                         if (left_return_value >= return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
                         }
                         break;
                     }
                     case SALUnit::Parameter::LTE: {
                         if (left_return_value <= return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
                         }
                         break;
                     }
                     default: break;
                 }
-                break;
+                return left_return_value + return_value2;
             }
             case SALUnit::SUB: {
                 auto left_value = salu.left_value;
@@ -239,51 +263,52 @@ struct ExecuteAction : public Logic {
                 // header, metadata or constant value
                 u32 return_value2 = get_param_value(salu, operand2, now);
                 switch (left_value.if_type) {
+                    case SALUnit::Parameter::COMPARE_EQ: {
+                        if(now.salu_compare_result[salu.salu_id]){
+                            salu_write(left_return_value - return_value2, left_value, processor_id, now, next);
+                        }
+                        break;
+                    }
+
                     case SALUnit::Parameter::EQ: {
                         if (left_return_value == return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value - return_value2});
+                            salu_write(left_return_value - return_value2, left_value, processor_id, now, next);
                         }
                         break;
                     }
                     case SALUnit::Parameter::NEQ: {
                         if (left_return_value != return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value - return_value2});
+                            salu_write(left_return_value - return_value2, left_value, processor_id, now, next);
                         }
                         break;
                     }
                     case SALUnit::Parameter::GT: {
                         if (left_return_value > return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value - return_value2});
+                            salu_write(left_return_value - return_value2, left_value, processor_id, now, next);
                         }
                         break;
                     }
                     case SALUnit::Parameter::LT: {
                         if (left_return_value < return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value - return_value2});
+                            salu_write(left_return_value - return_value2, left_value, processor_id, now, next);
                         }
                         break;
                     }
                     case SALUnit::Parameter::GTE: {
                         if (left_return_value >= return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value - return_value2});
+                            salu_write(left_return_value - return_value2, left_value, processor_id, now, next);
                         }
                         break;
                     }
                     case SALUnit::Parameter::LTE: {
                         if (left_return_value <= return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(int(now.hash_values[left_value.content.table_idx][0] << 22 >> 22), {0, 0, 0, left_return_value - return_value2});
+                            salu_write(left_return_value - return_value2, left_value, processor_id, now, next);
                         }
                         break;
                     }
                     default: break;
                 }
-                break;
+                return left_return_value - return_value2;
             }
             case SALUnit::IfElseRAW: {
                 auto left_value = salu.left_value;
@@ -299,63 +324,74 @@ struct ExecuteAction : public Logic {
                 // header, metadata or constant value
                 u32 return_value3 = get_param_value(salu, operand3, now);
                 switch (left_value.if_type) {
+                    case SALUnit::Parameter::COMPARE_EQ: {
+                        if (now.salu_compare_result[salu.salu_id]){
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
+                                    return 0;
+                        } else {
+                            salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
+                                    return left_return_value + return_value3;
+                        }
+                        break;
+                    }
+
                     case SALUnit::Parameter::EQ: {
                         if (left_return_value == return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
+                                    return 0;
                         } else {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value3});
+                            salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
+                                    return left_return_value + return_value3;
                         }
                         break;
                     }
                     case SALUnit::Parameter::NEQ: {
                         if (left_return_value != return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
+                                    return 0;
                         } else {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value3});
+                            salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
+                                    return left_return_value + return_value3;
                         }
                         break;
                     }
                     case SALUnit::Parameter::GT: {
                         if (left_return_value > return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
+                                    return 0;
                         } else {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value3});
+                            salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
+                                    return left_return_value + return_value3;
                         }
                         break;
                     }
                     case SALUnit::Parameter::LT: {
                         if (left_return_value < return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
+                                    return 0;
                         } else {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value3});
+                            salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
+                                    return left_return_value + return_value3;
                         }
                         break;
                     }
                     case SALUnit::Parameter::GTE: {
                         if (left_return_value >= return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
+                                    return 0;
                         } else {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value3});
+                            salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
+                                    return left_return_value + return_value3;
                         }
                         break;
                     }
                     case SALUnit::Parameter::LTE: {
                         if (left_return_value <= return_value1) {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value2});
+                            salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
+                                    return 0;
                         } else {
-                            SRAMs[processor_id][salu.sram_ids[(now.hash_values[left_value.content.table_idx][0] >> 10)]]
-                                    .set(now.hash_values[left_value.content.table_idx][0] << 22 >> 22, {0, 0, 0, left_return_value + return_value3});
+                            salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
+                                    return left_return_value + return_value3;
                         }
                         break;
                     }
@@ -383,8 +419,7 @@ struct ExecuteAction : public Logic {
                 break;
             }
             case SALUnit::Parameter::REG: {
-                return SRAMs[processor_id][salu.sram_ids[(now.hash_values[param.content.table_idx][0] >> 10)]]
-                        .get(now.hash_values[param.content.table_idx][0] << 22 >> 22)[3];
+                return now.salu_value_data_set[param.content.table_value_idx.first][param.content.table_value_idx.second];
                 break;
             }
             default: break;

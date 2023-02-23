@@ -210,6 +210,7 @@ struct SALUnit
         } type;
         enum IfType
         {
+            COMPARE_EQ,
             EQ,
             NEQ,
             GT,
@@ -222,9 +223,10 @@ struct SALUnit
             uint32_t value;
             int phv_id;
             int action_data_id;
-            int table_idx; 
+            // 使用第几个带状态表的value
+            std::pair<int, int> table_value_idx; 
         } content;
-    } left_value, operand1, operand2, operand3;
+    } left_value, operand1, operand2, operand3, return_value;
 
     // caution: max 32bit, so the column num is 1
     std::array<int, 48> sram_ids;
@@ -261,6 +263,7 @@ std::array<std::array<std::array<u32, 2>, 4> ,PROCESSOR_NUM> phv_id_to_save_hash
 // two positions in phv for flow id; can use any of the hash result
 std::array<int, 2> flow_id_in_phv;
 
+// 带状态表使用的salu序号
 std::array<std::array<int, MAX_PARALLEL_MATCH_NUM>, PROCESSOR_NUM> salu_id; 
 
 #endif // RPISA_SW_DATAPLANE_CONFIG_H+
