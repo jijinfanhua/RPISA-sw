@@ -323,7 +323,7 @@ struct Switch
         config.depth = 1;
         config.key_width = 1;
         config.value_width = 1;
-        config.hash_in_phv = 166;
+//        config.hash_in_phv = 166;
         config.match_field_byte_len = 13;
         config.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
         config.number_of_hash_ways = 1;
@@ -333,12 +333,12 @@ struct Switch
         config.key_sram_index_per_hash_way = {0,1,2,3};
         config.value_sram_index_per_hash_way = {4,5,6,7};
 
-        auto& config = proc0.matchTableConfig.matchTables[1];
+        config = proc0.matchTableConfig.matchTables[1];
         config.type = 1;
         config.depth = 4;
         config.key_width = 1;
         config.value_width = 1;
-        config.hash_in_phv = 167;
+//        config.hash_in_phv = 167;
         config.match_field_byte_len = 13;
         config.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
         config.number_of_hash_ways = 1;
@@ -352,7 +352,7 @@ struct Switch
         config.depth = 4;
         config.key_width = 1;
         config.value_width = 1;
-        config.hash_in_phv = 166;
+//        config.hash_in_phv = 166;
         config.match_field_byte_len = 13;
         config.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
         config.number_of_hash_ways = 1;

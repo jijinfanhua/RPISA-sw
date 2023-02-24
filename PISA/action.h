@@ -74,7 +74,7 @@ struct GetAction : public Logic {
             }
             action_data_id_base += para_num;
 
-            // "or" all of the actions' ALU enabler
+            // "or" all the actions' ALU enabler
             for(int k = 0 ; k < MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM; k++) {
                 vliw_enabler[k] = vliw_enabler[k] | actionConfigs[processor_id].actions[action_id].vliw_enabler[k];
             }
@@ -131,25 +131,26 @@ struct ExecuteAction : public Logic {
             execute_alu(i, op, operand1, operand2, now, next);
         }
 
-        // todo: execute stateful action
+        // done: execute stateful action
         for(int i = MAX_PHV_CONTAINER_NUM ; i < MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM; i++) {
             if (!now.vliw_enabler[i]) {
                 continue;
             }
             auto salu = SALUs[processor_id][i - MAX_PHV_CONTAINER_NUM];
-            execute_salu(salu, now, next);
+            auto return_value = execute_salu(salu, now, next);
+            salu_write(return_value, salu.return_value, processor_id, now, next);
         }
     }
 
     void salu_write(u32 value_to_write, SALUnit::Parameter to_write, int processor_id, const ExecuteActionRegister& now, VerifyStateChangeRegister& next){
         if(to_write.type == SALUnit::Parameter::Type::REG){
-            auto table_value_idx = to_write.content.table_value_idx;
-            auto table_id = stateful_table_ids[processor_id][table_value_idx.first];
+            auto table_idx = to_write.content.table_idx;
+            auto table_id = stateful_table_ids[processor_id][table_idx];
             auto match_table = matchTableConfigs[processor_id].matchTables[table_id];
             auto hash_value = now.hash_values[table_id][now.stateful_matched_hash_way[table_id]];
             auto sram_id = match_table.value_sram_index_per_hash_way[now.stateful_matched_hash_way[table_id]][hash_value >> 10];
             b128 value = SRAMs[processor_id][sram_id].get(hash_value << 22 >> 22);
-            value[table_value_idx.second] = value_to_write;
+            value[to_write.value_idx] = value_to_write;
             SRAMs[processor_id][sram_id].set(hash_value << 22 >> 22, value);
         }
         else if(to_write.type == SALUnit::Parameter::Type::HEADER){
@@ -165,7 +166,7 @@ struct ExecuteAction : public Logic {
                 auto operand1 = salu.operand1;
                 // the stateful table index; >> to get the "cs"
                 // | processor_id | -- | cs | -- | on-chip address |
-                u32 read_value = now.salu_value_data_set[operand1.content.table_value_idx.first][operand1.content.table_value_idx.second];
+                u32 read_value = now.salu_value_data_set[operand1.content.table_idx][operand1.value_idx];
 
                 next.phv[left_value.content.phv_id] = read_value;
                 if (now.phv[left_value.content.phv_id] != next.phv[left_value.content.phv_id]) {
@@ -419,7 +420,7 @@ struct ExecuteAction : public Logic {
                 break;
             }
             case SALUnit::Parameter::REG: {
-                return now.salu_value_data_set[param.content.table_value_idx.first][param.content.table_value_idx.second];
+                return now.salu_value_data_set[param.content.table_idx][param.value_idx];
                 break;
             }
             default: break;

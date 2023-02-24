@@ -104,8 +104,8 @@ const int TimeOutSettingErrorException = 1;
 
 u64 u32_to_u64(u32 high, u32 low)
 {
-    u64 high = high;
-    return (high << 32) + low;
+    u64 high_ = (u64)high;
+    return (high_ << 32) + low;
 }
 
 u64 u16_array_to_u64(std::array<u32, 4> input)

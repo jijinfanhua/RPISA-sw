@@ -164,6 +164,7 @@ struct Gateway : public Logic
             return tmp;
         }
         default:
+            return 0;
             break;
         }
     }

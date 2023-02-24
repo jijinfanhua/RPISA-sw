@@ -10,7 +10,7 @@ struct Field {
     int start, length;
 };
 using ParserEntry = vector<Field>;
-using Packet      = deque<std::byte>;
+using Packet      = deque<byte>;
 struct Node {
     struct FieldInfo {
         int phv_id;

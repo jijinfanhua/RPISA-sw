@@ -224,8 +224,9 @@ struct SALUnit
             int phv_id;
             int action_data_id;
             // 使用第几个带状态表的value
-            std::pair<int, int> table_value_idx; 
+            int table_idx;
         } content;
+        int value_idx;
     } left_value, operand1, operand2, operand3, return_value;
 
     // caution: max 32bit, so the column num is 1
