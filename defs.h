@@ -19,7 +19,7 @@ const int KEY_LENGTH = 1024;
 const int KEY_NUM = 32;
 const int VALUE_NUM = 4;
 const int HEADER_NUM = 224;
-const int PROC_NUM = 16;
+const int PROC_NUM = 12;
 const int BUFFER_SIZE = 32;
 const int READ_TABLE_NUM = 16;
 const int SRAM_NUM = 80;
@@ -31,9 +31,9 @@ const int LOG_SRAM_SIZE = 10;
 struct PipeLine;
 using u32 = unsigned int;
 using u64 = unsigned long long;
-using b1024 = array<u32, KEY_NUM>;
-using b128 = array<u32, VALUE_NUM>;
-using PHV = array<u32, HEADER_NUM>; // 这里8位，16位，32位都是使用u32存的，如果真实是8，那当他是8位的就好
+using b1024 = std::array<u32, KEY_NUM>;
+using b128 = std::array<u32, VALUE_NUM>;
+using PHV = std::array<u32, HEADER_NUM>; // 这里8位，16位，32位都是使用u32存的，如果真实是8，那当他是8位的就好
 
 
 using HeartBeat = array<bool, PROC_NUM>;
@@ -60,33 +60,8 @@ struct PIR_asyn;
 
 struct SRAM;
 
-/**
- * Buffer这里我打算采用最简单的设计，即使用queue来标识buffer长度，然后通过
- * log函数，来实时监控各个buffer的长度状态，必要时可以输出csv文件供后续交给python做数据处理
- */
-template< class T>
-struct Buffer {
-    map<int, queue<T>> q;
-    void Log();
-    bool contain(int key) const {
-        return q.find(key) != q.end() && !q.at(key).empty();
-    }
-    void push(int key, const T& t) {
-        q[key].push(t);
-    }
-    T pop(int key) {
-        T res = q[key].front();
-        q[key].pop();
-        return res;
-    }
-
-};
 
 
-
-
-struct GetKeyRegister    ;
-struct PIRRegister       ;
 struct PORegister        ;
 struct P2RElementRegister;
 struct R2PElementRegister;
@@ -120,7 +95,7 @@ u64 u16_array_to_u64(std::array<u32, 4> input)
 
 std::array<u32, 4> u64_to_u16_array(u64 input)
 {
-    std::array<u32, 4> output;
+    std::array<u32, 4> output{};
     output[0] = input >> 48;
     output[1] = input << 16 >> 48;
     output[2] = input << 32 >> 48;

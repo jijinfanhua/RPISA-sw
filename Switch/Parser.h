@@ -5,6 +5,9 @@
 #ifndef RPISA_SW_PARSER_H
 #define RPISA_SW_PARSER_H
 
+#include <iostream>
+#include <bitset>
+#include <string>
 #include "../defs.h"
 struct Field {
     int start, length;
@@ -43,6 +46,29 @@ struct Parser {
         return {};
     }
 };
+
+Packet input_to_packet(const string& input){
+    // src ip 32 bit; dst ip 32 bit; src_addr 16 bit; dst addr 16 bit; is_tcp 1 bit
+    Packet packet;
+    bitset<97> bits(input);
+    string bitsStr = bits.to_string();
+
+    byte src_ip_1 = bitset<8>(bitsStr.substr(0, 8)).to_ulong();
+    byte src_ip_2 = bitset<8>(bitsStr.substr(8, 8)).to_ulong();
+    byte src_ip_3 = bitset<8>(bitsStr.substr(16, 8)).to_ulong();
+    byte src_ip_4 = bitset<8>(bitsStr.substr(24, 8)).to_ulong();
+
+    packet.push_back(src_ip_1);
+    packet.push_back(src_ip_2);
+    packet.push_back(src_ip_3);
+    packet.push_back(src_ip_4);
+
+//    uint32_t num2 = bitset<32>(bitsStr.substr(32, 32)).to_ulong();
+//    uint16_t num3 = bitset<16>(bitsStr.substr(64, 16)).to_ulong();
+//    uint16_t num4 = bitset<16>(bitsStr.substr(80, 16)).to_ulong();
+//    uint8_t num5 = bitset<1>(bitsStr.substr(96, 1)).to_ulong();
+
+}
 
 
 

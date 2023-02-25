@@ -31,10 +31,10 @@ struct VerifyStateChange : public Logic
 
     // state change verification is only executed in the WRITE processor,
     // so the state_changed variable will not be passed to next processor
-    void execute(const PipeLine &now, PipeLine &next) override
+    void execute(const PipeLine *now, PipeLine *next) override
     {
-        const VerifyStateChangeRegister &verifyReg = now.processors[processor_id].verifyState;
-        PIWRegister &piwReg = next.processors[processor_id].piw[0];
+        const VerifyStateChangeRegister &verifyReg = now->processors[processor_id].verifyState;
+        PIWRegister &piwReg = next->processors[processor_id].piw[0];
 
         piwReg.enable1 = verifyReg.enable1;
         if (!verifyReg.enable1)
@@ -65,9 +65,9 @@ struct PIW : public Logic
 {
     PIW(int id) : Logic(id) {}
 
-    void execute(const PipeLine &now, PipeLine &next) override
+    void execute(const PipeLine *now, PipeLine *next) override
     {
-        const PIWRegister &first_piwReg = now.processors[processor_id].piw[0];
+        const PIWRegister &first_piwReg = now->processors[processor_id].piw[0];
 
         // last processor & not write processor
         if (processor_id == PROCESSOR_NUM - 1 && proc_types[processor_id] != ProcType::WRITE)
@@ -81,7 +81,7 @@ struct PIW : public Logic
             // not the last -> only one cycle
             if (first_piwReg.enable1)
             {
-                BaseRegister &baseReg = next.processors[processor_id + 1].base;
+                BaseRegister &baseReg = next->processors[processor_id + 1].base;
                 baseReg.enable1 = first_piwReg.enable1;
                 baseReg.match_table_guider = first_piwReg.match_table_guider;
                 baseReg.gateway_guider = first_piwReg.gateway_guider;
@@ -93,18 +93,18 @@ struct PIW : public Logic
         }
         else if (proc_types[processor_id] == ProcType::WRITE)
         {
-            PIWRegister &second_piwReg = next.processors[processor_id].piw[1];
-            const ProcessorState &now_proc = now.proc_states[processor_id];
-            ProcessorState &next_proc = next.proc_states[processor_id]; // to send pkt/hb/write
+            PIWRegister &second_piwReg = next->processors[processor_id].piw[1];
+            const ProcessorState &now_proc = now->proc_states[processor_id];
+            ProcessorState &next_proc = next->proc_states[processor_id]; // to send pkt/hb/write
 
             piw_first_cycle(first_piwReg, second_piwReg, now_proc, next_proc);
 
-            const PIWRegister &cur_second_piwReg = now.processors[processor_id].piw[1];
+            const PIWRegister &cur_second_piwReg = now->processors[processor_id].piw[1];
 
             // second cycle
             if (processor_id != PROCESSOR_NUM - 1)
             {
-                BaseRegister &baseReg = next.processors[processor_id + 1].base;
+                BaseRegister &baseReg = next->processors[processor_id + 1].base;
                 handle_piw_write(cur_second_piwReg, now_proc, next_proc);
                 if (!cur_second_piwReg.pkt_backward && cur_second_piwReg.enable1)
                 {
@@ -274,16 +274,16 @@ struct PIR : public Logic
 
     PIR(int id) : Logic(id) {}
 
-    void execute(const PipeLine &now, PipeLine &next) override
+    void execute(const PipeLine *now, PipeLine *next) override
     {
-        const PIRegister &piReg = now.processors[processor_id].pi[0];
-        const PIRegister &old_nextPIReg = now.processors[processor_id].pi[1];
+        const PIRegister &piReg = now->processors[processor_id].pi[0];
+        const PIRegister &old_nextPIReg = now->processors[processor_id].pi[1];
 
-        PIRegister &nextPIReg = next.processors[processor_id].pi[1];
-        PORegister &poReg = next.processors[processor_id].po;
+        PIRegister &nextPIReg = next->processors[processor_id].pi[1];
+        PORegister &poReg = next->processors[processor_id].po;
 
-        const ProcessorState &now_proc = now.proc_states[processor_id]; // can only be read
-        ProcessorState &next_proc = next.proc_states[processor_id];     // can only be written
+        const ProcessorState &now_proc = now->proc_states[processor_id]; // can only be read
+        ProcessorState &next_proc = next->proc_states[processor_id];     // can only be written
         next_proc = now_proc;                                           // copy to next cycle
 
         pir_pipe_first_cycle(piReg, now_proc, next_proc, nextPIReg);
@@ -393,13 +393,13 @@ struct PO : public Logic
 {
     PO(int id) : Logic(id) {}
 
-    void execute(const PipeLine &now, PipeLine &next) override
+    void execute(const PipeLine *now, PipeLine *next) override
     {
-        const PORegister &poReg = now.processors[processor_id].po;
-        GetAddressRegister &getAddrReg = next.processors[processor_id].getAddress;
+        const PORegister &poReg = now->processors[processor_id].po;
+        GetAddressRegister &getAddrReg = next->processors[processor_id].getAddress;
 
-        const ProcessorState &now_proc = now.proc_states[processor_id];
-        ProcessorState &next_proc = next.proc_states[processor_id];
+        const ProcessorState &now_proc = now->proc_states[processor_id];
+        ProcessorState &next_proc = next->proc_states[processor_id];
 
         asyn_schedule(poReg, getAddrReg, now_proc, next_proc);
     }
@@ -466,7 +466,7 @@ struct RI : public Logic
 {
     RI(int id) : Logic(id) {}
 
-    void execute(const PipeLine &now, PipeLine &next) override
+    void execute(const PipeLine *now, PipeLine *next) override
     {
         //  -----------
         // |    PIR    |    <----- r2p <------|
@@ -477,16 +477,16 @@ struct RI : public Logic
         //  ----------                   ----------
         // |    RO    | <--- r2r <----- |    RI    |
         //  ----------                   ----------
-        const ProcessorState &now_proc = now.proc_states[processor_id];
-        ProcessorState &next_proc = next.proc_states[processor_id];
+        const ProcessorState &now_proc = now->proc_states[processor_id];
+        ProcessorState &next_proc = next->proc_states[processor_id];
         next_proc = now_proc;
 
-        const RIRegister &riReg = now.processors[processor_id].ri;
-        PIRAsynRegister &pi_asynReg = next.processors[processor_id].pi_asyn[0];
-        RORegister &roReg = next.processors[processor_id].ro;
+        const RIRegister &riReg = now->processors[processor_id].ri;
+        PIRAsynRegister &pi_asynReg = next->processors[processor_id].pi_asyn[0];
+        RORegister &roReg = next->processors[processor_id].ro;
 
         // add piw
-        PIWRegister &piwReg = next.processors[processor_id].piw[0];
+        PIWRegister &piwReg = next->processors[processor_id].piw[0];
 
         handle_ri_signal(riReg, pi_asynReg, piwReg, next_proc);
     }
@@ -656,16 +656,16 @@ struct RO : public Logic
 
     // manage p2r and r2r;
     // it is asynchronous logic
-    void execute(const PipeLine &now, PipeLine &next) override
+    void execute(const PipeLine *now, PipeLine *next) override
     {
-        const ProcessorState &now_proc = now.proc_states[processor_id];
-        ProcessorState &next_proc = next.proc_states[processor_id];
+        const ProcessorState &now_proc = now->proc_states[processor_id];
+        ProcessorState &next_proc = next->proc_states[processor_id];
         next_proc = now_proc;
 
         //        const RORegister & roReg = now.processors[processor_id].ro;
         // get front processor id to get the front ri
         int front_proc_id = (PROCESSOR_NUM + processor_id - 1) % PROCESSOR_NUM;
-        RIRegister &riReg = next.processors[front_proc_id].ri;
+        RIRegister &riReg = next->processors[front_proc_id].ri;
 
         handle_ro_queue(riReg, now_proc, next_proc);
     }
@@ -779,22 +779,22 @@ struct PIR_asyn : public Logic
     // 1. receive only hb
     // 2. receive write
     // 3. receive bp
-    void execute(const PipeLine &now, PipeLine &next) override
+    void execute(const PipeLine *now, PipeLine *next) override
     {
 
-        const ProcessorState &now_proc = now.proc_states[processor_id];
-        ProcessorState &next_proc = next.proc_states[processor_id];
+        const ProcessorState &now_proc = now->proc_states[processor_id];
+        ProcessorState &next_proc = next->proc_states[processor_id];
         next_proc = now_proc;
         // current cycle's PIAsyn-level pipe
-        const PIRAsynRegister &piAsynReg = now.processors[processor_id].pi_asyn[0];
+        const PIRAsynRegister &piAsynReg = now->processors[processor_id].pi_asyn[0];
         // next cycle's second PIAsyn-level pipe
-        PIRAsynRegister &secondPIAsynReg = next.processors[processor_id].pi_asyn[1];
+        PIRAsynRegister &secondPIAsynReg = next->processors[processor_id].pi_asyn[1];
         // current cycle's second PIAsyn-level pipe
-        const PIRAsynRegister &cur_secondPIAsynReg = now.processors[processor_id].pi_asyn[1];
+        const PIRAsynRegister &cur_secondPIAsynReg = now->processors[processor_id].pi_asyn[1];
 
         //        RORegister & roReg = next.processors[processor_id].ro;
         // next cycle's second PO-level pipe, to receive pkt from second PIAsyn-level
-        PORegister &poReg = next.processors[processor_id].po;
+        PORegister &poReg = next->processors[processor_id].po;
 
         u32 proc_bitmap = 1 << (PROCESSOR_NUM - processor_id - 1);
 

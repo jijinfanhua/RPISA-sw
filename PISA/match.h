@@ -12,10 +12,10 @@ struct GetKey : public Logic
 {
     GetKey(int id) : Logic(id) {}
 
-    void execute(const PipeLine &now, PipeLine &next) override
+    void execute(const PipeLine *now, PipeLine *next) override
     {
-        const GetKeysRegister &getKey = now.processors[processor_id].getKeys;
-        GatewayRegister &nextGateway = next.processors[processor_id].gateway[0];
+        const GetKeysRegister &getKey = now->processors[processor_id].getKeys;
+        GatewayRegister &nextGateway = next->processors[processor_id].gateway[0];
 
         getKeyFromPHV(getKey, nextGateway);
     }
@@ -60,12 +60,12 @@ struct Gateway : public Logic
 {
     Gateway(int id) : Logic(id) {}
 
-    void execute(const PipeLine &now, PipeLine &next) override
+    void execute(const PipeLine *now, PipeLine *next) override
     {
-        const GatewayRegister &gatewayReg = now.processors[processor_id].gateway[0];
-        GatewayRegister &nextPipeGatewayReg = next.processors[processor_id].gateway[1];
-        const GatewayRegister &nextGatewayReg = now.processors[processor_id].gateway[1];
-        HashRegister &hashReg = next.processors[processor_id].hashes[0];
+        const GatewayRegister &gatewayReg = now->processors[processor_id].gateway[0];
+        GatewayRegister &nextPipeGatewayReg = next->processors[processor_id].gateway[1];
+        const GatewayRegister &nextGatewayReg = now->processors[processor_id].gateway[1];
+        HashRegister &hashReg = next->processors[processor_id].hashes[0];
 
         gateway_first_cycle(gatewayReg, nextPipeGatewayReg);
         gateway_second_cycle(nextGatewayReg, hashReg);
@@ -192,19 +192,19 @@ struct GetHash : public Logic
 {
     GetHash(int id) : Logic(id) {}
 
-    void execute(const PipeLine &now, PipeLine &next) override
+    void execute(const PipeLine *now, PipeLine *next) override
     {
-        const HashRegister &hashReg = now.processors[processor_id].hashes[0];
-        HashRegister &nextHashReg = next.processors[processor_id].hashes[1];
-        PIRegister &piRegister = next.processors[processor_id].pi[0];
+        const HashRegister &hashReg = now->processors[processor_id].hashes[0];
+        HashRegister &nextHashReg = next->processors[processor_id].hashes[1];
+        PIRegister &piRegister = next->processors[processor_id].pi[0];
 
         get_hash(hashReg, nextHashReg);
         for (int i = 1; i < HASH_CYCLE - 1; i++)
         {
-            get_left_hash(now.processors[processor_id].hashes[i], next.processors[processor_id].hashes[i + 1]);
+            get_left_hash(now->processors[processor_id].hashes[i], next->processors[processor_id].hashes[i + 1]);
         }
 
-        const HashRegister &lastHashReg = now.processors[processor_id].hashes[HASH_CYCLE - 1];
+        const HashRegister &lastHashReg = now->processors[processor_id].hashes[HASH_CYCLE - 1];
 
         piRegister.enable1 = lastHashReg.enable1;
         if (!lastHashReg.enable1)
@@ -343,10 +343,10 @@ struct GetAddress : public Logic
 {
     GetAddress(int id) : Logic(id) {}
 
-    void execute(const PipeLine &now, PipeLine &next) override
+    void execute(const PipeLine *now, PipeLine *next) override
     {
-        const GetAddressRegister &getAddressRegister = now.processors[processor_id].getAddress;
-        MatchRegister &matchRegister = next.processors[processor_id].match;
+        const GetAddressRegister &getAddressRegister = now->processors[processor_id].getAddress;
+        MatchRegister &matchRegister = next->processors[processor_id].match;
 
         get_sram_columns(getAddressRegister, matchRegister);
     }
@@ -429,10 +429,10 @@ struct Matches : public Logic
 {
     Matches(int id) : Logic(id) {}
 
-    void execute(const PipeLine &now, PipeLine &next) override
+    void execute(const PipeLine *now, PipeLine *next) override
     {
-        const MatchRegister &matchRegister = now.processors[processor_id].match;
-        CompareRegister &compareRegister = next.processors[processor_id].compare;
+        const MatchRegister &matchRegister = now->processors[processor_id].match;
+        CompareRegister &compareRegister = next->processors[processor_id].compare;
 
         get_value_to_compare(matchRegister, compareRegister);
     }
@@ -502,10 +502,10 @@ struct Compare : public Logic
 {
     Compare(int id) : Logic(id) {}
 
-    void execute(const PipeLine &now, PipeLine &next) override
+    void execute(const PipeLine *now, PipeLine *next) override
     {
-        const CompareRegister &compareReg = now.processors[processor_id].compare;
-        GetActionRegister &getActionReg = next.processors[processor_id].getAction;
+        const CompareRegister &compareReg = now->processors[processor_id].compare;
+        GetActionRegister &getActionReg = next->processors[processor_id].getAction;
 
         get_action(compareReg, getActionReg);
     }

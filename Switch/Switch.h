@@ -20,14 +20,14 @@ using byte = unsigned char;
 struct ProcessorConfig
 {
 
-    GetKeyConfig getKeyConfig;
+    GetKeyConfig getKeyConfig{};
     GatewaysConfig gatewaysConfig;
-    MatchTableConfig matchTableConfig;
-    ActionConfig actionConfig;
+    MatchTableConfig matchTableConfig{};
+    ActionConfig actionConfig{};
 
     int processor_id;
 
-    ProcessorConfig(int id) : processor_id(id)
+    explicit ProcessorConfig(int id) : processor_id(id)
     {
         getKeyConfig.processor_id = id;
         getKeyConfig.used_container_num = 0;
@@ -229,12 +229,13 @@ struct Switch
 {
 
     Parser parser;
-    PipeLine pipeline;
+    PipeLine* pipeline;
     vector<unique_ptr<Logic>> logics;
     int proc_num_config;
 
     Switch()
     {
+        pipeline = new PipeLine();
         for (int i = 0; i < proc_num_config; i++)
         {
             // todo: Logic 需要一个虚析构函数，但现在不算什么大问题还
@@ -256,41 +257,40 @@ struct Switch
         }
     }
 
-    void GetInput(int interface, const Packet &packet, PipeLine &pipeline)
+    void GetInput(int interface, const Packet &packet, PipeLine* pipeline_)
     {
         if (interface != 0)
         {
             PHV phv = parser.parse(packet);
-            pipeline.processors[0].getKeys.enable1 = true;
-            pipeline.processors[0].getKeys.phv = phv;
-            pipeline.processors[0].getKeys.gateway_guider = {};
-            pipeline.processors[0].getKeys.match_table_guider = {};
+            pipeline_->processors[0].getKeys.enable1 = true;
+            pipeline_->processors[0].getKeys.phv = phv;
+            pipeline_->processors[0].getKeys.gateway_guider = {};
+            pipeline_->processors[0].getKeys.match_table_guider = {};
         }
         else
         {
-            pipeline.processors[0].getKeys.enable1 = false;
-            pipeline.processors[0].getKeys.phv = {};
-            pipeline.processors[0].getKeys.gateway_guider = {};
-            pipeline.processors[0].getKeys.match_table_guider = {};
+            pipeline_->processors[0].getKeys.enable1 = false;
+            pipeline_->processors[0].getKeys.phv = {};
+            pipeline_->processors[0].getKeys.gateway_guider = {};
+            pipeline_->processors[0].getKeys.match_table_guider = {};
         }
     }
 
     void Execute(int interface, const Packet &packet)
     {
-        PipeLine next;
+        PipeLine* next = new PipeLine();
         GetInput(interface, packet, next);
         for (auto &logic : logics)
         {
             logic->execute(pipeline, next);
         }
         GetOutput();
-
         pipeline = next;
     }
 
     void GetOutput()
     {
-        BaseRegister &output = pipeline.processors[proc_num_config].base;
+        BaseRegister &output = pipeline->processors[proc_num_config].base;
         if (output.enable1)
         {
             // todo: 这里实际是找到payload，然后给phv装上去，现在还没有材料可以用
@@ -300,7 +300,7 @@ struct Switch
 
     void log(){
         for(int i = 0; i < PROC_NUM; i++){
-            pipeline.proc_states[i].log();
+            pipeline->proc_states[i].log();
         }
     };
 
@@ -553,16 +553,49 @@ struct Switch
         gate5.operand2.content.value = 0;
 
         key = {false};
-        value = {0};
+        value = {false};
         key[0] = key[1] = true;
-        value[32] = 1;
+        value[32] = true;
         proc2.insert_gateway_res_2_match_table(key, value);
         key = {false};
         key[1] = key[2] = key[3] = key[4] = true;
-        value = {0};
-        value[33] = 1;
+        value = {false};
+        value[33] = true;
         proc2.insert_gateway_res_2_match_table(key, value);
         // todo: add other entries
+
+        matchTableConfigs[2].matchTables[0].default_action_id = 5;
+        matchTableConfigs[2].matchTables[1].default_action_id = 6;
+        matchTableConfigs[2].matchTables[2].default_action_id = 7;
+
+        auto& action = actionConfigs[2].actions[5];
+        action.action_id = 5;
+        action.vliw_enabler = {false};
+        action.vliw_enabler[163] = true;
+        action.alu_configs[163].op = ALUnit::SET;
+        action.alu_configs[163].operand1.type = ALUnit::Parameter::CONST;
+        action.alu_configs[163].operand1.content.value = 1;
+        action.vliw_enabler[164] = true;
+        action.alu_configs[164].op = ALUnit::SET;
+        action.alu_configs[164].operand1.type = ALUnit::Parameter::CONST;
+        action.alu_configs[164].operand1.content.value = 1;
+
+        action = actionConfigs[2].actions[6];
+        action.action_id = 6;
+        action.vliw_enabler = {false};
+        action.vliw_enabler[162] = true;
+        action.alu_configs[162].op = ALUnit::SET;
+        action.alu_configs[162].operand1.type = ALUnit::Parameter::CONST;
+        action.alu_configs[162].operand1.content.value = 1;
+
+        action = actionConfigs[2].actions[7];
+        action.action_id = 7;
+        action.vliw_enabler = {false};
+        action.vliw_enabler[163] = true;
+        action.alu_configs[163].op = ALUnit::SET;
+        action.alu_configs[163].operand1.type = ALUnit::Parameter::CONST;
+        action.alu_configs[163].operand1.content.value = 1;
+        // processor_3 finished
     }
 };
 

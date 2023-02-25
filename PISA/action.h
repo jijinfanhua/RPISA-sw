@@ -11,9 +11,9 @@
 struct GetAction : public Logic {
     GetAction(int id) : Logic(id) {}
 
-    void execute(const PipeLine &now, PipeLine &next) override {
-        const GetActionRegister & getActionReg = now.processors[processor_id].getAction;
-        ExecuteActionRegister & executeActionReg = next.processors[processor_id].executeAction;
+    void execute(const PipeLine *now, PipeLine *next) override {
+        const GetActionRegister & getActionReg = now->processors[processor_id].getAction;
+        ExecuteActionRegister & executeActionReg = next->processors[processor_id].executeAction;
 
         get_alus(getActionReg, executeActionReg);
     }
@@ -101,9 +101,9 @@ struct GetAction : public Logic {
 struct ExecuteAction : public Logic {
     ExecuteAction(int id) : Logic(id) {}
 
-    void execute(const PipeLine &now, PipeLine &next) override {
-        const ExecuteActionRegister & executeActionReg = now.processors[processor_id].executeAction;
-        VerifyStateChangeRegister & verifyReg = next.processors[processor_id].verifyState;
+    void execute(const PipeLine *now, PipeLine *next) override {
+        const ExecuteActionRegister & executeActionReg = now->processors[processor_id].executeAction;
+        VerifyStateChangeRegister & verifyReg = next->processors[processor_id].verifyState;
 
         verifyReg.enable1 = executeActionReg.enable1;
         if (!executeActionReg.enable1) {

@@ -11,10 +11,12 @@ using namespace std;
 
 int main(int argc, char** argv) {
     
-    while (true) {
-        Packet input_packet = Packet();
+//    while (true) {
+        string input = "31917286809818793201644399359";
+//        Packet input_packet = input_to_packet(input);
+Packet input_packet = Packet();
         Switch switch_ = Switch();
-        switch_.Execute(1, input_packet); 
-    }
+        switch_.Execute(1, input_packet);
+//    }
     return 0;
 }
