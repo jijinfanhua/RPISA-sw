@@ -200,7 +200,7 @@ public:
         config.number_of_hash_ways++;
     }
 
-    void set_action_param_num(int id, int action_id, int action_data_num, const array<bool, MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM> &vliw_enabler)
+    void set_action_param_num(int id, int action_id, int action_data_num, const array<bool, MAX_PHV_CONTAINER_NUM> &vliw_enabler)
     {
         auto &action = actionConfig.actions[id];
         action.action_id = action_id;
@@ -384,7 +384,7 @@ struct Switch
         config.value_sram_index_per_hash_way[2] = {21};
         config.value_sram_index_per_hash_way[3] = {23};
 
-        array<bool, 240> vliw_enabler = {0};
+        array<bool, 224> vliw_enabler = {0};
         vliw_enabler[224] = 1;
         proc0.set_action_param_num(0, 0, 1, vliw_enabler);
         vliw_enabler = {0};
