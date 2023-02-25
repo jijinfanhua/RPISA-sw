@@ -48,17 +48,27 @@ struct GetAction : public Logic {
             // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
             // | action_id |    data1     |    data2     |    data3     |
             // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+            u32 action_id;
             auto final_value = now.final_values[i].first;
-            u32 action_id = final_value[0][0] >> 16;
+            // 判断表中是否有内容
+            if(matchTableConfig.matchTables[i].default_action_id == -1) {
+                action_id = final_value[0][0] >> 16;
+            }
+            else {
+                action_id = matchTableConfig.matchTables[i].default_action_id;
+            }
+
+            // config alus using action_id
+            for(int i = 0; i < MAX_PHV_CONTAINER_NUM; i++){
+                if(actionConfigs[processor_id].actions[action_id].vliw_enabler[i]){
+                    auto alu_config = actionConfigs[processor_id].actions[action_id].alu_configs[i];
+                    ALUs[processor_id][i].op = alu_config.op;
+                    ALUs[processor_id][i].operand1 = alu_config.operand1;
+                    ALUs[processor_id][i].operand2 = alu_config.operand2;
+                }
+            }
+
             int para_num = actionConfigs[processor_id].actions[action_id].action_data_num;
-            // 0-0.1  1-0.2  2-0.3  3-1.0  4-1.1  5-1.2  6-1.3  7-2.0   8-2.1  9-2.2  10-2.3  11-3.0
-            // 0-0    3-1    7-2   11-3 
-            // stateful (128bit) : set | value1 | value2 | value3
-//            set() {
-//                phva = value1;
-//                phvb = value2;
-//                phvc = value3;
-//            }
             for(int j = 0; j < para_num; j++) {
                 if (j <= 2) {
                     next.action_data_set[action_data_id_base + j] =
@@ -172,39 +182,37 @@ struct ExecuteAction : public Logic {
                 if (now.phv[left_value.content.phv_id] != next.phv[left_value.content.phv_id]) {
                     next.phv_changed_tags[left_value.content.phv_id] = true;
                 }
-
-                return read_value;
+                return get_return_value(salu, salu.return_value_from, true, now);
             }
             case SALUnit::WRITE: {
                 auto left_value = salu.left_value;
-                u32 write_value = get_param_value(salu, left_value, now);
+                u32 write_value = get_param_value(left_value, now);
                 auto operand1 = salu.operand1;
                 // todo: 传hash way进来，先读在修改最后写
-                salu_write(write_value, operand1, processor_id, now, next);                
-                return 0;
+                salu_write(write_value, operand1, processor_id, now, next);
+                return get_return_value(salu, salu.return_value_from, true, now);
             }
             case SALUnit::RAW: {
                 auto left_value = salu.left_value;
                 // reg value
-                u32 left_return_value = get_param_value(salu, left_value, now);
+                u32 left_return_value = get_param_value(left_value, now);
                 auto operand1 = salu.operand1;
                 // header, metadata or constant value
-                u32 return_value = get_param_value(salu, operand1, now);
+                u32 return_value = get_param_value(operand1, now);
 
                 salu_write(left_return_value + return_value, left_value, processor_id, now, next);
-
-                return left_return_value;
+                return get_return_value(salu, salu.return_value_from, true, now);
             }
             case SALUnit::PRAW:{
                 auto left_value = salu.left_value;
                 // reg value
-                u32 left_return_value = get_param_value(salu, left_value, now);
+                u32 left_return_value = get_param_value(left_value, now);
                 auto operand1 = salu.operand1;
                 // header, metadata or constant value
-                u32 return_value1 = get_param_value(salu, operand1, now);
+                u32 return_value1 = get_param_value(operand1, now);
                 auto operand2 = salu.operand2;
                 // header, metadata or constant value
-                u32 return_value2 = get_param_value(salu, operand2, now);
+                u32 return_value2 = get_param_value(operand2, now);
                 switch (left_value.if_type) {
                     case SALUnit::Parameter::COMPARE_EQ: {
                         if(now.salu_compare_result[salu.salu_id]){
@@ -251,18 +259,18 @@ struct ExecuteAction : public Logic {
                     }
                     default: break;
                 }
-                return left_return_value + return_value2;
+                return get_return_value(salu, salu.return_value_from, true, now);
             }
             case SALUnit::SUB: {
                 auto left_value = salu.left_value;
                 // reg value
-                u32 left_return_value = get_param_value(salu, left_value, now);
+                u32 left_return_value = get_param_value(left_value, now);
                 auto operand1 = salu.operand1;
                 // header, metadata or constant value
-                u32 return_value1 = get_param_value(salu, operand1, now);
+                u32 return_value1 = get_param_value(operand1, now);
                 auto operand2 = salu.operand2;
                 // header, metadata or constant value
-                u32 return_value2 = get_param_value(salu, operand2, now);
+                u32 return_value2 = get_param_value(operand2, now);
                 switch (left_value.if_type) {
                     case SALUnit::Parameter::COMPARE_EQ: {
                         if(now.salu_compare_result[salu.salu_id]){
@@ -309,29 +317,28 @@ struct ExecuteAction : public Logic {
                     }
                     default: break;
                 }
-                return left_return_value - return_value2;
+                return get_return_value(salu, salu.return_value_from, true, now);
             }
             case SALUnit::IfElseRAW: {
                 auto left_value = salu.left_value;
                 // reg value
-                u32 left_return_value = get_param_value(salu, left_value, now);
+                u32 left_return_value = get_param_value(left_value, now);
                 auto operand1 = salu.operand1;
                 // header, metadata or constant value
-                u32 return_value1 = get_param_value(salu, operand1, now);
+                u32 return_value1 = get_param_value(operand1, now);
                 auto operand2 = salu.operand2;
                 // header, metadata or constant value
-                u32 return_value2 = get_param_value(salu, operand2, now);
+                u32 return_value2 = get_param_value(operand2, now);
                 auto operand3 = salu.operand3;
                 // header, metadata or constant value
-                u32 return_value3 = get_param_value(salu, operand3, now);
+                u32 return_value3 = get_param_value(operand3, now);
                 switch (left_value.if_type) {
                     case SALUnit::Parameter::COMPARE_EQ: {
                         if (now.salu_compare_result[salu.salu_id]){
                             salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
-                                    return 0;
+                            return get_return_value(salu, salu.return_value_from, true, now);
                         } else {
                             salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
-                                    return left_return_value + return_value3;
                         }
                         break;
                     }
@@ -339,60 +346,59 @@ struct ExecuteAction : public Logic {
                     case SALUnit::Parameter::EQ: {
                         if (left_return_value == return_value1) {
                             salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
-                                    return 0;
+                            return get_return_value(salu, salu.return_value_from, true, now);
                         } else {
                             salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
-                                    return left_return_value + return_value3;
                         }
                         break;
                     }
                     case SALUnit::Parameter::NEQ: {
                         if (left_return_value != return_value1) {
                             salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
-                                    return 0;
+                            return get_return_value(salu, salu.return_value_from, true, now);
                         } else {
                             salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
-                                    return left_return_value + return_value3;
+                            return get_return_value(salu, salu.return_value_from, false, now);
                         }
                         break;
                     }
                     case SALUnit::Parameter::GT: {
                         if (left_return_value > return_value1) {
                             salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
-                                    return 0;
+                            return get_return_value(salu, salu.return_value_from, true, now);
                         } else {
                             salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
-                                    return left_return_value + return_value3;
+                            return get_return_value(salu, salu.return_value_from, false, now);
                         }
                         break;
                     }
                     case SALUnit::Parameter::LT: {
                         if (left_return_value < return_value1) {
                             salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
-                                    return 0;
+                            return get_return_value(salu, salu.return_value_from, true, now);
                         } else {
                             salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
-                                    return left_return_value + return_value3;
+                            return get_return_value(salu, salu.return_value_from, false, now);
                         }
                         break;
                     }
                     case SALUnit::Parameter::GTE: {
                         if (left_return_value >= return_value1) {
                             salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
-                                    return 0;
+                            return get_return_value(salu, salu.return_value_from, true, now);
                         } else {
                             salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
-                                    return left_return_value + return_value3;
+                            return get_return_value(salu, salu.return_value_from, false, now);
                         }
                         break;
                     }
                     case SALUnit::Parameter::LTE: {
                         if (left_return_value <= return_value1) {
                             salu_write(left_return_value + return_value2, left_value, processor_id, now, next);
-                                    return 0;
+                            return get_return_value(salu, salu.return_value_from, true, now);
                         } else {
                             salu_write(left_return_value + return_value3, left_value, processor_id, now, next);
-                                    return left_return_value + return_value3;
+                            return get_return_value(salu, salu.return_value_from, false, now);
                         }
                         break;
                     }
@@ -405,7 +411,66 @@ struct ExecuteAction : public Logic {
         }
     }
 
-    u32 get_param_value(SALUnit & salu, SALUnit::Parameter & param, const ExecuteActionRegister &now) {
+    u32 get_return_value(SALUnit& salu, SALUnit::ReturnValueFrom value_from, bool compare_result, const ExecuteActionRegister &now){
+        if(compare_result){
+            switch (value_from.type) {
+                case SALUnit::ReturnValueFrom::Type::CONST: {
+                    return value_from.content.value;
+                }
+                case SALUnit::ReturnValueFrom::Type::HEADER: {
+                    return now.phv[value_from.content.phv_id];
+                }
+                case SALUnit::ReturnValueFrom::Type::REG: {
+                    return now.salu_value_data_set[value_from.content.table_idx][value_from.value_idx];
+                }
+                case SALUnit::ReturnValueFrom::Type::ACTION_DATA: {
+                    return now.action_data_set[value_from.content.action_data_id].value;
+                }
+                case SALUnit::ReturnValueFrom::Type::OP1: {
+                    return get_param_value(salu.operand1, now);
+                }
+                case SALUnit::ReturnValueFrom::Type::OP2: {
+                    return get_param_value(salu.operand2, now);
+                }
+                case SALUnit::ReturnValueFrom::Type::OP3: {
+                    return get_param_value(salu.operand3, now);
+                }
+                case SALUnit::ReturnValueFrom::Type::LEFT: {
+                    return get_param_value(salu.left_value, now);
+                }
+            }
+        }
+        else {
+            switch (value_from.false_type) {
+                case SALUnit::ReturnValueFrom::Type::CONST: {
+                    return value_from.false_content.value;
+                }
+                case SALUnit::ReturnValueFrom::Type::HEADER: {
+                    return now.phv[value_from.false_content.phv_id];
+                }
+                case SALUnit::ReturnValueFrom::Type::REG: {
+                    return now.salu_value_data_set[value_from.false_content.table_idx][value_from.false_value_idx];
+                }
+                case SALUnit::ReturnValueFrom::Type::ACTION_DATA: {
+                    return now.action_data_set[value_from.false_content.action_data_id].value;
+                }
+                case SALUnit::ReturnValueFrom::Type::OP1: {
+                    return get_param_value(salu.operand1, now);
+                }
+                case SALUnit::ReturnValueFrom::Type::OP2: {
+                    return get_param_value(salu.operand2, now);
+                }
+                case SALUnit::ReturnValueFrom::Type::OP3: {
+                    return get_param_value(salu.operand3, now);
+                }
+                case SALUnit::ReturnValueFrom::Type::LEFT: {
+                    return get_param_value(salu.left_value, now);
+                }
+            }
+        }
+    }
+
+    u32 get_param_value(SALUnit::Parameter & param, const ExecuteActionRegister &now) {
         switch (param.type) {
             case SALUnit::Parameter::CONST: {
                 return param.content.value;

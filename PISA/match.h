@@ -52,7 +52,7 @@ struct GetKey : public Logic
 
         next.phv = now.phv;
         next.gateway_guider = now.gateway_guider;
-        next.match_table_guider = now.gateway_guider;
+        next.match_table_guider = now.match_table_guider;
     }
 };
 
@@ -93,22 +93,32 @@ struct Gateway : public Logic
         next.phv = now.phv;
         next.key = now.key;
         next.gateway_guider = now.gateway_guider;
-        next.match_table_guider = now.gateway_guider;
+        next.match_table_guider = now.match_table_guider;
     }
 
     void gateway_second_cycle(const GatewayRegister &now, HashRegister &next)
     {
-        auto gatewayConfig = gatewaysConfigs[processor_id];
-        u32 res = bool_array_2_u32(now.gate_res);
-        auto match_bitmap = gatewayConfig.gateway_res_2_match_tables[res];
-        auto gateway_bitmap = gatewayConfig.gateway_res_2_gates[res];
-        // get the newest match table guider and gateway guider
-        for (int i = processor_id * 16; i < MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM; i++)
-        {
-            next.match_table_guider[i] = now.match_table_guider[i] | match_bitmap[i];
-            next.gateway_guider[i] = now.gateway_guider[i] | gateway_bitmap[i];
-        }
+        next.match_table_guider = now.match_table_guider;
+        next.gateway_guider = now.gateway_guider;
 
+        auto gatewayConfig = gatewaysConfigs[processor_id];
+        for(auto mask: gatewayConfig.masks){
+            std::array<bool, 16> after_mask = {false};
+            for(int i = 0; i < MAX_PARALLEL_MATCH_NUM; i++){
+                after_mask[i] = mask[i] & now.gate_res[i];
+            }
+            u32 res = bool_array_2_u32(after_mask);
+            if(gatewayConfig.gateway_res_2_match_tables.find(res) != gatewayConfig.gateway_res_2_match_tables.end()){
+                auto match_bitmap = gatewayConfig.gateway_res_2_match_tables[res];
+                auto gateway_bitmap = gatewayConfig.gateway_res_2_gates[res];
+                // get the newest match table guider and gateway guider
+                for (int i = processor_id * 16; i < MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM; i++)
+                {
+                    next.match_table_guider[i] = now.match_table_guider[i] | match_bitmap[i];
+                    next.gateway_guider[i] = now.gateway_guider[i] | gateway_bitmap[i];
+                }
+            }
+        }
         next.key = now.key;
         next.phv = now.phv;
     }
@@ -130,16 +140,24 @@ struct Gateway : public Logic
         auto operand2 = get_operand_value(now, gate.operand2);
         switch (op)
         {
-        case GatewaysConfig::Gate::OP::EQ:
+        case GatewaysConfig::Gate::OP::EQ: {
             return operand1 == operand2;
-        case GatewaysConfig::Gate::OP::GT:
+        }
+        case GatewaysConfig::Gate::OP::GT: {
             return operand1 > operand2;
-        case GatewaysConfig::Gate::OP::LT:
+        }
+        case GatewaysConfig::Gate::OP::LT: {
             return operand1 < operand2;
-        case GatewaysConfig::Gate::OP::GTE:
+        }
+        case GatewaysConfig::Gate::OP::GTE:{
             return operand1 >= operand2;
-        case GatewaysConfig::Gate::OP::LTE:
+        }
+        case GatewaysConfig::Gate::OP::LTE: {
             return operand1 <= operand2;
+        }
+        case GatewaysConfig::Gate::OP::NEQ: {
+            return operand1 != operand2;
+        }
         default:
             break;
         }
@@ -590,6 +608,9 @@ struct Compare : public Logic
             if (found_flag == 0)
             {
                 next.final_values[i].second = false;
+            }
+            else {
+                next.final_values[i].second = true;
             }
         }
 

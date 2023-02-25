@@ -61,7 +61,7 @@ struct GatewaysConfig
             LT,
             GTE,
             LTE,
-            NONE
+            NEQ
         } op;
 
         struct Parameter
@@ -83,6 +83,9 @@ struct GatewaysConfig
         } operand1, operand2;
     };
     Gate gates[MAX_GATEWAY_NUM];
+
+    // every processor has some masks, input key go through masks, and then searching the unordered_map
+    std::vector<std::array<bool, MAX_PARALLEL_MATCH_NUM>> masks;
     std::unordered_map<uint32_t,
                        std::array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM>>
         gateway_res_2_match_tables;
@@ -112,6 +115,8 @@ struct MatchTableConfig
         int match_field_byte_len;
         std::array<int, MAX_MATCH_FIELDS_BYTE_NUM> match_field_byte_ids;
 
+        int default_action_id; // when match_table's key & value == 0, using default action id as action id; else default_action_id = -1;
+
         int number_of_hash_ways; // stateful table 必定为 1
         int hash_bit_sum;
 
@@ -132,28 +137,6 @@ std::array<std::array<SRAM, SRAM_NUM>, PROCESSOR_NUM> SRAMs;
 //      ALU: alu_id and op;
 //      ALU operands: from PHV (field & metadata), from constant registers, from action_data
 //      action_data: extract from value, action_data_id
-struct ActionConfig
-{
-    int processor_id;
-
-    struct ActionData
-    {
-        int data_id;
-        int byte_len;
-        int bit_len;
-        u32 value;
-    };
-
-    struct Action
-    {
-        int action_id;
-        int action_data_num;
-        std::array<bool, MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM> vliw_enabler;
-        //        std::array<ALU, MAX_PHV_CONTAINER_NUM> alus;
-    };
-    Action actions[4];
-};
-ActionConfig actionConfigs[PROCESSOR_NUM];
 
 struct ALUnit
 {
@@ -183,7 +166,29 @@ struct ALUnit
     } operand1, operand2;
 };
 std::array<ALUnit[MAX_PHV_CONTAINER_NUM], PROCESSOR_NUM> ALUs;
-// ALUnit ALUs[MAX_PHV_CONTAINER_NUM];
+
+struct ActionConfig
+{
+    int processor_id;
+
+    struct ActionData
+    {
+        int data_id;
+        int byte_len;
+        int bit_len;
+        u32 value;
+    };
+
+    struct Action
+    {
+        int action_id;
+        int action_data_num;
+        std::array<bool, MAX_PHV_CONTAINER_NUM> vliw_enabler;
+        std::array<ALUnit, MAX_PHV_CONTAINER_NUM> alu_configs;
+    };
+    Action actions[16];
+};
+ActionConfig actionConfigs[PROCESSOR_NUM];
 
 struct SALUnit
 {
@@ -229,8 +234,28 @@ struct SALUnit
         int value_idx;
     } left_value, operand1, operand2, operand3, return_value;
 
-    // caution: max 32bit, so the column num is 1
-    std::array<int, 48> sram_ids;
+    struct ReturnValueFrom {
+        enum Type
+        {
+            CONST,
+            HEADER,
+            ACTION_DATA,
+            REG,
+            OP1,
+            OP2,
+            OP3,
+            LEFT
+        } type, false_type;
+        union
+        {
+            uint32_t value;
+            int phv_id;
+            int action_data_id;
+            // 使用第几个带状态表的value
+            int table_idx;
+        } content, false_content;
+        int value_idx, false_value_idx;
+    } return_value_from;
 };
 std::array<SALUnit[MAX_SALU_NUM], PROCESSOR_NUM> SALUs;
 
@@ -258,7 +283,7 @@ struct SavedState
 };
 std::array<SavedState, PROCESSOR_NUM> state_saved_idxs;
 
-// every processor has up to 4 stateful tables, every stateful table have 64 bit hash value, need to be saved in two phvs
+// every processor has up to 4 stateful tables, every stateful table have 64-bit hash value, need to be saved in two phvs
 std::array<std::array<std::array<u32, 2>, 4> ,PROCESSOR_NUM> phv_id_to_save_hash_value;
 
 // two positions in phv for flow id; can use any of the hash result
