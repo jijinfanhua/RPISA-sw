@@ -23,7 +23,6 @@
 //      map containers to 1024bits
 struct GetKeyConfig
 {
-    int processor_id;
     int used_container_num;
 
     struct UsedContainer2MatchFieldByte
@@ -94,6 +93,8 @@ struct GatewaysConfig
         gateway_res_2_gates;
 };
 GatewaysConfig gatewaysConfigs[PROCESSOR_NUM];
+
+std::array<bool, MAX_GATEWAY_NUM * PROCESSOR_NUM> gateway_guider;
 
 // hash unit configs:
 //      hash function

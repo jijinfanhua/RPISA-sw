@@ -157,14 +157,39 @@ struct ExecuteAction : public Logic {
             auto table_idx = to_write.content.table_idx;
             auto table_id = stateful_table_ids[processor_id][table_idx];
             auto match_table = matchTableConfigs[processor_id].matchTables[table_id];
-            auto hash_value = now.hash_values[table_id][now.stateful_matched_hash_way[table_id]];
-            auto sram_id = match_table.value_sram_index_per_hash_way[now.stateful_matched_hash_way[table_id]][hash_value >> 10];
-            b128 value = SRAMs[processor_id][sram_id].get(hash_value << 22 >> 22);
+            // 如果 compare 成功，则写回成功的位置；如失败，则选择一路可写的写回
+            int way_to_write = now.stateful_matched_hash_way[table_id];
+            if(way_to_write == -1){
+                // compare failed
+                for(int i = 0; i < match_table.number_of_hash_ways; i++){
+                    auto hash_value = now.hash_values[table_id][i];
+                    auto key_sram_id = match_table.key_sram_index_per_hash_way[i][hash_value >> 10];
+                    b128 key = SRAMs[processor_id][key_sram_id].get(hash_value << 22 >> 22);
+                    if(key[0] == 0 && key[1] == 0 && key[2] == 0 && key[3] == 0){
+                        // using all zero to verify empty entry
+                        way_to_write = i;
+                        break;
+                    }
+                }
+                // assume there is empty entry to write; otherwise write fail
+            }
+            auto hash_value = now.hash_values[table_id][way_to_write];
+            auto key_sram_id = match_table.key_sram_index_per_hash_way[way_to_write][hash_value >> 10];
+            auto value_sram_id = match_table.value_sram_index_per_hash_way[way_to_write][hash_value >> 10];
+
+            // no matter compare success / failed, always write key back. (if success, new value and old value are the same)
+            b128 key = u64_to_u16_array(u32_to_u64(now.phv[flow_id_in_phv[0]], now.phv[flow_id_in_phv[1]]));
+            SRAMs[processor_id][key_sram_id].set(hash_value << 22 >> 22, key);
+
+            b128 value = SRAMs[processor_id][value_sram_id].get(hash_value << 22 >> 22);
             value[to_write.value_idx] = value_to_write;
-            SRAMs[processor_id][sram_id].set(hash_value << 22 >> 22, value);
+            SRAMs[processor_id][value_sram_id].set(hash_value << 22 >> 22, value);
         }
         else if(to_write.type == SALUnit::Parameter::Type::HEADER){
             next.phv[to_write.content.phv_id] = value_to_write;
+            if(now.phv[to_write.content.phv_id] != next.phv[to_write.content.phv_id]){
+                next.phv_changed_tags[to_write.content.phv_id] = true;
+            }
         }
     }
 

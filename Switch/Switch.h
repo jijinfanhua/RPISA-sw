@@ -230,13 +230,14 @@ struct Switch
 
     Parser parser;
     PipeLine* pipeline;
+    PipeLine* next;
     vector<unique_ptr<Logic>> logics;
     int proc_num_config;
 
     Switch()
     {
         pipeline = new PipeLine();
-        for (int i = 0; i < proc_num_config; i++)
+        for (int i = 0; i < PROC_NUM; i++)
         {
             // todo: Logic 需要一个虚析构函数，但现在不算什么大问题还
             logics.push_back(make_unique<GetKey>(i));
@@ -264,7 +265,7 @@ struct Switch
             PHV phv = parser.parse(packet);
             pipeline_->processors[0].getKeys.enable1 = true;
             pipeline_->processors[0].getKeys.phv = phv;
-            pipeline_->processors[0].getKeys.gateway_guider = {};
+            pipeline_->processors[0].getKeys.gateway_guider = gateway_guider;
             pipeline_->processors[0].getKeys.match_table_guider = {};
         }
         else
@@ -278,13 +279,18 @@ struct Switch
 
     void Execute(int interface, const Packet &packet)
     {
-        PipeLine* next = new PipeLine();
+        next = new PipeLine();
         GetInput(interface, packet, next);
+        for(int i = 0; i < PROC_NUM; i++){
+            next->proc_states[i] = pipeline->proc_states[i];
+        }
         for (auto &logic : logics)
         {
             logic->execute(pipeline, next);
         }
         GetOutput();
+        Log();
+        delete pipeline;
         pipeline = next;
     }
 
@@ -298,14 +304,18 @@ struct Switch
         }
     }
 
-    void log(){
+    void Log(){
         for(int i = 0; i < PROC_NUM; i++){
+            cout << "processor_id: " << i << endl;
             pipeline->proc_states[i].log();
         }
     };
 
     void Config()
     {
+        flow_id_in_phv = {166, 167};
+        gateway_guider[32] = gateway_guider[33] = gateway_guider[34] = gateway_guider[35] = gateway_guider[36] = 1;
+
         ProcessorConfig proc0 = ProcessorConfig(0);
         proc0.push_back_get_key_use_container(0, 8, 0);
         proc0.push_back_get_key_use_container(64, 16, 1, 2);
@@ -321,68 +331,68 @@ struct Switch
 
 
         proc0.matchTableConfig.match_table_num = 3;
-        auto& config = proc0.matchTableConfig.matchTables[0];
-        config.type = 1;
-        config.depth = 1;
-        config.key_width = 1;
-        config.value_width = 1;
-        config.hash_in_phv = {166, 167};
-        config.match_field_byte_len = 13;
-        config.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
-        config.number_of_hash_ways = 4; // stateful tables also using 4 way hash
-        config.hash_bit_sum = 40;
-        config.hash_bit_per_way = {10, 10, 10, 10};
-        config.srams_per_hash_way = {2, 2, 2, 2};
-        config.key_sram_index_per_hash_way[0] = {0};
-        config.key_sram_index_per_hash_way[1] = {2};
-        config.key_sram_index_per_hash_way[2] = {4};
-        config.key_sram_index_per_hash_way[3] = {6};
-        config.value_sram_index_per_hash_way[0] = {1};
-        config.value_sram_index_per_hash_way[1] = {3};
-        config.value_sram_index_per_hash_way[2] = {5};
-        config.value_sram_index_per_hash_way[3] = {7};
+        auto& config_0 = proc0.matchTableConfig.matchTables[0];
+        config_0.type = 1;
+        config_0.depth = 1;
+        config_0.key_width = 1;
+        config_0.value_width = 1;
+        config_0.hash_in_phv = {166, 167};
+        config_0.match_field_byte_len = 13;
+        config_0.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
+        config_0.number_of_hash_ways = 4; // stateful tables also using 4 way hash
+        config_0.hash_bit_sum = 40;
+        config_0.hash_bit_per_way = {10, 10, 10, 10};
+        config_0.srams_per_hash_way = {2, 2, 2, 2};
+        config_0.key_sram_index_per_hash_way[0] = {0};
+        config_0.key_sram_index_per_hash_way[1] = {2};
+        config_0.key_sram_index_per_hash_way[2] = {4};
+        config_0.key_sram_index_per_hash_way[3] = {6};
+        config_0.value_sram_index_per_hash_way[0] = {1};
+        config_0.value_sram_index_per_hash_way[1] = {3};
+        config_0.value_sram_index_per_hash_way[2] = {5};
+        config_0.value_sram_index_per_hash_way[3] = {7};
 
-        config = proc0.matchTableConfig.matchTables[1];
-        config.type = 1;
-        config.depth = 1;
-        config.key_width = 1;
-        config.value_width = 1;
-        config.hash_in_phv = {168, 169};
-        config.match_field_byte_len = 13;
-        config.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
-        config.number_of_hash_ways = 4;
-        config.hash_bit_sum = 40;
-        config.hash_bit_per_way = {10, 10, 10, 10};
-        config.srams_per_hash_way = {2, 2, 2, 2};
-        config.key_sram_index_per_hash_way[0] = {8};
-        config.key_sram_index_per_hash_way[1] = {10};
-        config.key_sram_index_per_hash_way[2] = {12};
-        config.key_sram_index_per_hash_way[3] = {14};
-        config.value_sram_index_per_hash_way[0] = {9};
-        config.value_sram_index_per_hash_way[1] = {11};
-        config.value_sram_index_per_hash_way[2] = {13};
-        config.value_sram_index_per_hash_way[3] = {15};
+        auto&  config_1 = proc0.matchTableConfig.matchTables[1];
+        config_1.type = 1;
+        config_1.depth = 1;
+        config_1.key_width = 1;
+        config_1.value_width = 1;
+        config_1.hash_in_phv = {168, 169};
+        config_1.match_field_byte_len = 13;
+        config_1.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
+        config_1.number_of_hash_ways = 4;
+        config_1.hash_bit_sum = 40;
+        config_1.hash_bit_per_way = {10, 10, 10, 10};
+        config_1.srams_per_hash_way = {2, 2, 2, 2};
+        config_1.key_sram_index_per_hash_way[0] = {8};
+        config_1.key_sram_index_per_hash_way[1] = {10};
+        config_1.key_sram_index_per_hash_way[2] = {12};
+        config_1.key_sram_index_per_hash_way[3] = {14};
+        config_1.value_sram_index_per_hash_way[0] = {9};
+        config_1.value_sram_index_per_hash_way[1] = {11};
+        config_1.value_sram_index_per_hash_way[2] = {13};
+        config_1.value_sram_index_per_hash_way[3] = {15};
 
-        config = proc0.matchTableConfig.matchTables[2];
-        config.type = 1;
-        config.depth = 1;
-        config.key_width = 1;
-        config.value_width = 1;
-        config.hash_in_phv = {170, 171};
-        config.match_field_byte_len = 13;
-        config.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
-        config.number_of_hash_ways = 4;
-        config.hash_bit_sum = 40;
-        config.hash_bit_per_way = {10, 10, 10, 10};
-        config.srams_per_hash_way = {2, 2, 2, 2};
-        config.key_sram_index_per_hash_way[0] = {16};
-        config.key_sram_index_per_hash_way[1] = {18};
-        config.key_sram_index_per_hash_way[2] = {20};
-        config.key_sram_index_per_hash_way[3] = {22};
-        config.value_sram_index_per_hash_way[0] = {17};
-        config.value_sram_index_per_hash_way[1] = {19};
-        config.value_sram_index_per_hash_way[2] = {21};
-        config.value_sram_index_per_hash_way[3] = {23};
+        auto& config_2 = proc0.matchTableConfig.matchTables[2];
+        config_2.type = 1;
+        config_2.depth = 1;
+        config_2.key_width = 1;
+        config_2.value_width = 1;
+        config_2.hash_in_phv = {170, 171};
+        config_2.match_field_byte_len = 13;
+        config_2.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
+        config_2.number_of_hash_ways = 4;
+        config_2.hash_bit_sum = 40;
+        config_2.hash_bit_per_way = {10, 10, 10, 10};
+        config_2.srams_per_hash_way = {2, 2, 2, 2};
+        config_2.key_sram_index_per_hash_way[0] = {16};
+        config_2.key_sram_index_per_hash_way[1] = {18};
+        config_2.key_sram_index_per_hash_way[2] = {20};
+        config_2.key_sram_index_per_hash_way[3] = {22};
+        config_2.value_sram_index_per_hash_way[0] = {17};
+        config_2.value_sram_index_per_hash_way[1] = {19};
+        config_2.value_sram_index_per_hash_way[2] = {21};
+        config_2.value_sram_index_per_hash_way[3] = {23};
 
         array<bool, 224> vliw_enabler = {0};
         vliw_enabler[224] = 1;
@@ -415,43 +425,43 @@ struct Switch
         salu.return_value_from.false_type = SALUnit::ReturnValueFrom::Type::CONST;
         salu.return_value_from.false_content.value = 0;
 
-        salu = SALUs[0][1];
-        salu.salu_id = 225;
-        salu.op = SALUnit::IfElseRAW;
-        salu.left_value.type = SALUnit::Parameter::Type::REG;
-        salu.left_value.if_type = SALUnit::Parameter::IfType::COMPARE_EQ;
-        salu.left_value.content.table_idx = 1;
-        salu.left_value.value_idx = 3;
-        salu.operand2.type = SALUnit::Parameter::Type::CONST;
-        salu.operand2.content.value = 1;
-        salu.operand3.type = SALUnit::Parameter::Type::CONST;
-        salu.operand3.content.value = 0;
-        salu.return_value.type = SALUnit::Parameter::Type::HEADER;
-        salu.return_value.content.phv_id = 163;
-        salu.return_value_from.type = SALUnit::ReturnValueFrom::Type::REG;
-        salu.return_value_from.content.table_idx = 1;
-        salu.return_value_from.value_idx = 3;
-        salu.return_value_from.false_type = SALUnit::ReturnValueFrom::Type::CONST;
-        salu.return_value_from.false_content.value = 0;
+        auto& salu1 = SALUs[0][1];
+        salu1.salu_id = 225;
+        salu1.op = SALUnit::IfElseRAW;
+        salu1.left_value.type = SALUnit::Parameter::Type::REG;
+        salu1.left_value.if_type = SALUnit::Parameter::IfType::COMPARE_EQ;
+        salu1.left_value.content.table_idx = 1;
+        salu1.left_value.value_idx = 3;
+        salu1.operand2.type = SALUnit::Parameter::Type::CONST;
+        salu1.operand2.content.value = 1;
+        salu1.operand3.type = SALUnit::Parameter::Type::CONST;
+        salu1.operand3.content.value = 0;
+        salu1.return_value.type = SALUnit::Parameter::Type::HEADER;
+        salu1.return_value.content.phv_id = 163;
+        salu1.return_value_from.type = SALUnit::ReturnValueFrom::Type::REG;
+        salu1.return_value_from.content.table_idx = 1;
+        salu1.return_value_from.value_idx = 3;
+        salu1.return_value_from.false_type = SALUnit::ReturnValueFrom::Type::CONST;
+        salu1.return_value_from.false_content.value = 0;
 
-        salu = SALUs[0][2];
-        salu.salu_id = 226;
-        salu.op = SALUnit::IfElseRAW;
-        salu.left_value.type = SALUnit::Parameter::Type::REG;
-        salu.left_value.if_type = SALUnit::Parameter::IfType::COMPARE_EQ;
-        salu.left_value.content.table_idx = 2;
-        salu.left_value.value_idx = 3;
-        salu.operand2.type = SALUnit::Parameter::Type::CONST;
-        salu.operand2.content.value = 1;
-        salu.operand3.type = SALUnit::Parameter::Type::CONST;
-        salu.operand3.content.value = 0;
-        salu.return_value.type = SALUnit::Parameter::Type::HEADER;
-        salu.return_value.content.phv_id = 164;
-        salu.return_value_from.type = SALUnit::ReturnValueFrom::Type::REG;
-        salu.return_value_from.content.table_idx = 2;
-        salu.return_value_from.value_idx = 3;
-        salu.return_value_from.false_type = SALUnit::ReturnValueFrom::Type::CONST;
-        salu.return_value_from.false_content.value = 0;
+        auto& salu2 = SALUs[0][2];
+        salu2.salu_id = 226;
+        salu2.op = SALUnit::IfElseRAW;
+        salu2.left_value.type = SALUnit::Parameter::Type::REG;
+        salu2.left_value.if_type = SALUnit::Parameter::IfType::COMPARE_EQ;
+        salu2.left_value.content.table_idx = 2;
+        salu2.left_value.value_idx = 3;
+        salu2.operand2.type = SALUnit::Parameter::Type::CONST;
+        salu2.operand2.content.value = 1;
+        salu2.operand3.type = SALUnit::Parameter::Type::CONST;
+        salu2.operand3.content.value = 0;
+        salu2.return_value.type = SALUnit::Parameter::Type::HEADER;
+        salu2.return_value.content.phv_id = 164;
+        salu2.return_value_from.type = SALUnit::ReturnValueFrom::Type::REG;
+        salu2.return_value_from.content.table_idx = 2;
+        salu2.return_value_from.value_idx = 3;
+        salu2.return_value_from.false_type = SALUnit::ReturnValueFrom::Type::CONST;
+        salu2.return_value_from.false_content.value = 0;
 
         num_of_stateful_tables[0] = 3;
         stateful_table_ids[0] = {0, 1, 2};
@@ -476,40 +486,40 @@ struct Switch
         auto& salu_id_1 = salu_id[1];
         salu_id_1 = {224, 225, 226, 227};
         // if phv_162 >= phv_163, phv_165 = phv_162; else: phv_165 = phv_163
-        salu = SALUs[1][0];
-        salu.op = SALUnit::OP::IfElseRAW;
-        salu.left_value.type = SALUnit::Parameter::Type::HEADER;
-        salu.left_value.content.phv_id = 162;
-        salu.left_value.if_type = SALUnit::Parameter::IfType::GTE;
-        salu.operand1.type = SALUnit::Parameter::Type::HEADER;
-        salu.operand1.content.phv_id = 163;
-        salu.operand2.type = SALUnit::Parameter::Type::CONST;
-        salu.operand2.content.value = 0;
-        salu.operand3.type = SALUnit::Parameter::Type::CONST;
-        salu.operand3.content.value = 0;
-        salu.return_value.type = SALUnit::Parameter::Type::HEADER;
-        salu.return_value.content.phv_id = 165;
-        salu.return_value_from.type = SALUnit::ReturnValueFrom::Type::LEFT;
-        salu.return_value_from.false_type = SALUnit::ReturnValueFrom::Type::OP1;
+        auto& salu3 = SALUs[1][0];
+        salu3.op = SALUnit::OP::IfElseRAW;
+        salu3.left_value.type = SALUnit::Parameter::Type::HEADER;
+        salu3.left_value.content.phv_id = 162;
+        salu3.left_value.if_type = SALUnit::Parameter::IfType::GTE;
+        salu3.operand1.type = SALUnit::Parameter::Type::HEADER;
+        salu3.operand1.content.phv_id = 163;
+        salu3.operand2.type = SALUnit::Parameter::Type::CONST;
+        salu3.operand2.content.value = 0;
+        salu3.operand3.type = SALUnit::Parameter::Type::CONST;
+        salu3.operand3.content.value = 0;
+        salu3.return_value.type = SALUnit::Parameter::Type::HEADER;
+        salu3.return_value.content.phv_id = 165;
+        salu3.return_value_from.type = SALUnit::ReturnValueFrom::Type::LEFT;
+        salu3.return_value_from.false_type = SALUnit::ReturnValueFrom::Type::OP1;
 
         // if phv_162 >= phv_163, phv_1 = 0; else: phv_1 = 1;
-        salu = SALUs[1][1];
-        salu.op = SALUnit::OP::IfElseRAW;
-        salu.left_value.type = SALUnit::Parameter::Type::HEADER;
-        salu.left_value.content.phv_id = 162;
-        salu.left_value.if_type = SALUnit::Parameter::IfType::GTE;
-        salu.operand1.type = SALUnit::Parameter::Type::HEADER;
-        salu.operand1.content.phv_id = 163;
-        salu.operand2.type = SALUnit::Parameter::Type::CONST;
-        salu.operand2.content.value = 0;
-        salu.operand3.type = SALUnit::Parameter::Type::CONST;
-        salu.operand3.content.value = 0;
-        salu.return_value.type = SALUnit::Parameter::Type::HEADER;
-        salu.return_value.content.phv_id = 1;
-        salu.return_value_from.type = SALUnit::ReturnValueFrom::CONST;
-        salu.return_value_from.content.value = 0;
-        salu.return_value_from.false_type = SALUnit::ReturnValueFrom::CONST;
-        salu.return_value_from.false_content.value = 1;
+        auto& salu4 = SALUs[1][1];
+        salu4.op = SALUnit::OP::IfElseRAW;
+        salu4.left_value.type = SALUnit::Parameter::Type::HEADER;
+        salu4.left_value.content.phv_id = 162;
+        salu4.left_value.if_type = SALUnit::Parameter::IfType::GTE;
+        salu4.operand1.type = SALUnit::Parameter::Type::HEADER;
+        salu4.operand1.content.phv_id = 163;
+        salu4.operand2.type = SALUnit::Parameter::Type::CONST;
+        salu4.operand2.content.value = 0;
+        salu4.operand3.type = SALUnit::Parameter::Type::CONST;
+        salu4.operand3.content.value = 0;
+        salu4.return_value.type = SALUnit::Parameter::Type::HEADER;
+        salu4.return_value.content.phv_id = 1;
+        salu4.return_value_from.type = SALUnit::ReturnValueFrom::CONST;
+        salu4.return_value_from.content.value = 0;
+        salu4.return_value_from.false_type = SALUnit::ReturnValueFrom::CONST;
+        salu4.return_value_from.false_content.value = 1;
         // processor_2 finished, using salu instead of normal alu
 
         ProcessorConfig proc2 = ProcessorConfig(2);
@@ -564,6 +574,8 @@ struct Switch
         proc2.insert_gateway_res_2_match_table(key, value);
         // todo: add other entries
 
+        gatewaysConfigs[2].masks.push_back(std::array<bool, 16>{true, true, false});
+
         matchTableConfigs[2].matchTables[0].default_action_id = 5;
         matchTableConfigs[2].matchTables[1].default_action_id = 6;
         matchTableConfigs[2].matchTables[2].default_action_id = 7;
@@ -580,21 +592,23 @@ struct Switch
         action.alu_configs[164].operand1.type = ALUnit::Parameter::CONST;
         action.alu_configs[164].operand1.content.value = 1;
 
-        action = actionConfigs[2].actions[6];
-        action.action_id = 6;
-        action.vliw_enabler = {false};
-        action.vliw_enabler[162] = true;
-        action.alu_configs[162].op = ALUnit::SET;
-        action.alu_configs[162].operand1.type = ALUnit::Parameter::CONST;
-        action.alu_configs[162].operand1.content.value = 1;
+        auto& action1 = actionConfigs[2].actions[6];
+        action1.action_id = 6;
+        action1.vliw_enabler = {false};
+        action1.vliw_enabler[162] = true;
+        action1.alu_configs[162].op = ALUnit::SET;
+        action1.alu_configs[162].operand1.type = ALUnit::Parameter::CONST;
+        action1.alu_configs[162].operand1.content.value = 1;
 
-        action = actionConfigs[2].actions[7];
-        action.action_id = 7;
-        action.vliw_enabler = {false};
-        action.vliw_enabler[163] = true;
-        action.alu_configs[163].op = ALUnit::SET;
-        action.alu_configs[163].operand1.type = ALUnit::Parameter::CONST;
-        action.alu_configs[163].operand1.content.value = 1;
+        auto& action2 = actionConfigs[2].actions[7];
+        action2.action_id = 7;
+        action2.vliw_enabler = {false};
+        action2.vliw_enabler[163] = true;
+        action2.alu_configs[163].op = ALUnit::SET;
+        action2.alu_configs[163].operand1.type = ALUnit::Parameter::CONST;
+        action2.alu_configs[163].operand1.content.value = 1;
+
+        proc_types[2] = ProcType::WRITE;
         // processor_3 finished
     }
 };

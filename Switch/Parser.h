@@ -40,10 +40,24 @@ struct ParserConfig {
 
 };
 
+u32 bytes_to_u32(byte byte_1, byte byte_2, byte byte_3, byte byte_4){
+    return ((u32)byte_1 << 24) + ((u32)byte_2 << 16) + ((u32)byte_3 << 8) + (u32)byte_4;
+}
+
+u32 bytes_to_u32(byte byte_1, byte byte_2){
+    return ((u32)byte_1 << 8) + (u32)byte_2;
+}
+
 struct Parser {
     vector<ParserConfig> config;
     PHV parse(const Packet& packet) {
-        return {};
+        PHV phv;
+        phv[0] = packet[12];
+        phv[64] = bytes_to_u32(packet[8], packet[9]);
+        phv[65] = bytes_to_u32(packet[10], packet[11]);
+        phv[160] = bytes_to_u32(packet[0], packet[1], packet[2], packet[3]);
+        phv[161] = bytes_to_u32(packet[4], packet[5], packet[6], packet[7]);
+        return phv;
     }
 };
 

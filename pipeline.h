@@ -16,6 +16,7 @@ struct FlowInfo {
     std::array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM> match_table_guider;
     std::array<bool, MAX_GATEWAY_NUM * PROCESSOR_NUM> gateway_guider;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
+    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
     bool backward_pkt;
     std::array<int, 4> table_id;
 };
@@ -65,7 +66,7 @@ struct ProcessorState {
     ProcessorState& operator=(const ProcessorState &other) = default;
 
     void log() {
-
+        cout << "normal_pipe_schedule_flag: " << normal_pipe_schedule_flag << endl;
     }
 };
 

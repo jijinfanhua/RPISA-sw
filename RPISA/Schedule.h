@@ -51,7 +51,6 @@ struct VerifyStateChange : public Logic
             }
         }
 
-        piwReg.enable1 = verifyReg.enable1;
         piwReg.phv = verifyReg.phv;
         piwReg.match_table_guider = verifyReg.match_table_guider;
         piwReg.gateway_guider = verifyReg.gateway_guider;
@@ -81,11 +80,11 @@ struct PIW : public Logic
             // not the last -> only one cycle
             if (first_piwReg.enable1)
             {
-                BaseRegister &baseReg = next->processors[processor_id + 1].base;
-                baseReg.enable1 = first_piwReg.enable1;
-                baseReg.match_table_guider = first_piwReg.match_table_guider;
-                baseReg.gateway_guider = first_piwReg.gateway_guider;
-                baseReg.phv = first_piwReg.phv;
+                GetKeysRegister &getKeysReg = next->processors[processor_id + 1].getKeys;
+                getKeysReg.enable1 = first_piwReg.enable1;
+                getKeysReg.match_table_guider = first_piwReg.match_table_guider;
+                getKeysReg.gateway_guider = first_piwReg.gateway_guider;
+                getKeysReg.phv = first_piwReg.phv;
             }
             else
             {
@@ -284,7 +283,6 @@ struct PIR : public Logic
 
         const ProcessorState &now_proc = now->proc_states[processor_id]; // can only be read
         ProcessorState &next_proc = next->proc_states[processor_id];     // can only be written
-        next_proc = now_proc;                                           // copy to next cycle
 
         pir_pipe_first_cycle(piReg, now_proc, next_proc, nextPIReg);
         pir_pipe_second_cycle(old_nextPIReg, now_proc, next_proc, poReg);
@@ -292,6 +290,7 @@ struct PIR : public Logic
 
     void pir_pipe_second_cycle(const PIRegister &now, const ProcessorState &now_proc, ProcessorState &next_proc, PORegister &next)
     {
+        next_proc.normal_pipe_schedule_flag = false;
         next.enable1 = now.enable1;
         if (!now.enable1)
         {
@@ -303,6 +302,8 @@ struct PIR : public Logic
             next.phv = now.phv;
             next.match_table_guider = now.match_table_guider;
             next.gateway_guider = now.gateway_guider;
+            next.hash_values = now.hash_values;
+            next.match_table_keys = now.match_table_keys;
             // to let the PO scheduler know that there is a normal pipe pkt
             next_proc.normal_pipe_schedule_flag = true;
             return;
@@ -326,7 +327,7 @@ struct PIR : public Logic
             next_flow_info.p2p_first_pkt_idx = next_flow_info.p2p_last_pkt_idx = now_proc.rp2p_tail;
             next_proc.rp2p[now_proc.rp2p_tail] =
                 {now.phv, now.match_table_guider, now.gateway_guider,
-                 now.hash_values, false, table_id};
+                 now.hash_values, now.match_table_keys, false, table_id};
             next_flow_info.left_pkt_num = flow_info.left_pkt_num + 1;
             next_proc.rp2p_pointer[flow_info.p2p_last_pkt_idx] = -1;
         }
@@ -334,7 +335,7 @@ struct PIR : public Logic
         { // have buffered pkt -> SUSPEND/READY
             next_proc.rp2p[now_proc.rp2p_tail] =
                 {now.phv, now.match_table_guider, now.gateway_guider,
-                 now.hash_values, false, table_id};
+                 now.hash_values, now.match_table_keys, false, table_id};
             next_flow_info.left_pkt_num = flow_info.left_pkt_num + 1;
             next_proc.rp2p_pointer[flow_info.p2p_last_pkt_idx] = now_proc.rp2p_tail;
             next_flow_info.p2p_last_pkt_idx = now_proc.rp2p_tail;
@@ -375,6 +376,7 @@ struct PIR : public Logic
             next.match_table_guider = now.match_table_guider;
             next.gateway_guider = now.gateway_guider;
             next.hash_values = now.hash_values;
+            next.match_table_keys = now.match_table_keys;
         }
         else
         {
@@ -384,6 +386,7 @@ struct PIR : public Logic
             next.match_table_guider = now.match_table_guider;
             next.gateway_guider = now.gateway_guider;
             next.hash_values = now.hash_values;
+            next.match_table_keys = now.match_table_keys;
         }
     }
 };
@@ -414,6 +417,7 @@ struct PO : public Logic
             next.match_table_keys = now.match_table_keys;
             next.gateway_guider = now.gateway_guider;
             next.match_table_guider = now.match_table_guider;
+            next.hash_values = now.hash_values;
             return;
         }
 
@@ -447,7 +451,7 @@ struct PO : public Logic
             next.match_table_guider = pkt.match_table_guider;
             next.gateway_guider = pkt.gateway_guider;
             next.phv = pkt.phv;
-            // todo: backward pkt will not go through the stateless table of the READ processor
+            next.match_table_keys = pkt.match_table_keys;
             if (pkt.backward_pkt)
             {
                 next.backward_pkt = true;
@@ -479,7 +483,6 @@ struct RI : public Logic
         //  ----------                   ----------
         const ProcessorState &now_proc = now->proc_states[processor_id];
         ProcessorState &next_proc = next->proc_states[processor_id];
-        next_proc = now_proc;
 
         const RIRegister &riReg = now->processors[processor_id].ri;
         PIRAsynRegister &pi_asynReg = next->processors[processor_id].pi_asyn[0];
@@ -660,7 +663,6 @@ struct RO : public Logic
     {
         const ProcessorState &now_proc = now->proc_states[processor_id];
         ProcessorState &next_proc = next->proc_states[processor_id];
-        next_proc = now_proc;
 
         //        const RORegister & roReg = now.processors[processor_id].ro;
         // get front processor id to get the front ri
@@ -784,7 +786,6 @@ struct PIR_asyn : public Logic
 
         const ProcessorState &now_proc = now->proc_states[processor_id];
         ProcessorState &next_proc = next->proc_states[processor_id];
-        next_proc = now_proc;
         // current cycle's PIAsyn-level pipe
         const PIRAsynRegister &piAsynReg = now->processors[processor_id].pi_asyn[0];
         // next cycle's second PIAsyn-level pipe
@@ -961,9 +962,9 @@ struct PIR_asyn : public Logic
                 u32 start_key_index = (hash_values[j] >> 10) * match_table.key_width;
                 u32 start_value_index = (hash_values[j] >> 10) * match_table.value_width;
                 auto on_chip_addr = (hash_values[j] << 22 >> 22);
-                std::array<int, 8> key_sram_columns;
-                std::array<int, 8> value_sram_columns;
-                std::array<b128, 8> obtained_key;
+                std::array<int, 8> key_sram_columns{};
+                std::array<int, 8> value_sram_columns{};
+                std::array<b128, 8> obtained_key{};
 
                 for (int k = 0; k < match_table.key_width; k++)
                 {

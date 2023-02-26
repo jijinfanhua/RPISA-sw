@@ -22,9 +22,9 @@ struct GetKey : public Logic
 
     void getKeyFromPHV(const GetKeysRegister &now, GatewayRegister &next)
     {
+        next.enable1 = now.enable1;
         if (!now.enable1)
         {
-            next.enable1 = now.enable1;
             return;
         }
         GetKeyConfig getKeyConfig = getKeyConfigs[processor_id];
@@ -98,6 +98,10 @@ struct Gateway : public Logic
 
     void gateway_second_cycle(const GatewayRegister &now, HashRegister &next)
     {
+        next.enable1 = now.enable1;
+        if(!now.enable1){
+            return;
+        }
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
 
@@ -216,6 +220,7 @@ struct GetHash : public Logic
         piRegister.hash_values = lastHashReg.hash_values;
         piRegister.match_table_guider = lastHashReg.match_table_guider;
         piRegister.gateway_guider = lastHashReg.gateway_guider;
+        piRegister.match_table_keys = lastHashReg.match_table_keys;
     }
 
     static void get_left_hash(const HashRegister &now, HashRegister &next)
@@ -227,6 +232,7 @@ struct GetHash : public Logic
         }
 
         next.key = now.key;
+        next.phv = now.phv;
         next.match_table_keys = now.match_table_keys;
         next.hash_values = now.hash_values;
         next.match_table_guider = now.match_table_guider;
@@ -283,7 +289,7 @@ struct GetHash : public Logic
             // high 32 bit
             phv[phv_id_to_save_hash_value[processor_id][i][0]] = hash_value >> 32;
             // low 32 bit
-            phv[phv_id_to_save_hash_value[processor_id][i][0]] = hash_value;
+            phv[phv_id_to_save_hash_value[processor_id][i][1]] = hash_value << 32 >> 32;
         }
 
         next.key = now.key;
@@ -560,10 +566,9 @@ struct Compare : public Logic
             auto match_table = matchTableConfig.matchTables[i];
             if (match_table.type == 1)
             {
-                // stateful table, do not compare, pass key & value to next
-                // todo: four ways; fit the salu
+                // done: four ways; fit the salu
                 int found_flag = 1;
-                b128 key_to_compare = u64_to_u16_array(u32_to_u64(now.phv[flow_id_in_phv[0]], flow_id_in_phv[1]));
+                b128 key_to_compare = u64_to_u16_array(u32_to_u64(now.phv[flow_id_in_phv[0]], now.phv[flow_id_in_phv[1]]));
                 for (int j = 0; j < match_table.number_of_hash_ways; j++)
                 {
                     // key is only 128 bit long
