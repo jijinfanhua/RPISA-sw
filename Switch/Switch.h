@@ -21,7 +21,7 @@ struct ProcessorConfig
 {
 
     GetKeyConfig getKeyConfig{};
-    GatewaysConfig gatewaysConfig;
+    GatewaysConfig gatewaysConfig{};
     MatchTableConfig matchTableConfig{};
     ActionConfig actionConfig{};
 
@@ -29,12 +29,15 @@ struct ProcessorConfig
 
     explicit ProcessorConfig(int id) : processor_id(id)
     {
-        getKeyConfig.processor_id = id;
         getKeyConfig.used_container_num = 0;
         gatewaysConfig.processor_id = id;
         matchTableConfig.processor_id = id;
         matchTableConfig.match_table_num = 0;
         actionConfig.processor_id = id;
+
+        gatewaysConfig.masks.clear();
+        gatewaysConfig.gateway_res_2_match_tables.clear();
+        gatewaysConfig.gateway_res_2_gates.clear();
     }
 
     void push_back_get_key_use_container(
@@ -103,7 +106,9 @@ private:
         u32 sum = 0;
         for (int i = 0; i < 16; i++)
         {
-            sum += (1 << (15 - i));
+            if(bool_array[i]){
+                sum += (1 << (15 - i));
+            }
         }
         return sum;
     }
@@ -306,6 +311,9 @@ struct Switch
 
     void Log(){
         for(int i = 0; i < PROC_NUM; i++){
+            if(proc_types[i] == ProcType::NONE){
+                continue;
+            }
             cout << "processor_id: " << i << endl;
             pipeline->proc_states[i].log();
         }
@@ -467,10 +475,6 @@ struct Switch
         stateful_table_ids[0] = {0, 1, 2};
         proc_types[0] = ProcType::READ;
         state_idx_in_phv[0] = {162, 163, 164};
-        auto& saved_state_0 = state_saved_idxs[0];
-        saved_state_0.state_num = 3;
-        saved_state_0.state_lengths = {1, 1, 1};
-        saved_state_0.saved_state_idx_in_phv = {162, 163, 164};
 
         auto& phv_id_to_save_hash_value_0 = phv_id_to_save_hash_value[0];
         phv_id_to_save_hash_value_0[0] = {166, 167};
@@ -479,14 +483,33 @@ struct Switch
 
         auto& salu_id_0 = salu_id[0];
         salu_id_0 = {224, 225, 226};
+
+        auto& saved_state_0 = state_saved_idxs[0];
+        saved_state_0.state_num = 3;
+        saved_state_0.state_lengths = {1, 1, 1};
+        saved_state_0.saved_state_idx_in_phv = {162, 163, 164};
         // processor1 finished
 
         ProcessorConfig proc1 = ProcessorConfig(1);
 
+        proc1.matchTableConfig.match_table_num = 2;
+        auto& match_table_1 = proc1.matchTableConfig.matchTables[0];
+        match_table_1.type = 1;
+        auto& match_table_2 = proc1.matchTableConfig.matchTables[1];
+        match_table_2.type = 1;
+        proc1.commit();
+
+        num_of_stateful_tables[1] = 2;
+        stateful_table_ids[1] = {0, 1};
+        auto& phv_id_to_save_hash_value_1 = phv_id_to_save_hash_value[1];
+        phv_id_to_save_hash_value_1[0] = {172, 173};
+        phv_id_to_save_hash_value_1[1] = {172, 173};
+
         auto& salu_id_1 = salu_id[1];
-        salu_id_1 = {224, 225, 226, 227};
+        salu_id_1 = {224, 225};
         // if phv_162 >= phv_163, phv_165 = phv_162; else: phv_165 = phv_163
         auto& salu3 = SALUs[1][0];
+        salu3.salu_id = 224;
         salu3.op = SALUnit::OP::IfElseRAW;
         salu3.left_value.type = SALUnit::Parameter::Type::HEADER;
         salu3.left_value.content.phv_id = 162;
@@ -504,6 +527,7 @@ struct Switch
 
         // if phv_162 >= phv_163, phv_1 = 0; else: phv_1 = 1;
         auto& salu4 = SALUs[1][1];
+        salu4.salu_id = 225;
         salu4.op = SALUnit::OP::IfElseRAW;
         salu4.left_value.type = SALUnit::Parameter::Type::HEADER;
         salu4.left_value.content.phv_id = 162;
@@ -528,7 +552,7 @@ struct Switch
         proc2.push_back_get_key_use_container(1, 8, 8);
 
         auto& gate1 = proc2.gatewaysConfig.gates[0];
-        gate1.op = GatewaysConfig::Gate::LT;
+        gate1.op = GatewaysConfig::Gate::LTE;
         gate1.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
         gate1.operand1.content.operand_match_field_byte = {4, {0, 1, 2, 3}};
         gate1.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
@@ -562,23 +586,28 @@ struct Switch
         gate5.operand2.type = GatewaysConfig::Gate::Parameter::CONST;
         gate5.operand2.content.value = 0;
 
-        key = {false};
-        value = {false};
-        key[0] = key[1] = true;
-        value[32] = true;
-        proc2.insert_gateway_res_2_match_table(key, value);
-        key = {false};
-        key[1] = key[2] = key[3] = key[4] = true;
-        value = {false};
-        value[33] = true;
-        proc2.insert_gateway_res_2_match_table(key, value);
+        std::array<bool, 16> mask1 = {true, true, false};
+        proc2.gatewaysConfig.masks.push_back(mask1);
+        std::array<bool, 16> mask2 = {true, true, true, true, true, false};
+        proc2.gatewaysConfig.masks.push_back(mask2);
+        std::array<bool, MAX_PARALLEL_MATCH_NUM> key1 = {true, false, false}; // todo: different from true config
+        std::array<bool, MAX_PARALLEL_MATCH_NUM * PROC_NUM> value1 = {false};
+        value1[32] = true;
+        proc2.insert_gateway_res_2_match_table(key1, value1);
+
+        std::array<bool, MAX_PARALLEL_MATCH_NUM> key2 = {false, true, true, true, true};
+        std::array<bool, MAX_PARALLEL_MATCH_NUM * PROC_NUM> value2 = {false};
+        value2[33] = true;
+        proc2.insert_gateway_res_2_match_table(key2, value2);
+
         // todo: add other entries
 
-        gatewaysConfigs[2].masks.push_back(std::array<bool, 16>{true, true, false});
+        proc2.matchTableConfig.match_table_num = 3;
+        proc2.matchTableConfig.matchTables[0].default_action_id = 5;
+        proc2.matchTableConfig.matchTables[1].default_action_id = 6;
+        proc2.matchTableConfig.matchTables[2].default_action_id = 7;
 
-        matchTableConfigs[2].matchTables[0].default_action_id = 5;
-        matchTableConfigs[2].matchTables[1].default_action_id = 6;
-        matchTableConfigs[2].matchTables[2].default_action_id = 7;
+        proc2.commit();
 
         auto& action = actionConfigs[2].actions[5];
         action.action_id = 5;
@@ -609,6 +638,11 @@ struct Switch
         action2.alu_configs[163].operand1.content.value = 1;
 
         proc_types[2] = ProcType::WRITE;
+        state_idx_in_phv[2] = {162, 163, 164};
+        auto& saved_state_2 = state_saved_idxs[2];
+        saved_state_2.state_num = 3;
+        saved_state_2.state_lengths = {1, 1, 1};
+        saved_state_2.saved_state_idx_in_phv = {162, 163, 164};
         // processor_3 finished
     }
 };

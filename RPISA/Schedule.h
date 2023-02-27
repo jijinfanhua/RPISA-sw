@@ -560,6 +560,7 @@ struct RI : public Logic
             RP2R_REG it{};
             if (riReg.ringReg.dst2 == proc_bitmap)
             { // the signal dst is this proc
+                pi_asynReg.enable1 = true;
                 pi_asynReg.ringReg = {
                     proc_bitmap & riReg.ringReg.dst1,
                     riReg.ringReg.ctrl,
@@ -701,7 +702,13 @@ struct RO : public Logic
         {
             riReg.enable1 = true;
             auto p2r_reg = now_proc.p2r.front();
-            riReg.ringReg.dst1 = 0; // no hb
+            // 根据processor type处理
+            if(proc_types[processor_id] == ProcType::READ) {
+                riReg.ringReg.dst1 = 0;
+            }
+            else{
+                riReg.ringReg.dst1 = p2r_reg.rr.dst1;
+            }
             riReg.ringReg.ctrl = p2r_reg.rr.ctrl;
             riReg.ringReg.dst2 = p2r_reg.rr.dst2;
             riReg.ringReg.write_addr = p2r_reg.rr.write_addr;
@@ -726,7 +733,6 @@ struct RO : public Logic
                 riReg.ringReg.write_addr = p2r_reg.rr.write_addr;
                 riReg.ringReg.flow_addr = p2r_reg.rr.flow_addr;
                 riReg.ringReg.payload = p2r_reg.rr.payload;
-                flag = 1;
                 next_proc.p2r.pop();
                 next_proc.r2r.pop();
             }
@@ -738,7 +744,6 @@ struct RO : public Logic
                 riReg.ringReg.write_addr = r2r_reg.rr.write_addr;
                 riReg.ringReg.flow_addr = r2r_reg.rr.flow_addr;
                 riReg.ringReg.payload = r2r_reg.rr.payload;
-                flag = 0;
                 next_proc.p2r.pop();
                 next_proc.r2r.pop();
             }
@@ -930,7 +935,7 @@ struct PIR_asyn : public Logic
     void handle_write(const ProcessorState &now_proc, ProcessorState &next_proc, PIRAsynRegister &next)
     {
         //
-        auto write = now_proc.write_stash.front();
+        auto write = next_proc.write_stash.front();
         auto state = write.state;
 
         int offset = 0;
@@ -940,11 +945,25 @@ struct PIR_asyn : public Logic
         {
             // every stateful table
             // get value to write
-            b128 value;
-            for (int j = 0; j < state_saved_idxs[processor_id].state_lengths[i]; j++)
-            {
-                // every 32 bit of state
-                value[j] = state[offset + j];
+            b128 value{};
+            auto length = state_saved_idxs[processor_id].state_lengths[i];
+            if(length == 1){
+                value[3] = state[offset];
+            }
+            else if(length == 2){
+                value[2] = state[offset];
+                value[3] = state[offset + 1];
+            }
+            else if(length == 3){
+                value[1] = state[offset];
+                value[2] = state[offset + 1];
+                value[3] = state[offset + 2];
+            }
+            else if(length == 4){
+                value[0] = state[offset];
+                value[1] = state[offset + 1];
+                value[2] = state[offset + 2];
+                value[3] = state[offset + 3];
             }
 
             // get hash to find addr
@@ -954,6 +973,9 @@ struct PIR_asyn : public Logic
             auto match_table = matchTableConfigs[processor_id].matchTables[stateful_table_ids[processor_id][i]];
 
             bool found_flag = false;
+            u32 vacant_key_sram_id;
+            u32 vacant_value_sram_id;
+            u32 vacant_chip_addr;
 
             for (int j = 0; j < match_table.number_of_hash_ways; j++)
             {
@@ -985,6 +1007,18 @@ struct PIR_asyn : public Logic
                     // write value to proper position
                     SRAMs[processor_id][value_sram_columns[0]].set(int(on_chip_addr), value);
                 }
+                if(obtained_key[0][0] == 0 && obtained_key[0][1] == 0 && obtained_key[0][2] == 0 && obtained_key[0][3] == 0){
+                    // vacant place
+                    vacant_key_sram_id = key_sram_columns[0];
+                    vacant_value_sram_id = value_sram_columns[0];
+                    vacant_chip_addr = on_chip_addr;
+                }
+            }
+
+            if(!found_flag){
+                // insert to vacant place
+                SRAMs[processor_id][vacant_key_sram_id].set(int(vacant_chip_addr), u64_to_u16_array(write.flow_addr));
+                SRAMs[processor_id][vacant_value_sram_id].set(int(vacant_chip_addr), value);
             }
 
             offset += state_saved_idxs[processor_id].state_lengths[i];
@@ -1009,11 +1043,12 @@ struct PIR_asyn : public Logic
     {
         // the PIAsyn should be triggerred by RI's input(enable1, i.e., pkt, hb or write)
         // or not-empty write_stash(state), r2p_stash(pkt)
+
         if (!now.enable1)
         { // no input from RI, so check two stashes, and write_stash has higher priority
             // but if there is normal pkt from pipeline, do it first(search in flow_cam).
             // because flow_cam can only be accessed by one.
-            if (now_proc.normal_pipe_pkt)
+            if (now_proc.normal_pipe_schedule_flag)
             {
                 return;
             }
@@ -1063,7 +1098,7 @@ struct PIR_asyn : public Logic
         { // bp with hb
             handle_heartbeat(poReg, now_proc, next_proc);
             // search pir_dirty_cam, record the result to next cycle;
-            if (now_proc.normal_pipe_pkt)
+            if (now_proc.normal_pipe_schedule_flag)
             { // normal pipe has pkt
                 FlowInfo it{
                     transfer_from_payload_to_phv(now.ringReg.payload),
@@ -1123,7 +1158,7 @@ struct PIR_asyn : public Logic
         { // write with hb
             handle_heartbeat(poReg, now_proc, next_proc);
             // addr & payload (state)
-            if (now_proc.normal_pipe_pkt)
+            if (now_proc.normal_pipe_schedule_flag)
             {
                 WriteInfo it{};
                 it.write_addr = now.ringReg.write_addr;

@@ -112,7 +112,8 @@ struct ExecuteAction : public Logic {
 
         execute_action(executeActionReg, verifyReg);
 
-        verifyReg.phv = executeActionReg.phv;
+        // no need to copy phv here !!!!!
+//        verifyReg.phv = executeActionReg.phv;
         verifyReg.gateway_guider = executeActionReg.gateway_guider;
         verifyReg.match_table_guider = executeActionReg.match_table_guider;
         verifyReg.hash_values = executeActionReg.hash_values;

@@ -132,7 +132,9 @@ struct Gateway : public Logic
         u32 sum = 0;
         for (int i = 0; i < 16; i++)
         {
-            sum += (1 << (15 - i));
+            if(bool_array[i]) {
+                sum += (1 << (15 - i));
+            }
         }
         return sum;
     }
@@ -181,7 +183,7 @@ struct Gateway : public Logic
             // get byte from match_field and compute the result
             for (int i = 0; i < len; i++)
             {
-                tmp += now.key[operand.content.operand_match_field_byte.match_field_byte_ids[i] << (len - 1) * 8];
+                tmp += now.key[operand.content.operand_match_field_byte.match_field_byte_ids[i]] << (len - 1 - i) * 8;
             }
             return tmp;
         }

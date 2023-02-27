@@ -39,7 +39,6 @@ struct ProcessorState {
 //    bool clk_enable = false;
     // hash of four ways (32bit) -> flow info
     std::unordered_map<u64, flow_info_in_cam> dirty_cam;
-    bool normal_pipe_pkt{};
 
     // 128 will cause segmentation fault, reason unknown
     std::array<FlowInfo, 32> rp2p{};
@@ -66,6 +65,11 @@ struct ProcessorState {
     ProcessorState& operator=(const ProcessorState &other) = default;
 
     void log() {
+        cout << "increase_clock: " << increase_clk << endl;
+        cout << "decrease_clock: " << decrease_clk << endl;
+        cout << "dirty cam: " << endl;
+        for(auto item: dirty_cam){
+        }
         cout << "normal_pipe_schedule_flag: " << normal_pipe_schedule_flag << endl;
     }
 };

@@ -51,7 +51,7 @@ u32 bytes_to_u32(byte byte_1, byte byte_2){
 struct Parser {
     vector<ParserConfig> config;
     PHV parse(const Packet& packet) {
-        PHV phv;
+        PHV phv{};
         phv[0] = packet[12];
         phv[64] = bytes_to_u32(packet[8], packet[9]);
         phv[65] = bytes_to_u32(packet[10], packet[11]);
