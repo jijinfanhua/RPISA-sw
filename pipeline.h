@@ -15,10 +15,9 @@ struct FlowInfo {
     PHV phv;
     std::array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM> match_table_guider;
     std::array<bool, MAX_GATEWAY_NUM * PROCESSOR_NUM> gateway_guider;
-    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
-    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
+    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values; // for stateless table
+    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys; // for stateless table
     bool backward_pkt;
-    std::array<int, 4> table_id;
 };
 struct WriteInfo {
     std::array<u64, 4> write_addr;
@@ -41,7 +40,7 @@ struct ProcessorState {
     std::unordered_map<u64, flow_info_in_cam> dirty_cam;
 
     // 128 will cause segmentation fault, reason unknown
-    std::array<FlowInfo, 32> rp2p{};
+    std::array<FlowInfo, 128> rp2p{};
     // 指示下一个对象在rp2p中的位置
     std::array<u32, 128> rp2p_pointer{};
     int rp2p_tail = 0;
@@ -49,27 +48,26 @@ struct ProcessorState {
     std::queue<WriteInfo> write_stash;
 
     queue<flow_info_in_cam> wait_queue;
-    u32 wait_head{}, wait_tail{};
     flow_info_in_cam wait_queue_head;
     bool wait_queue_head_flag{};
-    u32 write_proc_id{};
-    u32 read_proc_id{};
 
     bool normal_pipe_schedule_flag{};
     queue<flow_info_in_cam> schedule_queue;
 
     queue<RP2R_REG> p2r;
     queue<RP2R_REG> r2r;
-    int round_robin_flag = 0;// 0 is r2r, 1 is p2r
+    int round_robin_flag = 0; // 0 is r2r, 1 is p2r
 
     ProcessorState& operator=(const ProcessorState &other) = default;
 
     void log() {
         cout << "increase_clock: " << increase_clk << endl;
         cout << "decrease_clock: " << decrease_clk << endl;
-        cout << "dirty cam: " << endl;
-        for(auto item: dirty_cam){
-        }
+        cout << "dirty cam size: " << dirty_cam.size() << endl;
+        cout << "wait queue size: " << wait_queue.size() << endl;
+        cout << "rp2p tail: " << rp2p_tail << endl;
+        cout << "p2r size: " << p2r.size() << endl;
+        cout << "r2r size: " << r2r.size() << endl;
         cout << "normal_pipe_schedule_flag: " << normal_pipe_schedule_flag << endl;
     }
 };

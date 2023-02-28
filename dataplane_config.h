@@ -274,6 +274,9 @@ enum ProcType
 };
 std::array<ProcType, PROCESSOR_NUM> proc_types;
 
+std::array<int, PROCESSOR_NUM> read_proc_ids;
+std::array<int, PROCESSOR_NUM> write_proc_ids;
+
 std::array<std::array<int, 16>, PROCESSOR_NUM> state_idx_in_phv;
 
 struct SavedState
@@ -292,5 +295,8 @@ std::array<int, 2> flow_id_in_phv;
 
 // 带状态表使用的salu序号
 std::array<std::array<int, MAX_PARALLEL_MATCH_NUM>, PROCESSOR_NUM> salu_id; 
+
+// initial increase clock
+int backward_cycle_num;
 
 #endif // RPISA_SW_DATAPLANE_CONFIG_H+

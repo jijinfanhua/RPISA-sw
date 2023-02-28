@@ -244,7 +244,7 @@ struct Switch
         pipeline = new PipeLine();
         for (int i = 0; i < PROC_NUM; i++)
         {
-            // todo: Logic 需要一个虚析构函数，但现在不算什么大问题还
+            // done Logic 需要一个虚析构函数，但现在不算什么大问题还
             logics.push_back(make_unique<GetKey>(i));
             logics.push_back(make_unique<Gateway>(i));
             logics.push_back(make_unique<GetHash>(i));
@@ -644,6 +644,10 @@ struct Switch
         saved_state_2.state_lengths = {1, 1, 1};
         saved_state_2.saved_state_idx_in_phv = {162, 163, 164};
         // processor_3 finished
+
+        backward_cycle_num = 40;
+        read_proc_ids = {0};
+        write_proc_ids = {2};
     }
 };
 

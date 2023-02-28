@@ -61,27 +61,51 @@ struct Parser {
     }
 };
 
+string division(string str, int m, int n, int & remain){
+    string result = "";
+    int a;
+    remain = 0;
+
+    for(int i = 0; i < str.size(); i++){
+        a = (n * remain + (str[i] - '0'));
+        str[i] = a / m + '0';
+        remain = a % m;
+    }
+    //去掉多余的0 比如10/2=05
+    int pos = 0;
+    while(str[pos] == '0'){
+        pos++;
+    }
+    return str.substr(pos);
+}
+
+string conversion(string str, int m, int n){
+    string result = "";
+    char c;
+    int a;
+    //因为去掉了多余的0，所以终止条件是字符串为空 例：当上一步运算结果为"0"时，实际上返回的结果为""
+    while(str.size() != 0){
+        str = division(str, m , n,a);
+        result = char(a + '0') +result;
+
+    }
+    return result;
+}
+
 Packet input_to_packet(const string& input){
+    Packet output = Packet();
     // src ip 32 bit; dst ip 32 bit; src_addr 16 bit; dst addr 16 bit; is_tcp 1 bit
-    Packet packet;
-    bitset<97> bits(input);
+    string result = conversion(input, 2, 10);
+    bitset<97> bits(result);
     string bitsStr = bits.to_string();
 
-    byte src_ip_1 = bitset<8>(bitsStr.substr(0, 8)).to_ulong();
-    byte src_ip_2 = bitset<8>(bitsStr.substr(8, 8)).to_ulong();
-    byte src_ip_3 = bitset<8>(bitsStr.substr(16, 8)).to_ulong();
-    byte src_ip_4 = bitset<8>(bitsStr.substr(24, 8)).to_ulong();
+    for(int i = 0; i < 12; i++){
+        byte input_byte = bitset<8>(bitsStr.substr(i*8, 8)).to_ulong();
+        output.push_back(input_byte);
+    }
+    output.push_back(bitset<1>(bitsStr.substr(96, 1)).to_ulong());
 
-    packet.push_back(src_ip_1);
-    packet.push_back(src_ip_2);
-    packet.push_back(src_ip_3);
-    packet.push_back(src_ip_4);
-
-//    uint32_t num2 = bitset<32>(bitsStr.substr(32, 32)).to_ulong();
-//    uint16_t num3 = bitset<16>(bitsStr.substr(64, 16)).to_ulong();
-//    uint16_t num4 = bitset<16>(bitsStr.substr(80, 16)).to_ulong();
-//    uint8_t num5 = bitset<1>(bitsStr.substr(96, 1)).to_ulong();
-
+    return output;
 }
 
 

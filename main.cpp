@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <fstream>
 using namespace std;
 
 #include "defs.h"
@@ -26,19 +27,37 @@ Packet fake_packet(){
     return input_packet;
 }
 
+string read_from_file(ifstream& fin){
+    string time;
+    string tuple;
+    string length;
+    fin >> time;
+    fin >> tuple;
+    fin >> length;
+    return tuple;
+}
+
 int main(int argc, char** argv) {
 
     int cycle = 0;
     Switch switch_ = Switch();
+    ifstream infile;
+    infile.open("D:\\code\\RPISA-sw\\part_trace.txt");
     switch_.Config();
-    while (true) {
+    for(int i = 0; i < 900; i++) {
         std::cout << "cycle: " << cycle << endl;
-        if(cycle == 0) {
-            switch_.Execute(1, fake_packet());
-        }
-        else{
-            switch_.Execute(0, Packet());
-        }
+//        switch_.Execute(1, fake_packet());
+        if(cycle % 5 == 0)
+            switch_.Execute(1, input_to_packet(read_from_file(infile)));
+        else
+            switch_.Execute(0, fake_packet());
+//        if(cycle == 0) {
+//            switch_.Execute(1, input_to_packet("31917286809818793201644399359"));
+//        }
+//        else{
+//            switch_.Execute(0, Packet());
+//        }
+
         cycle += 1;
     }
     return 0;

@@ -93,7 +93,6 @@ struct PIWRegister : public RingBaseRegister {
     u64 cd_addr;
     bool cd_come = false;
 
-    flow_info_in_cam flow_info;
     bool state_changed; // need to write state
 //    bool wb_flag; // need write state
     bool state_writeback;

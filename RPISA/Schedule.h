@@ -25,6 +25,52 @@ std::array<u64, 4> get_write_addr(PHV phv, u32 read_proc_id)
     return output;
 }
 
+PHV transfer_from_payload_to_phv(std::array<u32, 128> payload)
+{
+    PHV phv;
+    // 64 * 8 | 96 * 16 | 64 * 32
+    for (int i = 0; i < 16; i++)
+    {
+        phv[i * 4] = payload[i] >> 24;
+        phv[i * 4 + 1] = payload[i] << 8 >> 24;
+        phv[i * 4 + 2] = payload[i] << 16 >> 24;
+        phv[i * 4 + 3] = payload[i] << 24 >> 24;
+    }
+
+    for (int i = 0; i < 48; i++)
+    {
+        phv[64 + i * 2] = payload[16 + i] >> 16;
+        phv[64 + i * 2 + 1] = payload[16 + i] << 16 >> 16;
+    }
+
+    for (int i = 0; i < 64; i++)
+    {
+        phv[160 + i] = payload[64 + i];
+    }
+    return phv;
+}
+
+std::array<u32, 128> transfer_from_phv_to_payload(PHV phv)
+{
+    std::array<u32, 128> payload{};
+    // 8bit * 64 ->16
+    for (int i = 0; i < 16; i++)
+    {
+        payload[i] = (phv[i * 4] << 24) + (phv[i * 4 + 1] << 16) + (phv[i * 4 + 2] << 8) + phv[i * 4 + 3];
+    }
+    // 16bit * 96 -> 48
+    for (int i = 16; i < 64; i++)
+    {
+        payload[i] = (phv[32 + i * 2] << 16) + phv[32 + i * 2 + 1];
+    }
+    // 32bit * 64 -> 32
+    for (int i = 64; i < 128; i++)
+    {
+        payload[i] = phv[96 + i];
+    }
+    return payload;
+}
+
 struct VerifyStateChange : public Logic
 {
     VerifyStateChange(int id) : Logic(id) {}
@@ -142,7 +188,7 @@ struct PIW : public Logic
             return;
         }
 
-        // todo: change
+        // in PIW, value in dirty cam is not important.
         auto flow_id = get_flow_id(now.phv);
         auto flow_cam = now_proc.dirty_cam;
         if (flow_cam.find(flow_id) == flow_cam.end())
@@ -150,6 +196,8 @@ struct PIW : public Logic
             // if need to writeback: stateless / stateful
             if (now.state_changed)
             { // state changed; state is in PHV
+                // add item into dirty cam
+                next_proc.dirty_cam.insert(std::pair<u64, flow_info_in_cam>(flow_id, flow_info_in_cam{}));
                 next.state_writeback = true;
                 next.pkt_backward = false;
             }
@@ -165,13 +213,11 @@ struct PIW : public Logic
             {
                 next.state_writeback = false;
                 next.pkt_backward = false;
-                next.flow_info = flow_cam[flow_id];
             }
             else
             {
                 next.state_writeback = false;
                 next.pkt_backward = true;
-                next.flow_info = flow_cam[flow_id];
             }
         }
         next.phv = now.phv;
@@ -185,7 +231,7 @@ struct PIW : public Logic
         // send heartbeat / asyn
         RP2R_REG it{};
         it.rr.ctrl = 0b11;
-        it.rr.dst1 = 1 << (PROCESSOR_NUM - now_proc.read_proc_id - 1);
+        it.rr.dst1 = 1 << (PROCESSOR_NUM - read_proc_ids[processor_id] - 1);
 
         if (!now.enable1)
         {
@@ -199,7 +245,7 @@ struct PIW : public Logic
             // build ringreg
             it.rr.ctrl = 0b00;
             it.rr.dst2 = it.rr.dst1;
-            it.rr.write_addr = get_write_addr(now.phv, now_proc.read_proc_id);
+            it.rr.write_addr = get_write_addr(now.phv, read_proc_ids[processor_id]);
             it.rr.flow_addr = get_flow_id(now.phv);
             for (int i = 0; i < 16; i++)
             {
@@ -229,7 +275,7 @@ struct PIW : public Logic
             it.rr.ctrl = 0b01;
             it.rr.dst2 = it.rr.dst1;
             it.rr.flow_addr = get_flow_id(now.phv);
-            it.rr.write_addr = get_write_addr(now.phv, now_proc.read_proc_id);
+            it.rr.write_addr = get_write_addr(now.phv, read_proc_ids[processor_id]);
             it.rr.payload = transfer_from_phv_to_payload(now.phv); // todo: transform from phv(32bit*224) to payload(32bit * 128)
             it.gateway_guider = now.gateway_guider;
             it.match_table_guider = now.match_table_guider;
@@ -239,27 +285,6 @@ struct PIW : public Logic
         {
             // just to Base of next proc
         }
-    }
-
-    std::array<u32, 128> transfer_from_phv_to_payload(PHV phv)
-    {
-        std::array<u32, 128> payload{};
-        // 8bit * 64 ->16
-        for (int i = 0; i < 16; i++)
-        {
-            payload[i] = (phv[i * 4] << 24) + (phv[i * 4 + 1] << 16) + (phv[i * 4 + 2] << 8) + phv[i * 4 + 3];
-        }
-        // 16bit * 96 -> 48
-        for (int i = 16; i < 64; i++)
-        {
-            payload[i] = (phv[32 + i * 2] << 16) + phv[32 + i * 2 + 1];
-        }
-        // 32bit * 64 -> 32
-        for (int i = 64; i < 128; i++)
-        {
-            payload[i] = phv[160 + i];
-        }
-        return payload;
     }
 
     void piw_empty_cycle()
@@ -312,8 +337,6 @@ struct PIR : public Logic
         // pkt is blocked
         next.enable1 = false;
 
-        auto table_id = stateful_table_ids[processor_id];
-
         auto flow_id = get_flow_id(now.phv);
 
         // now 用来 read，next 用来 write
@@ -327,7 +350,7 @@ struct PIR : public Logic
             next_flow_info.p2p_first_pkt_idx = next_flow_info.p2p_last_pkt_idx = now_proc.rp2p_tail;
             next_proc.rp2p[now_proc.rp2p_tail] =
                 {now.phv, now.match_table_guider, now.gateway_guider,
-                 now.hash_values, now.match_table_keys, false, table_id};
+                 now.hash_values, now.match_table_keys, false};
             next_flow_info.left_pkt_num = flow_info.left_pkt_num + 1;
             next_proc.rp2p_pointer[flow_info.p2p_last_pkt_idx] = -1;
         }
@@ -335,7 +358,7 @@ struct PIR : public Logic
         { // have buffered pkt -> SUSPEND/READY
             next_proc.rp2p[now_proc.rp2p_tail] =
                 {now.phv, now.match_table_guider, now.gateway_guider,
-                 now.hash_values, now.match_table_keys, false, table_id};
+                 now.hash_values, now.match_table_keys, false};
             next_flow_info.left_pkt_num = flow_info.left_pkt_num + 1;
             next_proc.rp2p_pointer[flow_info.p2p_last_pkt_idx] = now_proc.rp2p_tail;
             next_flow_info.p2p_last_pkt_idx = now_proc.rp2p_tail;
@@ -824,23 +847,32 @@ struct PIR_asyn : public Logic
             flow_info_in_cam flow_info{};
             flow_info.timer_offset = now_proc.increase_clk;
             next_proc.increase_clk = 0;
+            if(!now_proc.wait_queue_head_flag){
+                next_proc.decrease_clk = now_proc.wait_queue_head.timer_offset;
+            }
             flow_info.r2p_first_pkt_idx = flow_info.r2p_last_pkt_idx = now_proc.rp2p_tail;
             next_proc.rp2p_tail = (now_proc.rp2p_tail + 1) % 128;
             flow_info.flow_addr = flow_id;
             flow_info.left_pkt_num = 1;
             flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
 
-            next_proc.dirty_cam[flow_id] = flow_info;
+            next_proc.dirty_cam.insert(std::pair<u64, flow_info_in_cam>(flow_id, flow_info));
 
             FlowInfo pkt_info{
                 now.phv,
                 now.match_table_guider,
                 now.gateway_guider,
-                now.hash_values};
+                now.hash_values, true};
             next_proc.rp2p[flow_info.r2p_last_pkt_idx] = pkt_info;
             next_proc.rp2p_pointer[flow_info.r2p_last_pkt_idx] = -1;
 
-            next_proc.wait_queue.push(flow_info);
+            if(!next_proc.wait_queue_head_flag){
+                next_proc.wait_queue_head_flag = true;
+                next_proc.wait_queue_head = flow_info;
+            }
+            else {
+                next_proc.wait_queue.push(flow_info);
+            }
 
             break;
         }
@@ -858,7 +890,7 @@ struct PIR_asyn : public Logic
                 now.phv,
                 now.match_table_guider,
                 now.gateway_guider,
-                now.hash_values};
+                {}, {}, true};
             next_proc.rp2p[now_proc.rp2p_tail] = pkt_info;
             if (-1 == flow_info.r2p_first_pkt_idx)
             {
@@ -884,15 +916,25 @@ struct PIR_asyn : public Logic
             flow_info_in_cam flow_info{};
             flow_info.timer_offset = now_proc.increase_clk;
             next_proc.increase_clk = 0;
+            if(!now_proc.wait_queue_head_flag){
+                next_proc.decrease_clk = backward_cycle_num;
+            }
             flow_info.r2p_first_pkt_idx = flow_info.r2p_last_pkt_idx = -1;
+            flow_info.p2p_first_pkt_idx = flow_info.r2p_last_pkt_idx = -1;
             flow_info.flow_addr = flow_id;
             flow_info.left_pkt_num = 0;
             flow_info.cur_state = flow_info_in_cam::FSMState::WAIT;
 
             // add to dirty table
-            next_proc.dirty_cam[flow_id] = flow_info;
+            next_proc.dirty_cam.insert(std::pair<u64, flow_info_in_cam>(flow_id, flow_info));
             // add to wait_queue
-            next_proc.wait_queue.push(flow_info);
+            if(!next_proc.wait_queue_head_flag){
+                next_proc.wait_queue_head_flag = true;
+                next_proc.wait_queue_head = flow_info;
+            }
+            else {
+                next_proc.wait_queue.push(flow_info);
+            }
 
             break;
         }
@@ -922,7 +964,13 @@ struct PIR_asyn : public Logic
 
             next_flow_info.lazy = true;
 
-            next_proc.wait_queue.push(flow_info);
+            if(!next_proc.wait_queue_head_flag){
+                next_proc.wait_queue_head_flag = true;
+                next_proc.wait_queue_head = flow_info;
+            }
+            else {
+                next_proc.wait_queue.push(flow_info);
+            }
 
             break;
         }
@@ -1000,7 +1048,7 @@ struct PIR_asyn : public Logic
                 }
 
                 // compare key & flow_id (here use flow_id as identifier of a match key)
-                if(u32_to_u64(obtained_key[0][2], obtained_key[0][3]) == write.flow_addr){
+                if(u16_array_to_u64(obtained_key[0]) == write.flow_addr){
                     // key compare success
                     found_flag = true;
 
@@ -1102,8 +1150,8 @@ struct PIR_asyn : public Logic
             { // normal pipe has pkt
                 FlowInfo it{
                     transfer_from_payload_to_phv(now.ringReg.payload),
-                    now.gateway_guider,
-                    now.match_table_guider};
+                    now.match_table_guider,
+                    now.gateway_guider, {}, {}, true};
                 next_proc.r2p_stash.push(it); // set it to the r2p stash
             }
             else if (now_proc.write_stash.empty())
@@ -1112,15 +1160,14 @@ struct PIR_asyn : public Logic
                 it.phv = transfer_from_payload_to_phv(now.ringReg.payload);
                 it.gateway_guider = now.gateway_guider;
                 it.match_table_guider = now.match_table_guider;
+                it.backward_pkt = true;
                 next_proc.r2p_stash.push(it);
 
-                auto pkt = now_proc.r2p_stash.front();
+                auto pkt = next_proc.r2p_stash.front();
                 next_proc.r2p_stash.pop();
                 // search
-                auto table_id = stateful_table_ids[processor_id];
                 // get the hash value
                 // caution: stateful table only has one way hash
-                auto hash_value = now.hash_values[table_id[0]][0];
                 auto flow_cam = now_proc.dirty_cam;
                 if (flow_cam.find(get_flow_id(pkt.phv)) == flow_cam.end())
                 {
@@ -1158,16 +1205,17 @@ struct PIR_asyn : public Logic
         { // write with hb
             handle_heartbeat(poReg, now_proc, next_proc);
             // addr & payload (state)
-            if (now_proc.normal_pipe_schedule_flag)
-            {
-                WriteInfo it{};
-                it.write_addr = now.ringReg.write_addr;
-                it.flow_addr = now.ringReg.flow_addr;
-                it.state = now.ringReg.payload;
-                next_proc.write_stash.push(it);
-            }
-            else
-            {
+            // TODO: normal pipeline has packet, block write? no need!!
+//            if (now_proc.normal_pipe_schedule_flag)
+//            {
+//                WriteInfo it{};
+//                it.write_addr = now.ringReg.write_addr;
+//                it.flow_addr = now.ringReg.flow_addr;
+//                it.state = now.ringReg.payload;
+//                next_proc.write_stash.push(it);
+//            }
+//            else
+//            {
                 WriteInfo it{};
                 it.write_addr = now.ringReg.write_addr;
                 it.flow_addr = now.ringReg.flow_addr;
@@ -1175,7 +1223,7 @@ struct PIR_asyn : public Logic
                 next_proc.write_stash.push(it);
 
                 handle_write(now_proc, next_proc, next);
-            }
+//            }
         }
         else
         {
@@ -1184,49 +1232,31 @@ struct PIR_asyn : public Logic
         next.ringReg = now.ringReg;
     }
 
-    PHV transfer_from_payload_to_phv(std::array<u32, 128> payload)
-    {
-        PHV phv;
-        // 64 * 8 | 96 * 16 | 64 * 32
-        for (int i = 0; i < 16; i++)
-        {
-            phv[i * 4] = payload[i] >> 24;
-            phv[i * 4 + 1] = payload[i] << 8 >> 24;
-            phv[i * 4 + 2] = payload[i] << 16 >> 24;
-            phv[i * 4 + 3] = payload[i] << 24 >> 24;
-        }
-
-        for (int i = 0; i < 48; i++)
-        {
-            phv[64 + i * 2] = payload[16 + i] >> 16;
-            phv[64 + i * 2 + 1] = payload[16 + i] << 16 >> 16;
-        }
-
-        for (int i = 0; i < 64; i++)
-        {
-            phv[160 + i] = payload[64 + i];
-        }
-        return phv;
-    }
-
     // todo: check all of the idx
     void handle_heartbeat(PORegister &poReg, const ProcessorState &now_proc, ProcessorState &next_proc)
     {
+        // if wait_queue_empty, reset the clock
+        if(now_proc.wait_queue.empty() && !now_proc.wait_queue_head_flag){
+            next_proc.decrease_clk = 0;
+            next_proc.increase_clk = backward_cycle_num;
+            return;
+        }
         // 将等待队列队首的流从等待队列中拿出加入调度队列；发送cancel dirty信号
-        if (now_proc.decrease_clk - 1 == 0)
+        if (now_proc.decrease_clk == 0)
         {
             if (!now_proc.wait_queue.empty() || now_proc.wait_queue_head_flag)
             { // wait_queue has flow
                 // if not empty, flag is true; empty, possible true
-                const flow_info_in_cam &wait_flow = now_proc.wait_queue_head;
-                flow_info_in_cam next_schedule_flow = next_proc.wait_queue_head;
+                const flow_info_in_cam wait_flow = now_proc.wait_queue_head;
+                flow_info_in_cam& next_schedule_flow = next_proc.wait_queue_head;
 
                 // caution: send cancel_dirty
                 u64 flow_addr = wait_flow.flow_addr;
                 RP2R_REG it = {
                     0,
                     0b10,
-                    u32(1 << (PROCESSOR_NUM - now_proc.write_proc_id - 1)),
+                    u32(1 << (PROCESSOR_NUM - write_proc_ids[processor_id] - 1)),
+                    {},
                     flow_addr};
                 next_proc.p2r.push(it);
 
@@ -1358,7 +1388,6 @@ struct PIR_asyn : public Logic
 
                 // wait queue empty
                 // no op
-                // todo: set D and I; czk's hardware code
             }
         }
         else
