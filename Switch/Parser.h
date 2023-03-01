@@ -9,6 +9,8 @@
 #include <bitset>
 #include <string>
 #include "../defs.h"
+
+using byte = unsigned char;
 struct Field {
     int start, length;
 };

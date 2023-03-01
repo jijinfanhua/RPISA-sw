@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include <fstream>
-#include <direct.h>
+//#include <direct.h>
 using namespace std;
 
 #include "defs.h"
@@ -38,8 +38,8 @@ string read_from_file(ifstream& fin){
     return tuple;
 }
 
-string PARENT_DIR;
-string INPUT_FILE_NAME = "\\part_trace.txt";
+string PARENT_DIR = "/tools/oldz/";
+string INPUT_FILE_NAME = "port_0.txt";
 std::array<bool, PROC_NUM> processor_selects = {true, false, true};
 std::array<ofstream*, PROC_NUM> outputs{};
 
@@ -47,8 +47,8 @@ void init_outputs(const string& parent_dir){
     for(int i = 0; i < PROC_NUM; i++){
         if(processor_selects[i]){
             auto* output = new ofstream();
-            auto output_file = parent_dir + "\\processor_" + to_string(i) + ".txt";
-            output->open(output_file);
+            auto output_file = parent_dir + "processor_" + to_string(i) + ".txt";
+            output->open(output_file, ios_base::out);
             outputs[i] = output;
         }
     }
@@ -56,17 +56,17 @@ void init_outputs(const string& parent_dir){
 
 int main(int argc, char** argv) {
 
-    char *dir;
-    //也可以将buffer作为输出参数
-    if((dir = getcwd(nullptr, 0)) == nullptr)
-    {
-        perror("getcwd error");
-    }
-    else
-    {
-        PARENT_DIR = string(dir);
-
-    }
+//    char *dir;
+//    //也可以将buffer作为输出参数
+//    if((dir = getcwd(nullptr, 0)) == nullptr)
+//    {
+//        perror("getcwd error");
+//    }
+//    else
+//    {
+//        PARENT_DIR = string(dir);
+//
+//    }
 
     ifstream infile;
     infile.open(PARENT_DIR + INPUT_FILE_NAME);
@@ -75,11 +75,12 @@ int main(int argc, char** argv) {
     int cycle = 0;
     Switch switch_ = Switch();
     switch_.Config();
-    for(int i = 0; i < 200; i++) {
+    for(int i = 0; i < 15000; i++) {
         if(cycle % 100 == 0){
             std::cout << "cycle: " << cycle << endl;
         }
-        switch_.Execute(1, input_to_packet(read_from_file(infile)));
+//        if(cycle % 2 == 0) switch_.Execute(0, fake_packet());
+        else switch_.Execute(1, input_to_packet(read_from_file(infile)));
         switch_.Log(outputs, processor_selects);
         cycle += 1;
     }

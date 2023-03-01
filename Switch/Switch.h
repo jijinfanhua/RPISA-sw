@@ -15,7 +15,6 @@
 #include <memory>
 #include <string>
 const int PACKET_SIZE_MAX = 1600;
-using byte = unsigned char;
 
 struct ProcessorConfig
 {
@@ -400,15 +399,6 @@ struct Switch
         config_2.value_sram_index_per_hash_way[3] = {23};
 
         array<bool, 224> vliw_enabler = {0};
-        vliw_enabler[224] = 1;
-        proc0.set_action_param_num(0, 0, 1, vliw_enabler);
-        vliw_enabler = {0};
-        vliw_enabler[225] = 1;
-        proc0.set_action_param_num(1, 1, 1, vliw_enabler);
-        vliw_enabler = {0};
-        vliw_enabler[226] = 1;
-        proc0.set_action_param_num(2, 2, 1, vliw_enabler);
-
         proc0.commit();
 
         auto& salu = SALUs[0][0];
@@ -642,9 +632,10 @@ struct Switch
         saved_state_2.saved_state_idx_in_phv = {162, 163, 164};
         // processor_3 finished
 
-        backward_cycle_num = 40;
+        backward_cycle_num = 10;
         read_proc_ids = {0};
         write_proc_ids = {2};
+        getKeyConfigs;
     }
 };
 

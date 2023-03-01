@@ -9,7 +9,6 @@ add_executable(RPISA_sw
         RPISA/Schedule.h
         PISA/Register/SRAM.h
         PISA/Register/Register.h
-#        util/BitArray.h
         dataplane_config.h
         PISA/match.h
         PISA/action.h

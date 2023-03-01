@@ -64,6 +64,7 @@ struct ProcessorState {
         output << dirty_cam.size() << endl;
         output << wait_queue.size() << endl;
         output << schedule_queue.size() << endl;
+        output << r2p_stash.size() << endl;
         output << p2r.size() << endl;
         output << r2r.size() << endl;
     }

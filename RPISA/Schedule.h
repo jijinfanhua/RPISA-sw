@@ -405,6 +405,8 @@ struct PIR : public Logic
             next_flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
         }
 
+        update_wait_queue(flow_id, next_flow_info, next_proc);
+
         // update global tail
         next_proc.rp2p_tail = (now_proc.rp2p_tail + 1) % 128;
     }
@@ -866,6 +868,7 @@ struct PIR_asyn : public Logic
 
     void pi_asyn_second_cycle(const ProcessorState &now_proc, ProcessorState &next_proc, const PIRAsynRegister &now)
     {
+        if(!now.enable1) return;
         u64 flow_id = now.ringReg.flow_addr;
         switch (now.cam_search_res)
         {
@@ -1117,7 +1120,8 @@ struct PIR_asyn : public Logic
         {
             next.cam_search_res = WRITE_FOUND;
         }
-
+        next.enable1 = true;
+        next.ringReg.flow_addr = write.flow_addr;
         next_proc.write_stash.pop();
     }
 
@@ -1134,13 +1138,13 @@ struct PIR_asyn : public Logic
             // because flow_cam can only be accessed by one.
             if (now_proc.normal_pipe_schedule_flag)
             {
+                next.enable1 = false;
                 return;
             }
             if (!now_proc.write_stash.empty())
             {
                 // get the write information, call handle write to write state to stateful SRAM
                 handle_write(now_proc, next_proc, next);
-                return;
             }
             else if (!now_proc.r2p_stash.empty())
             {
@@ -1165,12 +1169,11 @@ struct PIR_asyn : public Logic
                     next.match_table_guider = pkt.match_table_guider;
                     next.phv = pkt.phv;
                 }
+                next.ringReg.flow_addr = get_flow_id(pkt.phv);
+                next.enable1 = true;
                 return;
             }
-            else
-            {
-                return;
-            }
+
         }
 
         // have RI's input
@@ -1266,6 +1269,7 @@ struct PIR_asyn : public Logic
             // nothing
         }
         next.ringReg = now.ringReg;
+        next.enable1 = now.enable1;
     }
 
     // todo: check all of the idx

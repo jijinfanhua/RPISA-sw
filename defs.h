@@ -105,7 +105,4 @@ std::array<u32, 4> u64_to_u16_array(u64 input)
 }
 
 
-
-#include "util/BitArray.h"
-
 #endif //RPISA_SW_DEFS_H
