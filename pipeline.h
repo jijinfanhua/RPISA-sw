@@ -60,15 +60,12 @@ struct ProcessorState {
 
     ProcessorState& operator=(const ProcessorState &other) = default;
 
-    void log() {
-        cout << "increase_clock: " << increase_clk << endl;
-        cout << "decrease_clock: " << decrease_clk << endl;
-        cout << "dirty cam size: " << dirty_cam.size() << endl;
-        cout << "wait queue size: " << wait_queue.size() << endl;
-        cout << "rp2p tail: " << rp2p_tail << endl;
-        cout << "p2r size: " << p2r.size() << endl;
-        cout << "r2r size: " << r2r.size() << endl;
-        cout << "normal_pipe_schedule_flag: " << normal_pipe_schedule_flag << endl;
+    void log(ofstream& output) {
+        output << dirty_cam.size() << endl;
+        output << wait_queue.size() << endl;
+        output << schedule_queue.size() << endl;
+        output << p2r.size() << endl;
+        output << r2r.size() << endl;
     }
 };
 

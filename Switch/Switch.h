@@ -294,7 +294,6 @@ struct Switch
             logic->execute(pipeline, next);
         }
         GetOutput();
-        Log();
         delete pipeline;
         pipeline = next;
     }
@@ -309,13 +308,11 @@ struct Switch
         }
     }
 
-    void Log(){
+    void Log(std::array<ofstream*, PROC_NUM> outputs, std::array<bool, PROC_NUM> enable){
         for(int i = 0; i < PROC_NUM; i++){
-            if(proc_types[i] == ProcType::NONE){
-                continue;
+            if(enable[i]){
+                pipeline->proc_states[i].log(*outputs[i]);
             }
-            cout << "processor_id: " << i << endl;
-            pipeline->proc_states[i].log();
         }
     };
 

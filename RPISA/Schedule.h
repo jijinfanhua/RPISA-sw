@@ -7,7 +7,38 @@
 
 #include "../pipeline.h"
 
+// 所有对 dirty cam 的修改都需要同时修改 wait queue 和 schedule queue!!!
+void update_wait_queue(u64 flow_id, flow_info_in_cam flow_info, ProcessorState& next_proc){
+    if(next_proc.wait_queue_head.flow_addr == flow_id){
+        next_proc.wait_queue_head = flow_info;
+    }
 
+    int s = next_proc.wait_queue.size();
+    for(int i = 0; i < s; i++){
+        auto item = next_proc.wait_queue.front();
+        if(item.flow_addr == flow_id){
+            next_proc.wait_queue.push(flow_info);
+            next_proc.wait_queue.pop();
+        }
+        else{
+            next_proc.wait_queue.push(item);
+            next_proc.wait_queue.pop();
+        }
+    }
+
+    int ss = next_proc.schedule_queue.size();
+    for(int i = 0; i < ss; i++){
+        auto item = next_proc.schedule_queue.front();
+        if(item.flow_addr == flow_id){
+            next_proc.schedule_queue.push(flow_info);
+            next_proc.schedule_queue.pop();
+        }
+        else{
+            next_proc.schedule_queue.push(item);
+            next_proc.schedule_queue.pop();
+        }
+    }
+}
 
 u64 get_flow_id(PHV phv)
 {
@@ -450,7 +481,7 @@ struct PO : public Logic
             return;
         }
 
-        flow_info_in_cam &schedule_flow = next_proc.schedule_queue.front();
+        flow_info_in_cam schedule_flow = next_proc.schedule_queue.front();
         if (schedule_flow.lazy)
         { // ready -> suspend
             next_proc.schedule_queue.pop();
@@ -460,15 +491,6 @@ struct PO : public Logic
         {
             next.enable1 = true;
             schedule_flow.left_pkt_num -= 1;
-            if (schedule_flow.left_pkt_num == 0)
-            {
-                next_proc.schedule_queue.pop(); // just delete, not add to the queue tail
-            }
-            else
-            {
-                next_proc.schedule_queue.pop();
-                next_proc.schedule_queue.push(schedule_flow);
-            }
             // schedule the pkt to getAddr Module
             auto pkt = now_proc.rp2p[schedule_flow.p2p_first_pkt_idx];
             next.match_table_guider = pkt.match_table_guider;
@@ -484,6 +506,16 @@ struct PO : public Logic
                 next.hash_values = pkt.hash_values;
             }
             schedule_flow.p2p_first_pkt_idx = now_proc.rp2p_pointer[schedule_flow.p2p_first_pkt_idx];
+            if (schedule_flow.left_pkt_num == 0)
+            {
+                next_proc.schedule_queue.pop(); // just delete, not add to the queue tail
+                next_proc.dirty_cam.erase(schedule_flow.flow_addr);
+            }
+            else
+            {
+                next_proc.schedule_queue.pop();
+                next_proc.schedule_queue.push(schedule_flow);
+            }
             // todo: set the rp2p to null
         }
     }
@@ -905,6 +937,8 @@ struct PIR_asyn : public Logic
 
             next_flow_info.left_pkt_num += 1;
 
+            update_wait_queue(flow_id, next_flow_info, next_proc);
+
             next_proc.rp2p_tail = (now_proc.rp2p_tail + 1) % 128;
             break;
         }
@@ -964,12 +998,14 @@ struct PIR_asyn : public Logic
 
             next_flow_info.lazy = true;
 
+            update_wait_queue(flow_id, next_flow_info, next_proc);
+
             if(!next_proc.wait_queue_head_flag){
                 next_proc.wait_queue_head_flag = true;
-                next_proc.wait_queue_head = flow_info;
+                next_proc.wait_queue_head = next_flow_info;
             }
             else {
-                next_proc.wait_queue.push(flow_info);
+                next_proc.wait_queue.push(next_flow_info);
             }
 
             break;
@@ -1235,6 +1271,8 @@ struct PIR_asyn : public Logic
     // todo: check all of the idx
     void handle_heartbeat(PORegister &poReg, const ProcessorState &now_proc, ProcessorState &next_proc)
     {
+        next_proc.decrease_clk -= 1;
+        next_proc.increase_clk += 1;
         // if wait_queue_empty, reset the clock
         if(now_proc.wait_queue.empty() && !now_proc.wait_queue_head_flag){
             next_proc.decrease_clk = 0;
@@ -1302,6 +1340,9 @@ struct PIR_asyn : public Logic
                             next_schedule_flow.r2p_first_pkt_idx = next_schedule_flow.r2p_last_pkt_idx = -1;
                         }
 
+                        // update in dirty cam
+                        next_proc.dirty_cam[next_schedule_flow.flow_addr] = next_schedule_flow;
+
                         // delete the flow in the wait_queue
                         if (!now_proc.wait_queue.empty())
                         {
@@ -1319,24 +1360,23 @@ struct PIR_asyn : public Logic
                         // todo: verify if it needs to go through the second cycle?
                         poReg.enable1 = true;
 
-                        if (wait_flow.left_pkt_num <= 1)
-                        {
-                            // delete it in dirty table & wait_queue
-                            next_proc.dirty_cam.erase(wait_flow.flow_addr);
-                            if (!now_proc.wait_queue.empty())
-                            {
-                                next_proc.wait_queue_head = now_proc.wait_queue.front();
-                                next_proc.wait_queue.pop();
-                            }
-                            else
-                            {
-                                next_proc.wait_queue_head_flag = false;
-                                next_proc.wait_queue_head = {};
-                            }
-                        }
-                        else
-                        {
-                            next_schedule_flow.left_pkt_num -= 1;
+//                        if (wait_flow.left_pkt_num <= 1)
+//                        {
+//                            // delete it in dirty table & wait_queue
+//                            next_proc.dirty_cam.erase(wait_flow.flow_addr);
+//                            if (!now_proc.wait_queue.empty())
+//                            {
+//                                next_proc.wait_queue_head = now_proc.wait_queue.front();
+//                                next_proc.wait_queue.pop();
+//                            }
+//                            else
+//                            {
+//                                next_proc.wait_queue_head_flag = false;
+//                                next_proc.wait_queue_head = {};
+//                            }
+//                        }
+//                        else
+//                        {
                             next_schedule_flow.cur_state = flow_info_in_cam::FSMState::READY;
                             // merge queue
                             if (wait_flow.r2p_first_pkt_idx == -1)
@@ -1356,6 +1396,10 @@ struct PIR_asyn : public Logic
                                 next_proc.rp2p_pointer[wait_flow.r2p_last_pkt_idx] = tmp_first;
                                 next_schedule_flow.r2p_first_pkt_idx = next_schedule_flow.r2p_last_pkt_idx = -1;
                             }
+
+                            next_proc.dirty_cam[next_schedule_flow.flow_addr] = next_schedule_flow;
+
+                        next_proc.schedule_queue.push(next_schedule_flow);
                             // add to schedule_queue & delete it in wait_queue
                             if (!now_proc.wait_queue.empty())
                             {
@@ -1367,13 +1411,12 @@ struct PIR_asyn : public Logic
                                 next_proc.wait_queue_head_flag = false;
                                 next_proc.wait_queue_head = {};
                             }
-                            next_proc.schedule_queue.push(next_schedule_flow);
-                        }
+//                        }
                         // schedule
-                        poReg.match_table_guider = now_proc.rp2p[wait_flow.p2p_first_pkt_idx].match_table_guider;
-                        poReg.gateway_guider = now_proc.rp2p[wait_flow.p2p_first_pkt_idx].gateway_guider;
-                        poReg.phv = now_proc.rp2p[wait_flow.p2p_first_pkt_idx].phv;
-                        poReg.hash_values = now_proc.rp2p[wait_flow.p2p_first_pkt_idx].hash_values;
+//                        poReg.match_table_guider = now_proc.rp2p[wait_flow.p2p_first_pkt_idx].match_table_guider;
+//                        poReg.gateway_guider = now_proc.rp2p[wait_flow.p2p_first_pkt_idx].gateway_guider;
+//                        poReg.phv = now_proc.rp2p[wait_flow.p2p_first_pkt_idx].phv;
+//                        poReg.hash_values = now_proc.rp2p[wait_flow.p2p_first_pkt_idx].hash_values;
                     }
                 }
                 else
@@ -1392,8 +1435,6 @@ struct PIR_asyn : public Logic
         }
         else
         {
-            next_proc.decrease_clk -= 1;
-            next_proc.increase_clk += 1;
         }
     }
 };
