@@ -1060,9 +1060,9 @@ struct PIR_asyn : public Logic
             auto match_table = matchTableConfigs[processor_id].matchTables[stateful_table_ids[processor_id][i]];
 
             bool found_flag = false;
-            u32 vacant_key_sram_id;
-            u32 vacant_value_sram_id;
-            u32 vacant_chip_addr;
+            u32 vacant_key_sram_id = -1;
+            u32 vacant_value_sram_id = -1;
+            u32 vacant_chip_addr = -1;
 
             for (int j = 0; j < match_table.number_of_hash_ways; j++)
             {
@@ -1104,8 +1104,11 @@ struct PIR_asyn : public Logic
 
             if(!found_flag){
                 // insert to vacant place
-                SRAMs[processor_id][vacant_key_sram_id].set(int(vacant_chip_addr), u64_to_u16_array(write.flow_addr));
-                SRAMs[processor_id][vacant_value_sram_id].set(int(vacant_chip_addr), value);
+                if(vacant_key_sram_id != -1) {
+                    SRAMs[processor_id][vacant_key_sram_id].set(int(vacant_chip_addr),
+                                                                u64_to_u16_array(write.flow_addr));
+                    SRAMs[processor_id][vacant_value_sram_id].set(int(vacant_chip_addr), value);
+                }
             }
 
             offset += state_saved_idxs[processor_id].state_lengths[i];
@@ -1145,6 +1148,7 @@ struct PIR_asyn : public Logic
             {
                 // get the write information, call handle write to write state to stateful SRAM
                 handle_write(now_proc, next_proc, next);
+                return;
             }
             else if (!now_proc.r2p_stash.empty())
             {
@@ -1171,6 +1175,9 @@ struct PIR_asyn : public Logic
                 }
                 next.ringReg.flow_addr = get_flow_id(pkt.phv);
                 next.enable1 = true;
+                return;
+            }
+            else{
                 return;
             }
 
@@ -1364,23 +1371,6 @@ struct PIR_asyn : public Logic
                         // todo: verify if it needs to go through the second cycle?
                         poReg.enable1 = true;
 
-//                        if (wait_flow.left_pkt_num <= 1)
-//                        {
-//                            // delete it in dirty table & wait_queue
-//                            next_proc.dirty_cam.erase(wait_flow.flow_addr);
-//                            if (!now_proc.wait_queue.empty())
-//                            {
-//                                next_proc.wait_queue_head = now_proc.wait_queue.front();
-//                                next_proc.wait_queue.pop();
-//                            }
-//                            else
-//                            {
-//                                next_proc.wait_queue_head_flag = false;
-//                                next_proc.wait_queue_head = {};
-//                            }
-//                        }
-//                        else
-//                        {
                             next_schedule_flow.cur_state = flow_info_in_cam::FSMState::READY;
                             // merge queue
                             if (wait_flow.r2p_first_pkt_idx == -1)

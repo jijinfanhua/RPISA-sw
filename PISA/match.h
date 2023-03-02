@@ -527,37 +527,6 @@ struct Compare : public Logic
         }
         auto matchTableConfig = matchTableConfigs[processor_id];
 
-        // todo:
-
-        // only enable the stateful result; don't compare yet
-        // if (now.backward_pkt)
-        // {
-        //     for (int i = 0; i < matchTableConfig.match_table_num; i++)
-        //     {
-        //         auto match_table = matchTableConfig.matchTables[i];
-        //         if (match_table.type == 1)
-        //         {
-        //             next.final_values[i] = std::make_pair(now.obtained_values[i][0], true);
-        //             for (int k = 0; k < match_table.key_width; k++)
-        //             {
-        //                 next.obtained_stateful_keys[i][k] = now.obtained_keys[i][0][k];
-        //             }
-        //             for (int k = 0; k < match_table.value_width; k++)
-        //             {
-        //                 next.obtained_stateful_values[i][k] = now.obtained_values[i][0][k];
-        //             }
-        //         }
-        //         else
-        //         {
-        //             continue;
-        //         }
-        //     }
-        //     next.phv = now.phv;
-        //     next.gateway_guider = now.gateway_guider;
-        //     next.match_table_guider = now.match_table_guider;
-        //     return;
-        // }
-
         for (int i = 0; i < matchTableConfig.match_table_num; i++)
         {
             if (!now.match_table_guider[processor_id * 16 + i])
@@ -569,14 +538,14 @@ struct Compare : public Logic
             if (match_table.type == 1)
             {
                 // done: four ways; fit the salu
-                int found_flag = 1;
+                int found_flag = 0;
                 b128 key_to_compare = u64_to_u16_array(u32_to_u64(now.phv[flow_id_in_phv[0]], now.phv[flow_id_in_phv[1]]));
                 for (int j = 0; j < match_table.number_of_hash_ways; j++)
                 {
                     // key is only 128 bit long
-                    if (key_to_compare[0] != now.obtained_keys[i][j][0][0] || key_to_compare[1] != now.obtained_keys[i][j][0][1] || key_to_compare[2] != now.obtained_keys[i][j][0][2] || key_to_compare[3] != now.obtained_keys[i][j][0][3])
+                    if (key_to_compare[0] == now.obtained_keys[i][j][0][0] && key_to_compare[1] == now.obtained_keys[i][j][0][1] && key_to_compare[2] == now.obtained_keys[i][j][0][2] && key_to_compare[3] == now.obtained_keys[i][j][0][3])
                     {
-                        found_flag = 0;
+                        found_flag = 1;
                     }
 
                     if (found_flag == 1)
@@ -594,15 +563,15 @@ struct Compare : public Logic
                 }
                 continue;
             }
-            int found_flag = 1;
+            int found_flag = 0;
             for (int j = 0; j < match_table.number_of_hash_ways; j++)
             {
                 // compare obtained key with original key
                 for (int k = 0; k < match_table.key_width; k++)
                 {
-                    if (now.match_table_keys[i][k * 4 + 0] != now.obtained_keys[i][j][k][0] || now.match_table_keys[i][k * 4 + 1] != now.obtained_keys[i][j][k][1] || now.match_table_keys[i][k * 4 + 2] != now.obtained_keys[i][j][k][2] || now.match_table_keys[i][k * 4 + 3] != now.obtained_keys[i][j][k][3])
+                    if (now.match_table_keys[i][k * 4 + 0] == now.obtained_keys[i][j][k][0] && now.match_table_keys[i][k * 4 + 1] == now.obtained_keys[i][j][k][1] && now.match_table_keys[i][k * 4 + 2] == now.obtained_keys[i][j][k][2] && now.match_table_keys[i][k * 4 + 3] == now.obtained_keys[i][j][k][3])
                     {
-                        found_flag = 0;
+                        found_flag = 1;
                     }
                 }
                 if (found_flag == 1)
@@ -612,12 +581,11 @@ struct Compare : public Logic
                     break; // handle next table
                 }
             }
-            if (found_flag == 0)
-            {
-                next.final_values[i].second = false;
-            }
-            else {
+            if(match_table.default_action_id != -1) {
                 next.final_values[i].second = true;
+            }
+            else{
+                next.final_values[i].second = false;
             }
         }
 

@@ -38,8 +38,8 @@ string read_from_file(ifstream& fin){
     return tuple;
 }
 
-string PARENT_DIR = "/tools/oldz/";
-string INPUT_FILE_NAME = "port_0.txt";
+string PARENT_DIR = R"(D:\code\RPISA-sw\cmake-build-debug\)";
+string INPUT_FILE_NAME = "part_trace.txt";
 std::array<bool, PROC_NUM> processor_selects = {true, false, true};
 std::array<ofstream*, PROC_NUM> outputs{};
 
@@ -75,12 +75,12 @@ int main(int argc, char** argv) {
     int cycle = 0;
     Switch switch_ = Switch();
     switch_.Config();
-    for(int i = 0; i < 15000; i++) {
-        if(cycle % 100 == 0){
+    for(int i = 0; i < 2000; i++) {
+//        if(cycle % 100 == 0){
             std::cout << "cycle: " << cycle << endl;
-        }
+//        }
 //        if(cycle % 2 == 0) switch_.Execute(0, fake_packet());
-        else switch_.Execute(1, input_to_packet(read_from_file(infile)));
+        switch_.Execute(1, input_to_packet(read_from_file(infile)));
         switch_.Log(outputs, processor_selects);
         cycle += 1;
     }
