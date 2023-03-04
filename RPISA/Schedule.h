@@ -9,20 +9,11 @@
 
 // 所有对 dirty cam 的修改都需要同时修改 wait queue 和 schedule queue!!!
 void update_wait_queue(u64 flow_id, flow_info_in_cam flow_info, ProcessorState& next_proc){
-    if(next_proc.wait_queue_head.flow_addr == flow_id){
-        next_proc.wait_queue_head = flow_info;
-    }
 
     int s = next_proc.wait_queue.size();
     for(int i = 0; i < s; i++){
-        auto item = next_proc.wait_queue.front();
-        if(item.flow_addr == flow_id){
-            next_proc.wait_queue.push(flow_info);
-            next_proc.wait_queue.pop();
-        }
-        else{
-            next_proc.wait_queue.push(item);
-            next_proc.wait_queue.pop();
+        if(next_proc.wait_queue[i].flow_addr == flow_id){
+            next_proc.wait_queue[i] = flow_info;
         }
     }
 
@@ -152,7 +143,7 @@ struct PIW : public Logic
             piw_empty_cycle();
             return;
         }
-        else if (processor_id != PROCESSOR_NUM - 1 && proc_types[processor_id] != ProcType::WRITE)
+        else if ((processor_id != PROCESSOR_NUM - 1 && proc_types[processor_id] != ProcType::WRITE))
         {
             // not the last -> only one cycle
             if (first_piwReg.enable1)
@@ -162,6 +153,8 @@ struct PIW : public Logic
                 getKeysReg.match_table_guider = first_piwReg.match_table_guider;
                 getKeysReg.gateway_guider = first_piwReg.gateway_guider;
                 getKeysReg.phv = first_piwReg.phv;
+                // specific
+                next->proc_states[processor_id].piw_packet += 1;
             }
             else
             {
@@ -209,6 +202,7 @@ struct PIW : public Logic
         // handle asyn RI's input -> cancel_dirty
         if (now.cd_come)
         {
+            next_proc.cc_received += 1;
             next_proc.dirty_cam.erase(now.cd_addr);
         }
 
@@ -276,6 +270,13 @@ struct PIW : public Logic
             return;
         }
 
+//        next_proc.round_flag += 1;
+//        // todo: change it back, just for specific use case testing
+//        if(next_proc.round_flag % 2 != 0){
+//            next_proc.p2r.push(it);
+//            return;
+//        }
+
         // send pkt / write
         if (now.state_writeback)
         {
@@ -321,6 +322,7 @@ struct PIW : public Logic
         else
         {
             // just to Base of next proc
+            next_proc.p2r.push(it);
         }
     }
 
@@ -351,14 +353,23 @@ struct PIR : public Logic {
                           PORegister &next) {
         next.enable1 = now.enable1;
         if (!now.enable1) {
-            next_proc.normal_pipe_schedule_flag = false;
+            next.normal_pipe_schedule = false;
+            return;
+        }
+        if(proc_types[processor_id] != READ){
+            next.normal_pipe_schedule = true;
+            next.phv = now.phv;
+            next.match_table_guider = now.match_table_guider;
+            next.gateway_guider = now.gateway_guider;
+            next.hash_values = now.hash_values;
+            next.match_table_keys = now.match_table_keys;
             return;
         }
         auto flow_id = get_flow_id(now.phv);
         auto flow_cam = now_proc.dirty_cam;
         if (flow_cam.find(flow_id) == flow_cam.end()) {
             // normal pipe schedule for po
-            next_proc.normal_pipe_schedule_flag = true;
+            next.normal_pipe_schedule = true;
             next.phv = now.phv;
             next.match_table_guider = now.match_table_guider;
             next.gateway_guider = now.gateway_guider;
@@ -367,7 +378,7 @@ struct PIR : public Logic {
         } else {
             // need to block
             // no normal pipe for po
-            next_proc.normal_pipe_schedule_flag = false;
+            next.normal_pipe_schedule = false;
             auto &next_flow_info = next_proc.dirty_cam[flow_id];
 
             // rp2p tail & other paras may have changed, here directly using next_proc's
@@ -419,9 +430,10 @@ struct PO : public Logic
 
     void asyn_schedule(const PORegister &now, GetAddressRegister &next, const ProcessorState &now_proc, ProcessorState &next_proc)
     {
-        if (now_proc.normal_pipe_schedule_flag)
+        if (now.normal_pipe_schedule)
         {
             cout << "normal packet, do not schedule" << endl;
+            next_proc.po_normal += 1;
             // schedule the po's register
             next.enable1 = true;
             next.phv = now.phv;
@@ -696,6 +708,7 @@ struct RO : public Logic
     {
         if (now_proc.p2r.empty() && now_proc.r2r.empty())
         { // no signal (i.e., cancel_dirty, hb, write, bp)
+            next_proc.ro_empty += 1;
             riReg.enable1 = false;
         }
         else if (now_proc.p2r.empty() && !now_proc.r2r.empty())
@@ -715,24 +728,26 @@ struct RO : public Logic
                 riReg.match_table_guider = r2r_reg.match_table_guider;
             }
             next_proc.r2r.pop();
+            next_proc.r2r_schedule += 1;
         }
         else if (!now_proc.p2r.empty() && now_proc.r2r.empty())
         {
             riReg.enable1 = true;
             auto p2r_reg = now_proc.p2r.front();
             // 根据processor type处理
-            if(proc_types[processor_id] == ProcType::READ) {
-                riReg.ringReg.dst1 = 0;
-            }
-            else{
+//            if(proc_types[processor_id] == ProcType::READ) {
+//                riReg.ringReg.dst1 = 0;
+//            }
+//            else{
                 riReg.ringReg.dst1 = p2r_reg.rr.dst1;
-            }
+//            }
             riReg.ringReg.ctrl = p2r_reg.rr.ctrl;
             riReg.ringReg.dst2 = p2r_reg.rr.dst2;
             riReg.ringReg.write_addr = p2r_reg.rr.write_addr;
             riReg.ringReg.flow_addr = p2r_reg.rr.flow_addr;
             riReg.ringReg.payload = p2r_reg.rr.payload;
             next_proc.p2r.pop();
+            next_proc.p2r_schedule += 1;
         }
         else
         {
@@ -820,6 +835,10 @@ struct PIR_asyn : public Logic
     }
 
     void handle_pi_asyn(const ProcessorState& now_proc, ProcessorState & next_proc, const PIRAsynRegister & now, PORegister & next){
+        if(proc_types[processor_id] != READ){
+            return;
+        }
+
         bool hb = false;
         if(now.enable1){
             if(now.ringReg.ctrl == 0b11){
@@ -872,13 +891,9 @@ struct PIR_asyn : public Logic
         switch(res.first){
             case BP_NOT_FOUND: {
                 flow_info_in_cam flow_info{};
-                flow_info.timer_offset = now_proc.increase_clk;
-                next_proc.increase_clk = 0;
-                if(!now_proc.wait_queue_head_flag){
-                    next_proc.decrease_clk = now_proc.wait_queue_head.timer_offset;
-                }
-                flow_info.r2p_first_pkt_idx = flow_info.r2p_last_pkt_idx = now_proc.rp2p_tail;
-                next_proc.rp2p_tail = (now_proc.rp2p_tail + 1) % 128;
+                flow_info.timer = backward_cycle_num;
+                flow_info.r2p_first_pkt_idx = flow_info.r2p_last_pkt_idx = next_proc.rp2p_tail;
+                next_proc.rp2p_tail = (next_proc.rp2p_tail + 1) % 128;
                 flow_info.flow_addr = res.second;
                 flow_info.left_pkt_num = 1;
                 flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
@@ -893,13 +908,7 @@ struct PIR_asyn : public Logic
                 next_proc.rp2p[flow_info.r2p_last_pkt_idx] = pkt_info;
                 next_proc.rp2p_pointer[flow_info.r2p_last_pkt_idx] = -1;
 
-                if(!next_proc.wait_queue_head_flag){
-                    next_proc.wait_queue_head_flag = true;
-                    next_proc.wait_queue_head = flow_info;
-                }
-                else {
-                    next_proc.wait_queue.push(flow_info);
-                }
+                next_proc.wait_queue.push_back(flow_info);
 
                 break;
             }
@@ -913,32 +922,29 @@ struct PIR_asyn : public Logic
                         now.match_table_guider,
                         now.gateway_guider,
                         {}, {}, true};
-                next_proc.rp2p[now_proc.rp2p_tail] = pkt_info;
+                next_proc.rp2p[next_proc.rp2p_tail] = pkt_info;
                 if (-1 == flow_info.r2p_first_pkt_idx)
                 {
-                    next_flow_info.r2p_first_pkt_idx = next_flow_info.r2p_last_pkt_idx = now_proc.rp2p_tail;
+                    next_flow_info.r2p_first_pkt_idx = next_flow_info.r2p_last_pkt_idx = next_proc.rp2p_tail;
                     next_proc.rp2p_pointer[flow_info.r2p_last_pkt_idx] = -1;
                 }
                 else
                 {
-                    next_proc.rp2p_pointer[flow_info.r2p_last_pkt_idx] = now_proc.rp2p_tail;
-                    next_flow_info.r2p_last_pkt_idx = now_proc.rp2p_tail;
+                    next_proc.rp2p_pointer[flow_info.r2p_last_pkt_idx] = next_proc.rp2p_tail;
+                    next_flow_info.r2p_last_pkt_idx = next_proc.rp2p_tail;
                 }
 
                 next_flow_info.left_pkt_num += 1;
 
                 update_wait_queue(res.second, next_flow_info, next_proc);
 
-                next_proc.rp2p_tail = (now_proc.rp2p_tail + 1) % 128;
+                next_proc.rp2p_tail = (next_proc.rp2p_tail + 1) % 128;
                 break;
             }
             case WRITE_NOT_FOUND: {
                 flow_info_in_cam flow_info{};
-                flow_info.timer_offset = now_proc.increase_clk;
-                next_proc.increase_clk = 0;
-                if(!now_proc.wait_queue_head_flag){
-                    next_proc.decrease_clk = backward_cycle_num;
-                }
+                flow_info.timer = backward_cycle_num;
+
                 flow_info.r2p_first_pkt_idx = flow_info.r2p_last_pkt_idx = -1;
                 flow_info.p2p_first_pkt_idx = flow_info.r2p_last_pkt_idx = -1;
                 flow_info.flow_addr = res.second;
@@ -950,13 +956,7 @@ struct PIR_asyn : public Logic
                 cout << "wait queue size: " << next_proc.wait_queue.size() << endl;
                 next_proc.dirty_cam.insert(std::pair<u64, flow_info_in_cam>(res.second, flow_info));
                 // add to wait_queue
-                if(!next_proc.wait_queue_head_flag){
-                    next_proc.wait_queue_head_flag = true;
-                    next_proc.wait_queue_head = flow_info;
-                }
-                else {
-                    next_proc.wait_queue.push(flow_info);
-                }
+                next_proc.wait_queue.push_back(flow_info);
 
                 break;
             }
@@ -972,22 +972,14 @@ struct PIR_asyn : public Logic
                 {
                     next_flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
                 }
-                next_flow_info.timer_offset = now_proc.increase_clk;
+                next_flow_info.timer = backward_cycle_num;
                 next_flow_info.r2p_first_pkt_idx = next_flow_info.r2p_last_pkt_idx = -1;
-
-                next_proc.increase_clk = 0;
 
                 next_flow_info.lazy = true;
 
                 update_wait_queue(res.second, next_flow_info, next_proc);
 
-                if(!next_proc.wait_queue_head_flag){
-                    next_proc.wait_queue_head_flag = true;
-                    next_proc.wait_queue_head = next_flow_info;
-                }
-                else {
-                    next_proc.wait_queue.push(next_flow_info);
-                }
+                next_proc.wait_queue.push_back(flow_info);
 
                 break;
             }
@@ -995,7 +987,7 @@ struct PIR_asyn : public Logic
         }
 
         if(hb){
-            cout << "hb!" << endl;
+            next_proc.hb_cycles += 1;
             handle_heartbeat(next, now_proc, next_proc);
         }
     }
@@ -1112,119 +1104,88 @@ struct PIR_asyn : public Logic
     }
 
     // todo: check all of the idx
-    void handle_heartbeat(PORegister &poReg, const ProcessorState &now_proc, ProcessorState &next_proc)
-    {
-        next_proc.decrease_clk -= 1;
-        next_proc.increase_clk += 1;
+    void handle_heartbeat(PORegister &poReg, const ProcessorState &now_proc, ProcessorState &next_proc) {
         // if wait_queue_empty, reset the clock
-        if(now_proc.wait_queue.empty() && !now_proc.wait_queue_head_flag){
-            next_proc.decrease_clk = 0;
-            next_proc.increase_clk = backward_cycle_num;
+        if (now_proc.wait_queue.empty()) {
             return;
         }
         // 将等待队列队首的流从等待队列中拿出加入调度队列；发送cancel dirty信号
-        if (now_proc.decrease_clk == 0)
-        {
-            cout << "timer out! wait queue before: " << next_proc.wait_queue.size() << endl;
-            cout << "schedule queue before: " << next_proc.schedule_queue.size() << endl;
-            if (!now_proc.wait_queue.empty() || now_proc.wait_queue_head_flag)
-            { // wait_queue has flow
-                // if not empty, flag is true; empty, possible true
-                const flow_info_in_cam wait_flow = now_proc.wait_queue_head;
-                flow_info_in_cam& next_schedule_flow = next_proc.wait_queue_head;
 
-                // caution: send cancel_dirty
-                u64 flow_addr = wait_flow.flow_addr;
-                RP2R_REG it = {
+        cout << "timer out! wait queue before: " << next_proc.wait_queue.size() << endl;
+        cout << "schedule queue before: " << next_proc.schedule_queue.size() << endl;
+        if (!now_proc.wait_queue.empty()) { // wait_queue has flow
+            flow_info_in_cam wait_flow{};
+
+            for(auto flow: now_proc.wait_queue){
+                if(flow.timer <= 0){
+                    wait_flow = flow;
+                    break;
+                }
+            }
+
+            // caution: send cancel_dirty
+            u64 flow_addr = wait_flow.flow_addr;
+            RP2R_REG it = {
                     0,
                     0b10,
                     u32(1 << (PROCESSOR_NUM - write_proc_ids[processor_id] - 1)),
                     {},
                     flow_addr};
-                next_proc.p2r.push(it);
+            next_proc.p2r.push(it);
+            next_proc.cc_send += 1;
 
-                if (wait_flow.cur_state == flow_info_in_cam::FSMState::WAIT)
-                {
-                    // buffer is empty
-                    // 1. delete the flow in dirty_cam
-                    // 2. delete in the wait_queue
-                    if (!now_proc.wait_queue.empty())
-                    {
-                        next_proc.wait_queue_head = now_proc.wait_queue.front();
-                        next_proc.wait_queue.pop();
+            if (wait_flow.cur_state == flow_info_in_cam::FSMState::WAIT) {
+                // buffer is empty
+                // 1. delete the flow in dirty_cam
+                // 2. delete in the wait_queue
+                for(auto it = next_proc.wait_queue.begin(); it != next_proc.wait_queue.end(); it++){
+                    if(it->flow_addr == wait_flow.flow_addr){
+                        it = next_proc.wait_queue.erase(it);
+                        if(it == next_proc.wait_queue.end()) break;
                     }
-                    else
-                    {
-                        next_proc.wait_queue_head_flag = false;
-                        next_proc.wait_queue_head = {};
+                }
+
+                next_proc.dirty_cam.erase(wait_flow.flow_addr);
+                cout << "wait directly delete, wait queue after: " << next_proc.wait_queue.size() << endl;
+            } else if (wait_flow.cur_state == flow_info_in_cam::FSMState::SUSPEND) {
+                auto next_schedule_flow = wait_flow;
+                next_schedule_flow.cur_state = flow_info_in_cam::FSMState::READY; // SUSPEND->READY : wait->schedule
+
+                // merge queue
+                if (wait_flow.r2p_first_pkt_idx == -1) { // only p2p buffered
+                    // no need to merge
+                } else if (wait_flow.p2p_first_pkt_idx == -1) { // only r2p buffered
+                    next_schedule_flow.p2p_first_pkt_idx = wait_flow.r2p_first_pkt_idx;
+                    next_schedule_flow.p2p_last_pkt_idx = wait_flow.r2p_last_pkt_idx;
+                    next_schedule_flow.r2p_first_pkt_idx = next_schedule_flow.r2p_last_pkt_idx = -1;
+                } else { // r2p and p2p buffered
+                    next_schedule_flow.p2p_first_pkt_idx = wait_flow.r2p_first_pkt_idx;
+                    next_proc.rp2p_pointer[wait_flow.r2p_last_pkt_idx] = wait_flow.p2p_first_pkt_idx;
+                    next_schedule_flow.r2p_first_pkt_idx = next_schedule_flow.r2p_last_pkt_idx = -1;
+                }
+
+                next_proc.schedule_queue.push(next_schedule_flow);
+
+                // update in dirty cam
+                next_proc.dirty_cam[next_schedule_flow.flow_addr] = next_schedule_flow;
+
+                // delete the flow in the wait_queue
+
+                for(auto it = next_proc.wait_queue.begin(); it != next_proc.wait_queue.end(); it++){
+                    if(it->flow_addr == wait_flow.flow_addr){
+                        it = next_proc.wait_queue.erase(it);
+                        if(it == next_proc.wait_queue.end()) break;
                     }
-                    next_proc.dirty_cam.erase(wait_flow.flow_addr);
-                    cout << "wait directly delete, wait queue after: " << next_proc.wait_queue.size() << endl;
                 }
-                else if (wait_flow.cur_state == flow_info_in_cam::FSMState::SUSPEND)
-                {
-                        next_schedule_flow.cur_state = flow_info_in_cam::FSMState::READY; // SUSPEND->READY : wait->schedule
 
-                        // merge queue
-                        if (wait_flow.r2p_first_pkt_idx == -1)
-                        { // only p2p buffered
-                          // no need to merge
-                        }
-                        else if (wait_flow.p2p_first_pkt_idx == -1)
-                        { // only r2p buffered
-                            next_schedule_flow.p2p_first_pkt_idx = wait_flow.r2p_first_pkt_idx;
-                            next_schedule_flow.p2p_last_pkt_idx = wait_flow.r2p_last_pkt_idx;
-                            next_schedule_flow.r2p_first_pkt_idx = next_schedule_flow.r2p_last_pkt_idx = -1;
-                        }
-                        else
-                        { // r2p and p2p buffered
-                            next_schedule_flow.p2p_first_pkt_idx = wait_flow.r2p_first_pkt_idx;
-                            next_proc.rp2p_pointer[wait_flow.r2p_last_pkt_idx] = wait_flow.p2p_first_pkt_idx;
-                            next_schedule_flow.r2p_first_pkt_idx = next_schedule_flow.r2p_last_pkt_idx = -1;
-                        }
-
-                        next_proc.schedule_queue.push(next_schedule_flow);
-
-                        // update in dirty cam
-                        next_proc.dirty_cam[next_schedule_flow.flow_addr] = next_schedule_flow;
-
-                        // delete the flow in the wait_queue
-                        if (!now_proc.wait_queue.empty())
-                        {
-                            next_proc.wait_queue_head = now_proc.wait_queue.front();
-                            next_proc.wait_queue.pop();
-                        }
-                        else
-                        {
-                            next_proc.wait_queue_head_flag = false;
-                            next_proc.wait_queue_head = {};
-                        }
-
-                        cout << "suspend, wait queue to schedule queue: " << endl;
-                        cout << "wait queue after: " << next_proc.wait_queue.size();
-                        cout << "schedule queue after: " << next_proc.schedule_queue.size();
-                }
-                else
-                {
-                    // nothing
-                }
-                // todo: 更新自减时钟为新队首的timer offset
-                if(next_proc.wait_queue_head_flag){
-                    next_proc.decrease_clk = next_proc.wait_queue_head.timer_offset;
-                }
-               else{
-                   next_proc.decrease_clk = backward_cycle_num;
-               }
+                cout << "suspend, wait queue to schedule queue: " << endl;
+                cout << "wait queue after: " << next_proc.wait_queue.size();
+                cout << "schedule queue after: " << next_proc.schedule_queue.size();
             }
-            else
-            {
 
-                // wait queue empty
-                // no op
+            for(auto& flow: next_proc.wait_queue){
+                flow.timer -= 1;
             }
-        }
-        else
-        {
         }
     }
 };

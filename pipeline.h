@@ -47,11 +47,8 @@ struct ProcessorState {
     std::queue<FlowInfo> r2p_stash;
     std::queue<WriteInfo> write_stash;
 
-    queue<flow_info_in_cam> wait_queue;
-    flow_info_in_cam wait_queue_head;
-    bool wait_queue_head_flag{};
+    std::vector<flow_info_in_cam> wait_queue;
 
-    bool normal_pipe_schedule_flag{};
     queue<flow_info_in_cam> schedule_queue;
 
     queue<RP2R_REG> p2r;
@@ -64,6 +61,15 @@ struct ProcessorState {
     int total_packets = 0;
     int wb_packets = 0;
     int bp_packets = 0;
+    int hb_cycles = 0;
+    int po_normal = 0;
+    int piw_packet = 0;
+    int cc_send = 0;
+    int cc_received = 0;
+    int ro_empty = 0;
+    int p2r_schedule = 0;
+    int r2r_schedule = 0;
+    int max_dirty_cam = 0;
 
     ProcessorState& operator=(const ProcessorState &other) = default;
 
@@ -75,10 +81,21 @@ struct ProcessorState {
         if(schedule_queue.size() > m_schedule_queue){
             m_schedule_queue = schedule_queue.size();
         }
+        if(dirty_cam.size() > max_dirty_cam){
+            max_dirty_cam = dirty_cam.size();
+        }
+        output << "max dirty cam: " << max_dirty_cam << endl;
         output << "max schedule queue: " << m_schedule_queue << endl;
         output << "wb_packets: " << wb_packets << endl;
         output << "bp_packets: " << bp_packets << endl;
         output << "total_packets: " << total_packets << endl;
+        output << "hb_cycles: " << hb_cycles << endl;
+        output << "po_normal: " << po_normal << endl;
+        output << "piw_packet: " << piw_packet << endl;
+        output << "cc_send: " << cc_send << endl;
+        output << "cc_received: " << cc_received << endl;
+        output << "ro_empty: " << ro_empty << endl;
+        output << "r2r_schedule: " << r2r_schedule << endl;
         output << dirty_cam.size() << endl;
         output << wait_queue.size() << endl;
         output << schedule_queue.size() << endl;

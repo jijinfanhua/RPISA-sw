@@ -42,9 +42,9 @@ string read_from_file(ifstream& fin){
     }
 }
 
-string PARENT_DIR = "D:\\code\\RPISA-sw\\cmake-build-debug\\";
-string INPUT_FILE_NAME = "part_trace.txt";
-std::array<bool, PROC_NUM> processor_selects = {true, false, true};
+string PARENT_DIR = "/tools/oldz/";
+string INPUT_FILE_NAME = "switch.txt";
+std::array<bool, PROC_NUM> processor_selects = {true, true, true};
 std::array<ofstream*, PROC_NUM> outputs{};
 
 void init_outputs(const string& parent_dir){
@@ -77,19 +77,23 @@ int main(int argc, char** argv) {
     init_outputs(PARENT_DIR);
 
     int cycle = 0;
+    int pkt = 0;
     Switch switch_ = Switch();
     switch_.Config();
-    for(int i = 0; i < 2000; i++) {
+    for(int i = 0; i < 200000; i++) {
 //        if(cycle % 100 == 0){
         std::cout << "cycle: " << cycle << endl << endl;
 //        }
-        if(cycle % 3 == 0) switch_.Execute(0, fake_packet());
+        if(cycle % 3 == 0 || cycle % 3 == 1){
+                switch_.Execute(0, Packet());
+        }
         else{
             string input = read_from_file(infile);
             if(input == ""){
                 switch_.Execute(0, Packet());
             }
             else{
+                pkt += 1;
                 switch_.Execute(1, input_to_packet(input));
             }
         }
@@ -97,5 +101,6 @@ int main(int argc, char** argv) {
         switch_.Log(outputs, processor_selects);
         cycle += 1;
     }
+    cout << pkt << endl;
     return 0;
 }

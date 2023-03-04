@@ -29,7 +29,7 @@ struct RingRegister {
 };
 
 struct flow_info_in_cam {
-    u32 timer_offset;
+    u32 timer;
     int r2p_first_pkt_idx;
     int r2p_last_pkt_idx;
     int p2p_first_pkt_idx;
@@ -55,11 +55,9 @@ struct RingBaseRegister {
 };
 
 struct PIRegister : public RingBaseRegister{
-    bool need_to_block;
     RingRegister ringReg;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
-    flow_info_in_cam flow_info;
 };
 
 struct RIRegister : public RingBaseRegister {
