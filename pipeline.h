@@ -58,9 +58,27 @@ struct ProcessorState {
     queue<RP2R_REG> r2r;
     int round_robin_flag = 0; // 0 is r2r, 1 is p2r
 
+    // statistics
+    int m_wait_queue = 0;
+    int m_schedule_queue = 0;
+    int total_packets = 0;
+    int wb_packets = 0;
+    int bp_packets = 0;
+
     ProcessorState& operator=(const ProcessorState &other) = default;
 
     void log(ofstream& output) {
+        if(wait_queue.size() > m_wait_queue){
+            m_wait_queue = wait_queue.size();
+        }
+        output << "max wait queue: " << m_wait_queue << endl;
+        if(schedule_queue.size() > m_schedule_queue){
+            m_schedule_queue = schedule_queue.size();
+        }
+        output << "max schedule queue: " << m_schedule_queue << endl;
+        output << "wb_packets: " << wb_packets << endl;
+        output << "bp_packets: " << bp_packets << endl;
+        output << "total_packets: " << total_packets << endl;
         output << dirty_cam.size() << endl;
         output << wait_queue.size() << endl;
         output << schedule_queue.size() << endl;
@@ -85,8 +103,8 @@ struct ProcessorRegister {
     VerifyStateChangeRegister verifyState;
     /****** fengyong add end *********/
 
-    PIRegister pi[2];
-    PIRAsynRegister pi_asyn[2]{};
+    PIRegister pi{};
+    PIRAsynRegister pi_asyn{};
     PORegister po{};
     RIRegister ri{};
     RORegister ro{};

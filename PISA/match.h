@@ -202,7 +202,7 @@ struct GetHash : public Logic
     {
         const HashRegister &hashReg = now->processors[processor_id].hashes[0];
         HashRegister &nextHashReg = next->processors[processor_id].hashes[1];
-        PIRegister &piRegister = next->processors[processor_id].pi[0];
+        PIRegister &piRegister = next->processors[processor_id].pi;
 
         get_hash(hashReg, nextHashReg);
         for (int i = 1; i < HASH_CYCLE - 1; i++)

@@ -632,7 +632,7 @@ struct Switch
         saved_state_2.saved_state_idx_in_phv = {162, 163, 164};
         // processor_3 finished
 
-        backward_cycle_num = 10;
+        backward_cycle_num = 50;
         read_proc_ids = {0};
         write_proc_ids = {2};
         getKeyConfigs;
