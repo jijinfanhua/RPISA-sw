@@ -408,6 +408,7 @@ struct PIR : public Logic {
 
             // update global tail
             next_proc.rp2p_tail = (next_proc.rp2p_tail + 1) % 128;
+            next_proc.rp2p_size += 1;
         }
     }
 };
@@ -492,6 +493,7 @@ struct PO : public Logic
 
             cout << "schedule schedule queue, after: " << next_proc.schedule_queue.size() << endl;
             // todo: set the rp2p to null
+            next_proc.rp2p_size -= 1;
         }
     }
 };
@@ -907,6 +909,7 @@ struct PIR_asyn : public Logic
                         now.hash_values, true};
                 next_proc.rp2p[flow_info.r2p_last_pkt_idx] = pkt_info;
                 next_proc.rp2p_pointer[flow_info.r2p_last_pkt_idx] = -1;
+                next_proc.rp2p_size += 1;
 
                 next_proc.wait_queue.push_back(flow_info);
 
@@ -939,6 +942,7 @@ struct PIR_asyn : public Logic
                 update_wait_queue(res.second, next_flow_info, next_proc);
 
                 next_proc.rp2p_tail = (next_proc.rp2p_tail + 1) % 128;
+                next_proc.rp2p_size += 1;
                 break;
             }
             case WRITE_NOT_FOUND: {
@@ -979,7 +983,7 @@ struct PIR_asyn : public Logic
 
                 update_wait_queue(res.second, next_flow_info, next_proc);
 
-                next_proc.wait_queue.push_back(flow_info);
+                next_proc.wait_queue.push_back(next_flow_info);
 
                 break;
             }
@@ -1163,6 +1167,10 @@ struct PIR_asyn : public Logic
                     next_proc.rp2p_pointer[wait_flow.r2p_last_pkt_idx] = wait_flow.p2p_first_pkt_idx;
                     next_schedule_flow.r2p_first_pkt_idx = next_schedule_flow.r2p_last_pkt_idx = -1;
                 }
+                if(next_schedule_flow.lazy){
+                    cout << "testing" << endl;
+                }
+                next_schedule_flow.lazy = false;
 
                 next_proc.schedule_queue.push(next_schedule_flow);
 

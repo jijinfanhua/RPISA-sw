@@ -84,10 +84,10 @@ int main(int argc, char** argv) {
 //        if(cycle % 100 == 0){
         std::cout << "cycle: " << cycle << endl << endl;
 //        }
-        if(cycle % 3 == 0 || cycle % 3 == 1){
-                switch_.Execute(0, Packet());
-        }
-        else{
+//        if(cycle % 7 == 0){
+//                switch_.Execute(0, Packet());
+//        }
+//        else{
             string input = read_from_file(infile);
             if(input == ""){
                 switch_.Execute(0, Packet());
@@ -96,7 +96,7 @@ int main(int argc, char** argv) {
                 pkt += 1;
                 switch_.Execute(1, input_to_packet(input));
             }
-        }
+//        }
 
         switch_.Log(outputs, processor_selects);
         cycle += 1;

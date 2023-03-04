@@ -70,6 +70,12 @@ struct ProcessorState {
     int p2r_schedule = 0;
     int r2r_schedule = 0;
     int max_dirty_cam = 0;
+    int rp2p_size = 0;
+    int rp2p_max = 0;
+    int r2p_stash_max = 0;
+    int write_stash_max = 0;
+    int p2r_max = 0;
+    int r2r_max = 0;
 
     ProcessorState& operator=(const ProcessorState &other) = default;
 
@@ -84,14 +90,32 @@ struct ProcessorState {
         if(dirty_cam.size() > max_dirty_cam){
             max_dirty_cam = dirty_cam.size();
         }
+        if(rp2p_size > rp2p_max){
+            rp2p_max = rp2p_size;
+        }
+        if(r2p_stash.size() > r2p_stash_max){
+            r2p_stash_max = r2p_stash.size();
+        }
+        if(write_stash.size() > write_stash_max){
+            r2p_stash_max = write_stash.size();
+        }
+        if(p2r.size() > p2r_max){
+            p2r_max = p2r.size();
+        }
+        if(r2r.size() > r2r_max ){
+            r2r_max = r2r.size();
+        }
+        output << "r2p stash max: " << r2p_stash_max << endl;
+        output << "write stash max: " << write_stash_max << endl;
+        output << "p2r max: " << p2r_max << endl;
+        output << "r2r max: " << r2r_max << endl;
+        output << "rp2p max: " << rp2p_max << endl;
         output << "max dirty cam: " << max_dirty_cam << endl;
         output << "max schedule queue: " << m_schedule_queue << endl;
         output << "wb_packets: " << wb_packets << endl;
         output << "bp_packets: " << bp_packets << endl;
         output << "total_packets: " << total_packets << endl;
         output << "hb_cycles: " << hb_cycles << endl;
-        output << "po_normal: " << po_normal << endl;
-        output << "piw_packet: " << piw_packet << endl;
         output << "cc_send: " << cc_send << endl;
         output << "cc_received: " << cc_received << endl;
         output << "ro_empty: " << ro_empty << endl;
