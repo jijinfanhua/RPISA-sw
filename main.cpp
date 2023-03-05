@@ -44,7 +44,7 @@ string read_from_file(ifstream& fin){
 
 string PARENT_DIR = "/tools/oldz/";
 string INPUT_FILE_NAME = "switch.txt";
-std::array<bool, PROC_NUM> processor_selects = {true, true, true};
+std::array<bool, PROC_NUM> processor_selects = {true, true, true, true, true, true};
 std::array<ofstream*, PROC_NUM> outputs{};
 
 void init_outputs(const string& parent_dir){

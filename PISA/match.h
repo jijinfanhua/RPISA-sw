@@ -27,6 +27,7 @@ struct GetKey : public Logic
         {
             return;
         }
+
         GetKeyConfig getKeyConfig = getKeyConfigs[processor_id];
         for (int i = 0; i < getKeyConfig.used_container_num; i++)
         {
@@ -113,6 +114,7 @@ struct Gateway : public Logic
             }
             u32 res = bool_array_2_u32(after_mask);
             if(gatewayConfig.gateway_res_2_match_tables.find(res) != gatewayConfig.gateway_res_2_match_tables.end()){
+
                 auto match_bitmap = gatewayConfig.gateway_res_2_match_tables[res];
                 auto gateway_bitmap = gatewayConfig.gateway_res_2_gates[res];
                 // get the newest match table guider and gateway guider
@@ -366,6 +368,7 @@ struct GetAddress : public Logic
         {
             return;
         }
+
         auto matchTableConfig = matchTableConfigs[processor_id];
 
         if (now.backward_pkt)
