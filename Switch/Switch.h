@@ -120,96 +120,11 @@ public:
         gatewaysConfig.gateway_res_2_match_tables[bool_array_2_u32(key)] = value;
     }
 
-    void insert_gateway_res_2_gates(
-        const array<bool, GATEWAY_NUM> &key,
-        const array<bool, MAX_GATEWAY_NUM * PROCESSOR_NUM> &value)
-    {
-        gatewaysConfig.gateway_res_2_gates[bool_array_2_u32(key)] = value;
-    }
-
-    GatewaysConfig::Gate::Parameter param(int value)
-    {
-        GatewaysConfig::Gate::Parameter parameter;
-        parameter.type = GatewaysConfig::Gate::Parameter::Type::CONST;
-        parameter.content.value = value;
-        return parameter;
-    }
-
-    GatewaysConfig::Gate::Parameter param(int len, int id1, int id2 = -1, int id3 = -1, int id4 = -1)
-    {
-        GatewaysConfig::Gate::Parameter parameter;
-        parameter.type = GatewaysConfig::Gate::Parameter::Type::HEADER;
-        if (len >= 1)
-            parameter.content.operand_match_field_byte.match_field_byte_ids[0] = id1;
-        if (len >= 2)
-            parameter.content.operand_match_field_byte.match_field_byte_ids[1] = id2;
-        if (len >= 3)
-            parameter.content.operand_match_field_byte.match_field_byte_ids[2] = id3;
-        if (len >= 4)
-            parameter.content.operand_match_field_byte.match_field_byte_ids[3] = id4;
-        return parameter;
-    }
-
-    void set_gateway_gate(
-        int id,
-        GatewaysConfig::Gate::Parameter operand1,
-        GatewaysConfig::Gate::OP op,
-        GatewaysConfig::Gate::Parameter operand2)
-    {
-        gatewaysConfig.gates[id].op = op;
-        gatewaysConfig.gates[id].operand1 = operand1;
-        gatewaysConfig.gates[id].operand2 = operand2;
-    }
-
-    void push_back_match_table_config(
-        int depth, int key_width, int value_width)
-    {
-        int k = matchTableConfig.match_table_num;
-        if (k >= 4)
-        {
-            throw "match table config already full";
-        }
-        auto &config = matchTableConfig.matchTables[k];
-        config.depth = depth;
-        config.key_width = key_width;
-        config.value_width = value_width;
-        config.match_field_byte_len = 0;
-        config.number_of_hash_ways = 0;
-        config.hash_bit_sum = 0;
-        matchTableConfig.match_table_num += 1;
-    }
-
-    void set_back_match_table_match_field_byte(
-        const vector<int> &ids)
-    {
-        auto &config = matchTableConfig.matchTables[matchTableConfig.match_table_num - 1];
-        for (int id : ids)
-        {
-            config.match_field_byte_ids[config.match_field_byte_len++] = id;
-        }
-    }
-
-    void push_back_hash_way_config(
-        int hash_bit, int srams,
-        const array<int, 80> &key_sram_index,
-        const array<int, 80> &value_sram_index)
-    {
-        auto &config = matchTableConfig.matchTables[matchTableConfig.match_table_num - 1];
-        int k = config.number_of_hash_ways;
-        config.hash_bit_per_way[k] = hash_bit;
-        config.srams_per_hash_way[k] = srams;
-        config.key_sram_index_per_hash_way[k] = key_sram_index;
-        config.value_sram_index_per_hash_way[k] = value_sram_index;
-        config.hash_bit_sum += config.hash_bit_per_way[k];
-        config.number_of_hash_ways++;
-    }
-
-    void set_action_param_num(int id, int action_id, int action_data_num, const array<bool, MAX_PHV_CONTAINER_NUM> &vliw_enabler)
-    {
-        auto &action = actionConfig.actions[id];
-        action.action_id = action_id;
-        action.action_data_num = action_data_num;
-        action.vliw_enabler = vliw_enabler;
+   void insert_gateway_entry(std::array<bool, MAX_PARALLEL_MATCH_NUM> mask, std::array<bool, MAX_PARALLEL_MATCH_NUM> key, std::array<bool, MAX_PARALLEL_MATCH_NUM> value){
+        gatewaysConfig.masks.push_back(mask);
+        std::array<bool, PROC_NUM*MAX_PARALLEL_MATCH_NUM> v{};
+        std::copy(value.begin(), value.end(), v.begin() + processor_id*MAX_PARALLEL_MATCH_NUM);
+       insert_gateway_res_2_match_table(key, v);
     }
 
     void commit() const
@@ -240,11 +155,7 @@ void top_heavy_hitter_config2(){
     proc0.push_back_get_key_use_container(160, 32, 5,6,7,8);
     proc0.push_back_get_key_use_container(161, 32, 9, 10, 11, 12);
 
-    array<bool, GATEWAY_NUM> key = {false};
-    array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM> value = {0};
-    value[0] = value[1] = value[2] = 1;
-    proc0.insert_gateway_res_2_match_table(key, value);
-    proc0.gatewaysConfig.masks.push_back(std::array<bool, 16>{false});
+    proc0.insert_gateway_entry({false}, {false}, {true, true, true});
 
 
     proc0.matchTableConfig.match_table_num = 3;
@@ -486,19 +397,8 @@ void top_heavy_hitter_config2(){
     gate5.operand2.type = GatewaysConfig::Gate::Parameter::CONST;
     gate5.operand2.content.value = 0;
 
-    std::array<bool, 16> mask1 = {true, true, false};
-    proc2.gatewaysConfig.masks.push_back(mask1);
-    std::array<bool, 16> mask2 = {true, true, true, true, true, false};
-    proc2.gatewaysConfig.masks.push_back(mask2);
-    std::array<bool, MAX_PARALLEL_MATCH_NUM> key1 = {true, false, false}; // todo: different from true config
-    std::array<bool, MAX_PARALLEL_MATCH_NUM * PROC_NUM> value1 = {false};
-    value1[80] = true;
-    proc2.insert_gateway_res_2_match_table(key1, value1);
-
-    std::array<bool, MAX_PARALLEL_MATCH_NUM> key2 = {false, true, true, true, true};
-    std::array<bool, MAX_PARALLEL_MATCH_NUM * PROC_NUM> value2 = {false};
-    value2[81] = true;
-    proc2.insert_gateway_res_2_match_table(key2, value2);
+    proc2.insert_gateway_entry({true, true}, {true}, {true});
+    proc2.insert_gateway_entry({true, true, true, true, true}, {false, true ,true, true, true}, {false, true});
 
     // todo: add other entries
 
@@ -880,7 +780,6 @@ struct Switch
     PipeLine* pipeline;
     PipeLine* next;
     vector<unique_ptr<Logic>> logics;
-    int proc_num_config;
 
     Switch()
     {
@@ -906,11 +805,12 @@ struct Switch
         }
     }
 
-    void GetInput(int interface, const Packet &packet, PipeLine* pipeline_)
+    void GetInput(int interface, const Packet &packet, PipeLine* pipeline_, int arrive_id)
     {
         if (interface != 0)
         {
             PHV phv = parser.parse(packet);
+            phv[223] = arrive_id;
             pipeline_->processors[0].getKeys.enable1 = true;
             pipeline_->processors[0].getKeys.phv = phv;
             pipeline_->processors[0].getKeys.gateway_guider = gateway_guider;
@@ -925,10 +825,10 @@ struct Switch
         }
     }
 
-    void Execute(int interface, const Packet &packet)
+    void Execute(int interface, const Packet &packet, int arrive_id)
     {
         next = new PipeLine();
-        GetInput(interface, packet, next);
+        GetInput(interface, packet, next, arrive_id);
         for(int i = 0; i < PROC_NUM; i++){
             next->proc_states[i] = pipeline->proc_states[i];
         }
@@ -943,11 +843,21 @@ struct Switch
 
     void GetOutput()
     {
-        BaseRegister &output = pipeline->processors[proc_num_config].base;
+        PIWRegister &output = pipeline->processors[PROC_NUM-1].piw[0];
         if (output.enable1)
         {
-            // todo: 这里实际是找到payload，然后给phv装上去，现在还没有材料可以用
             output.phv;
+        }
+    }
+
+    std::pair<u64, int> get_output_arrive_id() const{
+        PIWRegister &output = pipeline->processors[PROC_NUM-1].piw[0];
+        if(output.enable1){
+            u64 flow_id = u32_to_u64(output.phv[flow_id_in_phv[0]], output.phv[flow_id_in_phv[1]]);
+            return {flow_id, output.phv[223]};
+        }
+        else{
+            return {-1, -1};
         }
     }
 

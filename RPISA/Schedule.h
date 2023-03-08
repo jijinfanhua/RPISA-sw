@@ -173,14 +173,14 @@ struct PIW : public Logic
             // second cycle
             if (processor_id != PROCESSOR_NUM - 1)
             {
-                BaseRegister &baseReg = next->processors[processor_id + 1].base;
+                BaseRegister &getkeyReg = next->processors[processor_id + 1].getKeys;
                 handle_piw_write(cur_second_piwReg, now_proc, next_proc);
                 if (!cur_second_piwReg.pkt_backward && cur_second_piwReg.enable1)
                 {
-                    baseReg.enable1 = cur_second_piwReg.enable1;
-                    baseReg.match_table_guider = cur_second_piwReg.match_table_guider;
-                    baseReg.gateway_guider = cur_second_piwReg.gateway_guider;
-                    baseReg.phv = cur_second_piwReg.phv;
+                    getkeyReg.enable1 = cur_second_piwReg.enable1;
+                    getkeyReg.match_table_guider = cur_second_piwReg.match_table_guider;
+                    getkeyReg.gateway_guider = cur_second_piwReg.gateway_guider;
+                    getkeyReg.phv = cur_second_piwReg.phv;
                 }
             }
             else

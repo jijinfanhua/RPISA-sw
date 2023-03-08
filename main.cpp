@@ -42,7 +42,9 @@ string read_from_file(ifstream& fin){
     }
 }
 
-string PARENT_DIR = "/tools/oldz/";
+std::unordered_map<u64, std::vector<int>> arrive_id_by_flow;
+
+string PARENT_DIR = "C:\\Users\\PC\\Desktop\\code\\RPISA-sw\\cmake-build-debug\\";
 string INPUT_FILE_NAME = "switch.txt";
 std::array<bool, PROC_NUM> processor_selects = {true, true, true, true, true, true};
 std::array<ofstream*, PROC_NUM> outputs{};
@@ -58,19 +60,25 @@ void init_outputs(const string& parent_dir){
     }
 }
 
+bool testing_order(){
+    bool ordered = true;
+    for(auto item: arrive_id_by_flow){
+        int before = -1;
+        for(auto flow: item.second){
+            if(flow > before){
+                before = flow;
+            }
+            else{
+                ordered = false;
+                return ordered;
+            }
+        }
+    }
+    return ordered;
+}
+
 int main(int argc, char** argv) {
 
-//    char *dir;
-//    //也可以将buffer作为输出参数
-//    if((dir = getcwd(nullptr, 0)) == nullptr)
-//    {
-//        perror("getcwd error");
-//    }
-//    else
-//    {
-//        PARENT_DIR = string(dir);
-//
-//    }
 
     ifstream infile;
     infile.open(PARENT_DIR + INPUT_FILE_NAME);
@@ -80,27 +88,38 @@ int main(int argc, char** argv) {
     int pkt = 0;
     Switch switch_ = Switch();
     switch_.Config();
-    for(int i = 0; i < 200000; i++) {
-//        if(cycle % 100 == 0){
+    for(int i = 0; i < 1000; i++) {
         std::cout << "cycle: " << cycle << endl << endl;
-//        }
 //        if(cycle % 7 == 0){
 //                switch_.Execute(0, Packet());
 //        }
 //        else{
             string input = read_from_file(infile);
             if(input == ""){
-                switch_.Execute(0, Packet());
+                switch_.Execute(0, Packet(), cycle);
             }
             else{
                 pkt += 1;
-                switch_.Execute(1, input_to_packet(input));
+                switch_.Execute(1, input_to_packet(input), cycle);
             }
 //        }
 
+        auto output_arrive_id = switch_.get_output_arrive_id();
+            if(output_arrive_id.first != -1){
+                if(arrive_id_by_flow.find(output_arrive_id.first) == arrive_id_by_flow.end()){
+                    arrive_id_by_flow.insert({output_arrive_id.first, std::vector<int>({output_arrive_id.second})});
+                }
+                else{
+                    arrive_id_by_flow.at(output_arrive_id.first).push_back(output_arrive_id.second);
+                }
+            }
         switch_.Log(outputs, processor_selects);
         cycle += 1;
     }
+
+    auto ordered = testing_order();
+    cout << ordered << endl;
+
     cout << pkt << endl;
     return 0;
 }
