@@ -382,21 +382,14 @@ struct PIR : public Logic {
             next.normal_pipe_schedule = false;
             auto &next_flow_info = next_proc.dirty_cam[flow_id];
 
-            // rp2p tail & other paras may have changed, here directly using next_proc's
-            if (next_flow_info.p2p_first_pkt_idx == -1) { // only write, no pkt come/ or queue only have backward pkt
-                next_flow_info.p2p_first_pkt_idx = next_flow_info.p2p_last_pkt_idx = next_proc.rp2p_tail;
-                next_proc.rp2p[next_proc.rp2p_tail] =
-                        {now.phv, now.match_table_guider, now.gateway_guider,
-                         now.hash_values, now.match_table_keys, false};
-                next_flow_info.left_pkt_num = next_flow_info.left_pkt_num + 1;
-                next_proc.rp2p_pointer[next_flow_info.p2p_last_pkt_idx] = -1;
-            } else { // have buffered pkt -> SUSPEND/READY
-                next_proc.rp2p[next_proc.rp2p_tail] =
-                        {now.phv, now.match_table_guider, now.gateway_guider,
-                         now.hash_values, now.match_table_keys, false};
-                next_flow_info.left_pkt_num = next_flow_info.left_pkt_num + 1;
-                next_proc.rp2p_pointer[next_flow_info.p2p_last_pkt_idx] = next_proc.rp2p_tail;
-                next_flow_info.p2p_last_pkt_idx = next_proc.rp2p_tail;
+            if(next_proc.p2p.find(flow_id) == next_proc.p2p.end()){
+                // only write, no pkt come/ or queue only have backward pkt
+                next_proc.p2p.insert(std::pair<u64, std::vector<FlowInfo>>(flow_id, {{now.phv, now.match_table_guider, now.gateway_guider,
+                         now.hash_values, now.match_table_keys, false}}));
+            }
+            else{
+                next_proc.p2p.at(flow_id).push_back({now.phv, now.match_table_guider, now.gateway_guider,
+                         now.hash_values, now.match_table_keys, false});
             }
             // state transition
             if (next_flow_info.cur_state == flow_info_in_cam::FSMState::READY) {
@@ -408,8 +401,6 @@ struct PIR : public Logic {
             update_wait_queue(flow_id, next_flow_info, next_proc);
 
             // update global tail
-            next_proc.rp2p_tail = (next_proc.rp2p_tail + 1) % 128;
-            next_proc.rp2p_size += 1;
         }
     }
 };
@@ -464,7 +455,7 @@ struct PO : public Logic
             next.enable1 = true;
             schedule_flow.left_pkt_num -= 1;
             // schedule the pkt to getAddr Module
-            auto pkt = now_proc.rp2p[schedule_flow.p2p_first_pkt_idx];
+            auto pkt = now_proc.p2p.at(schedule_flow.flow_addr).front();
             if(pkt.phv[223] == 0){
                 cout << "something went wrong" << endl;
             }
@@ -480,7 +471,10 @@ struct PO : public Logic
             {
                 next.hash_values = pkt.hash_values;
             }
-            schedule_flow.p2p_first_pkt_idx = now_proc.rp2p_pointer[schedule_flow.p2p_first_pkt_idx];
+
+            auto& p2p = next_proc.p2p.at(schedule_flow.flow_addr);
+            p2p.erase(p2p.begin());
+
 
             update_wait_queue(schedule_flow.flow_addr, schedule_flow, next_proc);
 
@@ -902,16 +896,13 @@ struct PIR_asyn : public Logic
             case BP_NOT_FOUND: {
                 flow_info_in_cam flow_info{};
                 flow_info.timer = backward_cycle_num;
-                flow_info.r2p_first_pkt_idx = flow_info.r2p_last_pkt_idx = next_proc.rp2p_tail;
-                next_proc.rp2p_tail = (next_proc.rp2p_tail + 1) % 128;
                 flow_info.flow_addr = res.second;
                 flow_info.left_pkt_num = 1;
                 flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
 
                 next_proc.dirty_cam.insert(std::pair<u64, flow_info_in_cam>(res.second, flow_info));
 
-                next_proc.rp2p[flow_info.r2p_last_pkt_idx] = pkt;
-                next_proc.rp2p_pointer[flow_info.r2p_last_pkt_idx] = -1;
+                next_proc.r2p.insert(std::pair<u64, std::vector<FlowInfo>>(res.second, {pkt}));
                 next_proc.rp2p_size += 1;
 
                 next_proc.wait_queue.push_back(flow_info);
@@ -924,23 +915,17 @@ struct PIR_asyn : public Logic
 
                 next_flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
 
-                next_proc.rp2p[next_proc.rp2p_tail] = pkt;
-                if (-1 == flow_info.r2p_first_pkt_idx)
-                {
-                    next_flow_info.r2p_first_pkt_idx = next_flow_info.r2p_last_pkt_idx = next_proc.rp2p_tail;
-                    next_proc.rp2p_pointer[flow_info.r2p_last_pkt_idx] = -1;
+                if(next_proc.r2p.find(res.second) == next_proc.r2p.end()){
+                    // only write, no pkt come/ or queue only have backward pkt
+                    next_proc.r2p.insert(std::pair<u64, std::vector<FlowInfo>>(res.second, {pkt}));
                 }
-                else
-                {
-                    next_proc.rp2p_pointer[flow_info.r2p_last_pkt_idx] = next_proc.rp2p_tail;
-                    next_flow_info.r2p_last_pkt_idx = next_proc.rp2p_tail;
+                else{
+                    next_proc.r2p.at(res.second).push_back(pkt);
                 }
 
                 next_flow_info.left_pkt_num += 1;
 
                 update_wait_queue(res.second, next_flow_info, next_proc);
-
-                next_proc.rp2p_tail = (next_proc.rp2p_tail + 1) % 128;
                 next_proc.rp2p_size += 1;
                 break;
             }
@@ -948,8 +933,6 @@ struct PIR_asyn : public Logic
                 flow_info_in_cam flow_info{};
                 flow_info.timer = backward_cycle_num;
 
-                flow_info.r2p_first_pkt_idx = flow_info.r2p_last_pkt_idx = -1;
-                flow_info.p2p_first_pkt_idx = flow_info.r2p_last_pkt_idx = -1;
                 flow_info.flow_addr = res.second;
                 flow_info.left_pkt_num = 0;
                 flow_info.cur_state = flow_info_in_cam::FSMState::WAIT;
@@ -976,7 +959,8 @@ struct PIR_asyn : public Logic
                     next_flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
                 }
                 next_flow_info.timer = backward_cycle_num;
-                next_flow_info.r2p_first_pkt_idx = next_flow_info.r2p_last_pkt_idx = -1;
+//                next_flow_info.r2p_first_pkt_idx = next_flow_info.r2p_last_pkt_idx = -1;
+                next_proc.r2p.erase(res.second);
 
                 next_flow_info.lazy = true;
 
@@ -1155,16 +1139,18 @@ struct PIR_asyn : public Logic
                 next_schedule_flow.cur_state = flow_info_in_cam::FSMState::READY; // SUSPEND->READY : wait->schedule
 
                 // merge queue
-                if (wait_flow.r2p_first_pkt_idx == -1) { // only p2p buffered
+                if(next_proc.r2p.find(wait_flow.flow_addr) == next_proc.r2p.end()){ // only p2p buffered
                     // no need to merge
-                } else if (wait_flow.p2p_first_pkt_idx == -1) { // only r2p buffered
-                    next_schedule_flow.p2p_first_pkt_idx = wait_flow.r2p_first_pkt_idx;
-                    next_schedule_flow.p2p_last_pkt_idx = wait_flow.r2p_last_pkt_idx;
-                    next_schedule_flow.r2p_first_pkt_idx = next_schedule_flow.r2p_last_pkt_idx = -1;
-                } else { // r2p and p2p buffered
-                    next_schedule_flow.p2p_first_pkt_idx = wait_flow.r2p_first_pkt_idx;
-                    next_proc.rp2p_pointer[wait_flow.r2p_last_pkt_idx] = wait_flow.p2p_first_pkt_idx;
-                    next_schedule_flow.r2p_first_pkt_idx = next_schedule_flow.r2p_last_pkt_idx = -1;
+                } else if(next_proc.p2p.find(wait_flow.flow_addr) == next_proc.p2p.end()){ // only r2p buffered
+                    next_proc.p2p.insert(std::pair<u64, std::vector<FlowInfo>>(wait_flow.flow_addr, next_proc.r2p.at(wait_flow.flow_addr)));
+                    next_proc.r2p.erase(wait_flow.flow_addr);
+                }
+                else{
+                    for(auto flow: next_proc.p2p.at(wait_flow.flow_addr)){
+                        next_proc.r2p.at(wait_flow.flow_addr).push_back(flow);
+                    }
+                    next_proc.p2p.at(wait_flow.flow_addr) = next_proc.r2p.at(wait_flow.flow_addr);
+                    next_proc.r2p.erase(wait_flow.flow_addr);
                 }
                 if(next_schedule_flow.lazy){
                     cout << "testing" << endl;

@@ -30,10 +30,10 @@ struct RingRegister {
 
 struct flow_info_in_cam {
     u32 timer;
-    int r2p_first_pkt_idx;
-    int r2p_last_pkt_idx;
-    int p2p_first_pkt_idx;
-    int p2p_last_pkt_idx;
+//    int r2p_first_pkt_idx;
+//    int r2p_last_pkt_idx;
+//    int p2p_first_pkt_idx;
+//    int p2p_last_pkt_idx;
     u64 flow_addr;
     bool lazy = false;
 

@@ -40,10 +40,12 @@ struct ProcessorState {
     std::unordered_map<u64, flow_info_in_cam> dirty_cam;
 
     // 128 will cause segmentation fault, reason unknown
-    std::array<FlowInfo, 128> rp2p{};
-    // 指示下一个对象在rp2p中的位置
-    std::array<u32, 128> rp2p_pointer{};
-    int rp2p_tail = 0;
+//    std::array<FlowInfo, 128> rp2p{};
+//    // 指示下一个对象在rp2p中的位置
+//    std::array<u32, 128> rp2p_pointer{};
+    std::unordered_map<u64, std::vector<FlowInfo>> r2p;
+    std::unordered_map<u64, std::vector<FlowInfo>> p2p;
+
     std::queue<FlowInfo> r2p_stash;
     std::queue<WriteInfo> write_stash;
 

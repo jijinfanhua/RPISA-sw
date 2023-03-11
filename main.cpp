@@ -44,7 +44,7 @@ string read_from_file(ifstream& fin){
 
 std::unordered_map<u64, std::vector<int>> arrive_id_by_flow;
 
-string PARENT_DIR = "/tools/oldz/";
+string PARENT_DIR = "C:\\Users\\PC\\Desktop\\code\\RPISA-sw\\cmake-build-debug\\";
 string INPUT_FILE_NAME = "switch.txt";
 std::array<bool, PROC_NUM> processor_selects = {true, true, true, true, true, true};
 std::array<ofstream*, PROC_NUM> outputs{};
@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
     int pkt = 0;
     Switch switch_ = Switch();
     switch_.Config();
-    for(int i = 0; i < 200000; i++) {
+    for(int i = 0; i < 1000; i++) {
         std::cout << "cycle: " << cycle << endl << endl;
 //        if(cycle % 7 == 0){
 //                switch_.Execute(0, Packet());
