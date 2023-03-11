@@ -21,7 +21,8 @@ void update_wait_queue(u64 flow_id, flow_info_in_cam flow_info, ProcessorState& 
     for(int i = 0; i < ss; i++){
         auto item = next_proc.schedule_queue.front();
         if(item.flow_addr == flow_id){
-            next_proc.schedule_queue.push(flow_info);
+            item.lazy = flow_info.lazy;
+            next_proc.schedule_queue.push(item);
             next_proc.schedule_queue.pop();
         }
         else{
@@ -464,6 +465,9 @@ struct PO : public Logic
             schedule_flow.left_pkt_num -= 1;
             // schedule the pkt to getAddr Module
             auto pkt = now_proc.rp2p[schedule_flow.p2p_first_pkt_idx];
+            if(pkt.phv[223] == 0){
+                cout << "something went wrong" << endl;
+            }
             next.match_table_guider = pkt.match_table_guider;
             next.gateway_guider = pkt.gateway_guider;
             next.phv = pkt.phv;
@@ -851,6 +855,9 @@ struct PIR_asyn : public Logic
                 hb = true;
                 FlowInfo it{};
                 it.phv = transfer_from_payload_to_phv(now.ringReg.payload);
+                if(it.phv[223] == 0){
+                    cout << "something went wrong" << endl;
+                }
                 it.gateway_guider = now.gateway_guider;
                 it.match_table_guider = now.match_table_guider;
                 it.backward_pkt = true;
@@ -874,12 +881,13 @@ struct PIR_asyn : public Logic
 //        }
 
         auto res = std::pair<CAM_SEARCH_RES, u64>();
+        FlowInfo pkt;
 
         if(!now_proc.write_stash.empty()){
             res = handle_write(now_proc, next_proc);
         }
         else if(!now_proc.r2p_stash.empty()){
-            auto pkt = now_proc.r2p_stash.front();
+            pkt = now_proc.r2p_stash.front();
             next_proc.r2p_stash.pop();
             if(now_proc.dirty_cam.find(get_flow_id(pkt.phv)) == now_proc.dirty_cam.end()){
                 res.first = BP_NOT_FOUND;
@@ -902,12 +910,7 @@ struct PIR_asyn : public Logic
 
                 next_proc.dirty_cam.insert(std::pair<u64, flow_info_in_cam>(res.second, flow_info));
 
-                FlowInfo pkt_info{
-                        now.phv,
-                        now.match_table_guider,
-                        now.gateway_guider,
-                        now.hash_values, true};
-                next_proc.rp2p[flow_info.r2p_last_pkt_idx] = pkt_info;
+                next_proc.rp2p[flow_info.r2p_last_pkt_idx] = pkt;
                 next_proc.rp2p_pointer[flow_info.r2p_last_pkt_idx] = -1;
                 next_proc.rp2p_size += 1;
 
@@ -920,12 +923,8 @@ struct PIR_asyn : public Logic
                 flow_info_in_cam &next_flow_info = next_proc.dirty_cam[res.second];
 
                 next_flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
-                FlowInfo pkt_info{
-                        now.phv,
-                        now.match_table_guider,
-                        now.gateway_guider,
-                        {}, {}, true};
-                next_proc.rp2p[next_proc.rp2p_tail] = pkt_info;
+
+                next_proc.rp2p[next_proc.rp2p_tail] = pkt;
                 if (-1 == flow_info.r2p_first_pkt_idx)
                 {
                     next_flow_info.r2p_first_pkt_idx = next_flow_info.r2p_last_pkt_idx = next_proc.rp2p_tail;
