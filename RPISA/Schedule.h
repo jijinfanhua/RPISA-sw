@@ -398,6 +398,8 @@ struct PIR : public Logic {
                 next_flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
             }
 
+            next_flow_info.left_pkt_num += 1;
+
             update_wait_queue(flow_id, next_flow_info, next_proc);
 
             // update global tail
@@ -443,7 +445,7 @@ struct PO : public Logic
             return;
         }
 
-        flow_info_in_cam schedule_flow = next_proc.schedule_queue.front();
+        flow_info_in_cam schedule_flow = now_proc.schedule_queue.front();
         if (schedule_flow.lazy)
         { // ready -> suspend
             next_proc.schedule_queue.pop();
@@ -482,6 +484,7 @@ struct PO : public Logic
             {
                 next_proc.schedule_queue.pop(); // just delete, not add to the queue tail
                 next_proc.dirty_cam.erase(schedule_flow.flow_addr);
+                next_proc.p2p.erase(schedule_flow.flow_addr);
             }
             else
             {
@@ -1136,6 +1139,7 @@ struct PIR_asyn : public Logic
                 cout << "wait directly delete, wait queue after: " << next_proc.wait_queue.size() << endl;
             } else if (wait_flow.cur_state == flow_info_in_cam::FSMState::SUSPEND) {
                 auto next_schedule_flow = wait_flow;
+
                 next_schedule_flow.cur_state = flow_info_in_cam::FSMState::READY; // SUSPEND->READY : wait->schedule
 
                 // merge queue
