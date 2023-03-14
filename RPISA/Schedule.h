@@ -8,26 +8,29 @@
 #include "../pipeline.h"
 
 // 所有对 dirty cam 的修改都需要同时修改 wait queue 和 schedule queue!!!
-void update_wait_queue(u64 flow_id, flow_info_in_cam flow_info, ProcessorState& next_proc){
+// 同样，所有对wait queue 和 schedule queue表项的修改也需要修改 dirty cam!!!
 
+void update_wait_queue(u64 flow_id, flow_info_in_cam flow_info, ProcessorState& next_proc){
     int s = next_proc.wait_queue.size();
     for(int i = 0; i < s; i++){
         if(next_proc.wait_queue[i].flow_addr == flow_id){
             next_proc.wait_queue[i] = flow_info;
         }
     }
+}
+
+flow_info_in_cam& fetch_flow_info(u64 flow_id, ProcessorState& next_proc){
+    int s = next_proc.wait_queue.size();
+    for(int i = 0; i < s; i++){
+        if(next_proc.wait_queue[i].flow_addr == flow_id){
+            return next_proc.wait_queue[i];
+        }
+    }
 
     int ss = next_proc.schedule_queue.size();
     for(int i = 0; i < ss; i++){
-        auto item = next_proc.schedule_queue.front();
-        if(item.flow_addr == flow_id){
-            item.lazy = flow_info.lazy;
-            next_proc.schedule_queue.push(item);
-            next_proc.schedule_queue.pop();
-        }
-        else{
-            next_proc.schedule_queue.push(item);
-            next_proc.schedule_queue.pop();
+        if(next_proc.schedule_queue[i].flow_addr == flow_id){
+            return next_proc.schedule_queue[i];
         }
     }
 }
@@ -112,13 +115,32 @@ struct VerifyStateChange : public Logic
         }
 
         auto state_saved = state_saved_idxs[processor_id];
-        for (int i = 0; i < state_saved.state_num; i++)
-        {
-            if (verifyReg.phv_changed_tags[state_saved.saved_state_idx_in_phv[i]])
-            {
+//        for (int i = 0; i < state_saved.state_num; i++)
+//        {
+//            if (verifyReg.phv_changed_tags[state_saved.saved_state_idx_in_phv[i]])
+//            {
+//                piwReg.state_changed = true;
+//            }
+//        }
+
+        // todo: change between
+        if(processor_id == 3){
+            if(verifyReg.phv[ID_IN_PHV] % 9 == 0){
                 piwReg.state_changed = true;
             }
+            else{
+                piwReg.state_changed = false;
+            }
         }
+        else if(processor_id == 4){
+            if(verifyReg.phv[ID_IN_PHV] % 11 == 0){
+                piwReg.state_changed = true;
+            }
+            else{
+                piwReg.state_changed = false;
+            }
+        }
+        // todo: change between
 
         piwReg.phv = verifyReg.phv;
         piwReg.match_table_guider = verifyReg.match_table_guider;
@@ -216,15 +238,33 @@ struct PIW : public Logic
 
         next_proc.total_packets += 1;
 
+        // 判断tag,确定是否要触发写状态/回环
+        // 和processor独热码不同，tag独热码低位代表id靠前的processor
+        // todo: enable/disable tag
+        auto tag = now.phv[TAG_IN_PHV];
+        u32 proc_bitmap = 1 << tags[processor_id];
+//        if(tag > proc_bitmap){
+//            // 不能触发写状态/回环
+//            next.state_writeback = false;
+//            next.pkt_backward = false;
+//            next.phv = now.phv;
+//            next.match_table_guider = now.match_table_guider;
+//            next.gateway_guider = now.gateway_guider;
+//            next.hash_values = now.hash_values;
+//            return;
+//        }
+
+
         // in PIW, value in dirty cam is not important.
         auto flow_id = get_flow_id(now.phv);
         auto flow_cam = now_proc.dirty_cam;
         if (flow_cam.find(flow_id) == flow_cam.end())
         {
-            // if need to writeback: stateless / stateful
+            // if you need to writeback: stateless / stateful
             if (now.state_changed)
             { // state changed; state is in PHV
                 // add item into dirty cam
+
                 next_proc.dirty_cam.insert(std::pair<u64, flow_info_in_cam>(flow_id, flow_info_in_cam{}));
                 next.state_writeback = true;
                 next.pkt_backward = false;
@@ -246,6 +286,9 @@ struct PIW : public Logic
             }
             else
             {
+                if(flow_id == 254453378946499298){
+                    cout << "bp" << endl;
+                }
                 next.state_writeback = false;
                 next.pkt_backward = true;
                 // statistics
@@ -270,13 +313,6 @@ struct PIW : public Logic
             next_proc.p2r.push(it);
             return;
         }
-
-//        next_proc.round_flag += 1;
-//        // todo: change it back, just for specific use case testing
-//        if(next_proc.round_flag % 2 != 0){
-//            next_proc.p2r.push(it);
-//            return;
-//        }
 
         // send pkt / write
         if (now.state_writeback)
@@ -311,11 +347,14 @@ struct PIW : public Logic
         }
         else if (now.pkt_backward)
         {
+            // need to add tag to the phv
             it.rr.ctrl = 0b01;
             it.rr.dst2 = it.rr.dst1;
             it.rr.flow_addr = get_flow_id(now.phv);
             it.rr.write_addr = get_write_addr(now.phv, read_proc_ids[processor_id]);
-            it.rr.payload = transfer_from_phv_to_payload(now.phv); // todo: transform from phv(32bit*224) to payload(32bit * 128)
+            auto phv = now.phv;
+            phv[TAG_IN_PHV] += (1 << tags[processor_id]);
+            it.rr.payload = transfer_from_phv_to_payload(phv); // todo: transform from phv(32bit*224) to payload(32bit * 128)
             it.gateway_guider = now.gateway_guider;
             it.match_table_guider = now.match_table_guider;
             next_proc.p2r.push(it);
@@ -366,6 +405,19 @@ struct PIR : public Logic {
             next.match_table_keys = now.match_table_keys;
             return;
         }
+        // 判断tag,决定是否阻塞
+        auto tag = now.phv[TAG_IN_PHV];
+        u32 proc_bitmap = 1 << tags[processor_id];
+        // todo: enable/disable tag
+//        if(tag > proc_bitmap){
+//            next.normal_pipe_schedule = true;
+//            next.phv = now.phv;
+//            next.match_table_guider = now.match_table_guider;
+//            next.gateway_guider = now.gateway_guider;
+//            next.hash_values = now.hash_values;
+//            next.match_table_keys = now.match_table_keys;
+//            return;
+//        }
         auto flow_id = get_flow_id(now.phv);
         auto flow_cam = now_proc.dirty_cam;
         if (flow_cam.find(flow_id) == flow_cam.end()) {
@@ -380,7 +432,7 @@ struct PIR : public Logic {
             // need to block
             // no normal pipe for po
             next.normal_pipe_schedule = false;
-            auto &next_flow_info = next_proc.dirty_cam[flow_id];
+            auto& next_flow_info = fetch_flow_info(flow_id, next_proc);
 
             if(next_proc.p2p.find(flow_id) == next_proc.p2p.end()){
                 // only write, no pkt come/ or queue only have backward pkt
@@ -399,8 +451,7 @@ struct PIR : public Logic {
             }
 
             next_flow_info.left_pkt_num += 1;
-
-            update_wait_queue(flow_id, next_flow_info, next_proc);
+            next_proc.dirty_cam.at(flow_id).left_pkt_num += 1;
 
             // update global tail
         }
@@ -445,22 +496,23 @@ struct PO : public Logic
             return;
         }
 
-        flow_info_in_cam schedule_flow = now_proc.schedule_queue.front();
-        if (schedule_flow.lazy)
-        { // ready -> suspend
-            next_proc.schedule_queue.pop();
-            next.enable1 = false;
-        }
-        else
-        {
+        flow_info_in_cam schedule_flow = next_proc.schedule_queue.front();
+
             cout << "schedule schedule queue, before: " << next_proc.schedule_queue.size() << endl;
             next.enable1 = true;
             schedule_flow.left_pkt_num -= 1;
+            next_proc.dirty_cam.at(schedule_flow.flow_addr).left_pkt_num -= 1;
             // schedule the pkt to getAddr Module
-            auto pkt = now_proc.p2p.at(schedule_flow.flow_addr).front();
-            if(pkt.phv[223] == 0){
-                cout << "something went wrong" << endl;
+            if(next_proc.p2p.find(schedule_flow.flow_addr) == next_proc.p2p.end() || next_proc.p2p.at(schedule_flow.flow_addr).size() == 0){
+                // 丢包
+                next.enable1 = false;
+                next_proc.schedule_queue.erase(next_proc.schedule_queue.begin()); // just delete, not add to the queue tail
+                next_proc.dirty_cam.erase(schedule_flow.flow_addr);
+                next_proc.p2p.erase(schedule_flow.flow_addr);
+                return;
             }
+            auto pkt = next_proc.p2p.at(schedule_flow.flow_addr).front();
+
             next.match_table_guider = pkt.match_table_guider;
             next.gateway_guider = pkt.gateway_guider;
             next.phv = pkt.phv;
@@ -478,24 +530,26 @@ struct PO : public Logic
             p2p.erase(p2p.begin());
 
 
-            update_wait_queue(schedule_flow.flow_addr, schedule_flow, next_proc);
+//            update_wait_queue(schedule_flow.flow_addr, schedule_flow, next_proc);
 
             if (schedule_flow.left_pkt_num == 0)
             {
-                next_proc.schedule_queue.pop(); // just delete, not add to the queue tail
-                next_proc.dirty_cam.erase(schedule_flow.flow_addr);
+                if(!next_proc.schedule_queue.empty()) next_proc.schedule_queue.erase(next_proc.schedule_queue.begin());
+                next_proc.dirty_cam.erase(schedule_flow.flow_addr); // just delete, not add to the queue tail
                 next_proc.p2p.erase(schedule_flow.flow_addr);
             }
             else
             {
-                next_proc.schedule_queue.pop();
-                next_proc.schedule_queue.push(schedule_flow);
+                next_proc.schedule_queue.erase(next_proc.schedule_queue.begin());
+                next_proc.schedule_queue.push_back(schedule_flow);
             }
+
+//            if(next_proc.dirty_cam[schedule_flow.flow_addr].left_pkt_num == 0){
+//                next_proc.dirty_cam.erase(schedule_flow.flow_addr);
+//            }
 
             cout << "schedule schedule queue, after: " << next_proc.schedule_queue.size() << endl;
             // todo: set the rp2p to null
-            next_proc.rp2p_size -= 1;
-        }
     }
 };
 
@@ -852,7 +906,7 @@ struct PIR_asyn : public Logic
                 hb = true;
                 FlowInfo it{};
                 it.phv = transfer_from_payload_to_phv(now.ringReg.payload);
-                if(it.phv[223] == 0){
+                if(it.phv[ID_IN_PHV] == 0){
                     cout << "something went wrong" << endl;
                 }
                 it.gateway_guider = now.gateway_guider;
@@ -906,15 +960,13 @@ struct PIR_asyn : public Logic
                 next_proc.dirty_cam.insert(std::pair<u64, flow_info_in_cam>(res.second, flow_info));
 
                 next_proc.r2p.insert(std::pair<u64, std::vector<FlowInfo>>(res.second, {pkt}));
-                next_proc.rp2p_size += 1;
 
                 next_proc.wait_queue.push_back(flow_info);
 
                 break;
             }
             case BP_FOUND: {
-                const flow_info_in_cam &flow_info = now_proc.dirty_cam.at(res.second);
-                flow_info_in_cam &next_flow_info = next_proc.dirty_cam[res.second];
+                flow_info_in_cam &next_flow_info = fetch_flow_info(res.second, next_proc);
 
                 next_flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
 
@@ -927,9 +979,7 @@ struct PIR_asyn : public Logic
                 }
 
                 next_flow_info.left_pkt_num += 1;
-
-                update_wait_queue(res.second, next_flow_info, next_proc);
-                next_proc.rp2p_size += 1;
+                next_proc.dirty_cam.at(res.second).left_pkt_num += 1;
                 break;
             }
             case WRITE_NOT_FOUND: {
@@ -950,8 +1000,8 @@ struct PIR_asyn : public Logic
                 break;
             }
             case WRITE_FOUND: {
-                const flow_info_in_cam &flow_info = now_proc.dirty_cam.at(res.second);
-                flow_info_in_cam &next_flow_info = next_proc.dirty_cam[res.second];
+                const flow_info_in_cam flow_info = now_proc.dirty_cam.at(res.second);
+                auto next_flow_info = flow_info;
 
                 if (flow_info.left_pkt_num == 0)
                 {
@@ -963,13 +1013,35 @@ struct PIR_asyn : public Logic
                 }
                 next_flow_info.timer = backward_cycle_num;
 //                next_flow_info.r2p_first_pkt_idx = next_flow_info.r2p_last_pkt_idx = -1;
-                next_proc.r2p.erase(res.second);
+                if(next_proc.r2p.find(res.second) == next_proc.r2p.end()){ // only p2p buffered
+                    // no need to merge
+                } else if(next_proc.p2p.find(res.second) == next_proc.p2p.end()){ // only r2p buffered
+                    next_proc.p2p.insert(std::pair<u64, std::vector<FlowInfo>>(res.second, next_proc.r2p.at(res.second)));
+                    next_proc.r2p.erase(res.second);
+                }
+                else{
+                    for(auto flow: next_proc.p2p.at(res.second)){
+                        next_proc.r2p.at(res.second).push_back(flow);
+                    }
+                    next_proc.p2p.at(res.second) = next_proc.r2p.at(res.second);
+                    next_proc.r2p.erase(res.second);
+                }
 
-                next_flow_info.lazy = true;
+                for(auto it = next_proc.schedule_queue.begin(); it != next_proc.schedule_queue.end(); it++){
+                    if(it->flow_addr == res.second){
+                        it = next_proc.schedule_queue.erase(it);
+                        if(it == next_proc.schedule_queue.end()) break;
+                    }
+                }
 
-                update_wait_queue(res.second, next_flow_info, next_proc);
+                bool found = false;
+                for(auto flow: now_proc.wait_queue){
+                    if(flow.flow_addr == res.second) found = true;
+                }
+                if(!found) next_proc.wait_queue.push_back(next_flow_info);
+                else update_wait_queue(res.second, next_flow_info, next_proc);
 
-                next_proc.wait_queue.push_back(next_flow_info);
+                next_proc.dirty_cam.at(res.second) = next_flow_info;
 
                 break;
             }
@@ -980,6 +1052,12 @@ struct PIR_asyn : public Logic
             next_proc.hb_cycles += 1;
             handle_heartbeat(next, now_proc, next_proc);
         }
+
+//        for(auto flow: now_proc.dirty_cam){
+//            if(flow.second.left_pkt_num == 0){
+//                next_proc.dirty_cam.erase(flow.first);
+//            }
+//        }
     }
 
     // write信号到来之后立刻修改状态
@@ -1115,6 +1193,12 @@ struct PIR_asyn : public Logic
 
             // caution: send cancel_dirty
             u64 flow_addr = wait_flow.flow_addr;
+            if(flow_addr == 0){
+                for(auto& flow: next_proc.wait_queue){
+                    flow.timer -= 1;
+                }
+                return;
+            }
             RP2R_REG it = {
                     0,
                     0b10,
@@ -1156,12 +1240,11 @@ struct PIR_asyn : public Logic
                     next_proc.p2p.at(wait_flow.flow_addr) = next_proc.r2p.at(wait_flow.flow_addr);
                     next_proc.r2p.erase(wait_flow.flow_addr);
                 }
-                if(next_schedule_flow.lazy){
-                    cout << "testing" << endl;
-                }
-                next_schedule_flow.lazy = false;
 
-                next_proc.schedule_queue.push(next_schedule_flow);
+                if(next_schedule_flow.flow_addr == 0){
+                    cout << "something wrong" << endl;
+                }
+                next_proc.schedule_queue.push_back(next_schedule_flow);
 
                 // update in dirty cam
                 next_proc.dirty_cam[next_schedule_flow.flow_addr] = next_schedule_flow;

@@ -48,6 +48,7 @@ string PARENT_DIR = "C:\\Users\\PC\\Desktop\\code\\RPISA-sw\\cmake-build-debug\\
 string INPUT_FILE_NAME = "switch.txt";
 std::array<bool, PROC_NUM> processor_selects = {true, true, true, true, true, true};
 std::array<ofstream*, PROC_NUM> outputs{};
+int unordered_flow_count = 0;
 
 void init_outputs(const string& parent_dir){
     for(int i = 0; i < PROC_NUM; i++){
@@ -60,7 +61,7 @@ void init_outputs(const string& parent_dir){
     }
 }
 
-bool testing_order(){
+void testing_order(){
     for(auto item: arrive_id_by_flow){
         int before = -1;
         for(auto flow: item.second){
@@ -68,15 +69,16 @@ bool testing_order(){
                 before = flow;
             }
             else{
-                return false;
+                unordered_flow_count += 1;
             }
         }
     }
-    return true;
 }
 
 int main(int argc, char** argv) {
-
+    // phv[223]: packet id
+    // phv[222]: tag
+    // tag 为 proc_num 位的独热码，哪一位为 1 代表有该 proc 的 tag.
 
     ifstream infile;
     infile.open(PARENT_DIR + INPUT_FILE_NAME);
@@ -86,7 +88,7 @@ int main(int argc, char** argv) {
     int pkt = 0;
     Switch switch_ = Switch();
     switch_.Config();
-    for(int i = 0; i < 1000; i++) {
+    for(int i = 0; i < 10000; i++) {
         std::cout << "cycle: " << cycle << endl << endl;
 //        if(cycle % 7 == 0){
 //                switch_.Execute(0, Packet());
@@ -111,12 +113,14 @@ int main(int argc, char** argv) {
                     arrive_id_by_flow.at(output_arrive_id.first).push_back(output_arrive_id.second);
                 }
             }
-        switch_.Log(outputs, processor_selects);
         cycle += 1;
     }
 
-    auto ordered = testing_order();
-    cout << ordered << endl;
+    switch_.Log(outputs, processor_selects);
+
+    testing_order();
+    cout << "total flow: " << arrive_id_by_flow.size() << endl;
+    cout << "unordered flow: " << unordered_flow_count << endl;
 
     cout << pkt << endl;
     return 0;

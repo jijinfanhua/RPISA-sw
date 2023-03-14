@@ -27,6 +27,9 @@ const int SRAM_NUM = 80;
 const int SRAM_SIZE = 1024;
 const int LOG_SRAM_SIZE = 10;
 
+const int TAG_IN_PHV = 222;
+const int ID_IN_PHV = 223;
+
 
 struct PipeLine;
 using u32 = unsigned int;

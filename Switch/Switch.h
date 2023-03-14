@@ -146,7 +146,7 @@ void commit(const vector<ProcessorConfig> &config)
 
 void top_heavy_hitter_config2(){
     flow_id_in_phv = {166, 167};
-    gateway_guider[80] = gateway_guider[81] = gateway_guider[82] = gateway_guider[83] = gateway_guider[84] = 1;
+    gateway_guider[48] = gateway_guider[49] = gateway_guider[50] = gateway_guider[51] = gateway_guider[52] = 1;
 
     ProcessorConfig proc0 = ProcessorConfig(0);
     proc0.push_back_get_key_use_container(0, 8, 0);
@@ -301,7 +301,7 @@ void top_heavy_hitter_config2(){
     saved_state_0.saved_state_idx_in_phv = {162, 163, 164};
     // processor1 finished
 
-    ProcessorConfig proc1 = ProcessorConfig(1);
+    ProcessorConfig proc1 = ProcessorConfig(2);
 
     proc1.matchTableConfig.match_table_num = 2;
     auto& match_table_1 = proc1.matchTableConfig.matchTables[0];
@@ -310,16 +310,16 @@ void top_heavy_hitter_config2(){
     match_table_2.type = 1;
     proc1.commit();
 
-    num_of_stateful_tables[1] = 2;
-    stateful_table_ids[1] = {0, 1};
-    auto& phv_id_to_save_hash_value_1 = phv_id_to_save_hash_value[1];
+    num_of_stateful_tables[2] = 2;
+    stateful_table_ids[2] = {0, 1};
+    auto& phv_id_to_save_hash_value_1 = phv_id_to_save_hash_value[2];
     phv_id_to_save_hash_value_1[0] = {172, 173};
     phv_id_to_save_hash_value_1[1] = {172, 173};
 
-    auto& salu_id_1 = salu_id[1];
+    auto& salu_id_1 = salu_id[2];
     salu_id_1 = {224, 225};
     // if phv_162 >= phv_163, phv_165 = phv_162; else: phv_165 = phv_163
-    auto& salu3 = SALUs[1][0];
+    auto& salu3 = SALUs[2][0];
     salu3.salu_id = 224;
     salu3.op = SALUnit::OP::IfElseRAW;
     salu3.left_value.type = SALUnit::Parameter::Type::HEADER;
@@ -337,7 +337,7 @@ void top_heavy_hitter_config2(){
     salu3.return_value_from.false_type = SALUnit::ReturnValueFrom::Type::OP1;
 
     // if phv_162 >= phv_163, phv_1 = 0; else: phv_1 = 1;
-    auto& salu4 = SALUs[1][1];
+    auto& salu4 = SALUs[2][1];
     salu4.salu_id = 225;
     salu4.op = SALUnit::OP::IfElseRAW;
     salu4.left_value.type = SALUnit::Parameter::Type::HEADER;
@@ -357,7 +357,7 @@ void top_heavy_hitter_config2(){
     salu4.return_value_from.false_content.value = 1;
     // processor_2 finished, using salu instead of normal alu
 
-    ProcessorConfig proc2 = ProcessorConfig(5);
+    ProcessorConfig proc2 = ProcessorConfig(3);
     proc2.push_back_get_key_use_container(164, 32, 0, 1, 2, 3);
     proc2.push_back_get_key_use_container(165, 32, 4, 5, 6, 7);
     proc2.push_back_get_key_use_container(1, 8, 8);
@@ -409,7 +409,7 @@ void top_heavy_hitter_config2(){
 
     proc2.commit();
 
-    auto& action = actionConfigs[5].actions[5];
+    auto& action = actionConfigs[3].actions[5];
     action.action_id = 5;
     action.vliw_enabler = {false};
     action.vliw_enabler[163] = true;
@@ -421,7 +421,7 @@ void top_heavy_hitter_config2(){
     action.alu_configs[164].operand1.type = ALUnit::Parameter::CONST;
     action.alu_configs[164].operand1.content.value = 1;
 
-    auto& action1 = actionConfigs[5].actions[6];
+    auto& action1 = actionConfigs[3].actions[6];
     action1.action_id = 6;
     action1.vliw_enabler = {false};
     action1.vliw_enabler[162] = true;
@@ -429,7 +429,7 @@ void top_heavy_hitter_config2(){
     action1.alu_configs[162].operand1.type = ALUnit::Parameter::CONST;
     action1.alu_configs[162].operand1.content.value = 1;
 
-    auto& action2 = actionConfigs[5].actions[7];
+    auto& action2 = actionConfigs[3].actions[7];
     action2.action_id = 7;
     action2.vliw_enabler = {false};
     action2.vliw_enabler[163] = true;
@@ -437,18 +437,21 @@ void top_heavy_hitter_config2(){
     action2.alu_configs[163].operand1.type = ALUnit::Parameter::CONST;
     action2.alu_configs[163].operand1.content.value = 1;
 
-    proc_types[5] = ProcType::WRITE;
-    state_idx_in_phv[5] = {162, 163, 164};
-    auto& saved_state_2 = state_saved_idxs[5];
+    proc_types[3] = ProcType::WRITE;
+    state_idx_in_phv[3] = {162, 163, 164};
+    auto& saved_state_2 = state_saved_idxs[3];
     saved_state_2.state_num = 3;
     saved_state_2.state_lengths = {1, 1, 1};
     saved_state_2.saved_state_idx_in_phv = {162, 163, 164};
     // processor_3 finished
 
-    backward_cycle_num = 125;
-    read_proc_ids = {0};
-    write_proc_ids = {5};
-    getKeyConfigs;
+    backward_cycle_num = 100;
+    read_proc_ids = {0, 0, 0, 0, 1};
+    write_proc_ids = {3, 4, 0, 0, 0};
+    tags = {1, 2, 0, 1, 2};
+
+    proc_types[4] = ProcType::WRITE;
+    proc_types[1] = ProcType::READ;
 }
 
 void top_heavy_hitter_config1(){
@@ -770,7 +773,7 @@ void top_heavy_hitter_config1(){
     backward_cycle_num = 50;
     read_proc_ids = {0};
     write_proc_ids = {2};
-    getKeyConfigs;
+
 }
 
 struct Switch
@@ -797,11 +800,11 @@ struct Switch
             logics.push_back(make_unique<ExecuteAction>(i));
             logics.push_back(make_unique<VerifyStateChange>(i));
             logics.push_back(make_unique<PIR>(i));
+            logics.push_back(make_unique<PIR_asyn>(i));
             logics.push_back(make_unique<PIW>(i));
             logics.push_back(make_unique<PO>(i));
             logics.push_back(make_unique<RI>(i));
             logics.push_back(make_unique<RO>(i));
-            logics.push_back(make_unique<PIR_asyn>(i));
         }
     }
 
@@ -810,7 +813,7 @@ struct Switch
         if (interface != 0)
         {
             PHV phv = parser.parse(packet);
-            phv[223] = arrive_id;
+            phv[ID_IN_PHV] = arrive_id;
             pipeline_->processors[0].getKeys.enable1 = true;
             pipeline_->processors[0].getKeys.phv = phv;
             pipeline_->processors[0].getKeys.gateway_guider = gateway_guider;
@@ -830,6 +833,7 @@ struct Switch
         next = new PipeLine();
         GetInput(interface, packet, next, arrive_id);
         for(int i = 0; i < PROC_NUM; i++){
+            update();
             next->proc_states[i] = pipeline->proc_states[i];
         }
         for (auto &logic : logics)
@@ -854,7 +858,7 @@ struct Switch
         PIWRegister &output = pipeline->processors[PROC_NUM-1].piw[0];
         if(output.enable1){
             u64 flow_id = u32_to_u64(output.phv[flow_id_in_phv[0]], output.phv[flow_id_in_phv[1]]);
-            return {flow_id, output.phv[223]};
+            return {flow_id, output.phv[ID_IN_PHV]};
         }
         else{
             return {-1, -1};
@@ -868,6 +872,12 @@ struct Switch
             }
         }
     };
+
+    void update(){
+        for(int i = 0; i < PROC_NUM; i++){
+                pipeline->proc_states[i].update();
+        }
+    }
 
     void Config()
     {

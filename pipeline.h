@@ -51,7 +51,7 @@ struct ProcessorState {
 
     std::vector<flow_info_in_cam> wait_queue;
 
-    queue<flow_info_in_cam> schedule_queue;
+    std::vector<flow_info_in_cam> schedule_queue;
 
     queue<RP2R_REG> p2r;
     queue<RP2R_REG> r2r;
@@ -72,7 +72,6 @@ struct ProcessorState {
     int p2r_schedule = 0;
     int r2r_schedule = 0;
     int max_dirty_cam = 0;
-    int rp2p_size = 0;
     int rp2p_max = 0;
     int r2p_stash_max = 0;
     int write_stash_max = 0;
@@ -81,19 +80,18 @@ struct ProcessorState {
 
     ProcessorState& operator=(const ProcessorState &other) = default;
 
-    void log(ofstream& output) {
+    void update(){
         if(wait_queue.size() > m_wait_queue){
             m_wait_queue = wait_queue.size();
         }
-        output << "max wait queue: " << m_wait_queue << endl;
         if(schedule_queue.size() > m_schedule_queue){
             m_schedule_queue = schedule_queue.size();
         }
         if(dirty_cam.size() > max_dirty_cam){
             max_dirty_cam = dirty_cam.size();
         }
-        if(rp2p_size > rp2p_max){
-            rp2p_max = rp2p_size;
+        if(r2p.size() + p2p.size() > rp2p_max){
+            rp2p_max = r2p.size() + p2p.size();
         }
         if(r2p_stash.size() > r2p_stash_max){
             r2p_stash_max = r2p_stash.size();
@@ -107,6 +105,10 @@ struct ProcessorState {
         if(r2r.size() > r2r_max ){
             r2r_max = r2r.size();
         }
+    }
+
+    void log(ofstream& output) {
+        output << "max wait queue: " << m_wait_queue << endl;
         output << "r2p stash max: " << r2p_stash_max << endl;
         output << "write stash max: " << write_stash_max << endl;
         output << "p2r max: " << p2r_max << endl;
