@@ -70,6 +70,7 @@ void testing_order(){
             }
             else{
                 unordered_flow_count += 1;
+                break;
             }
         }
     }
@@ -88,7 +89,8 @@ int main(int argc, char** argv) {
     int pkt = 0;
     Switch switch_ = Switch();
     switch_.Config();
-    for(int i = 0; i < 10000; i++) {
+    for(int i = 0; i < 200000; i++) {
+//        if(cycle == 89000) DEBUG_ENABLE = true;
         std::cout << "cycle: " << cycle << endl << endl;
 //        if(cycle % 7 == 0){
 //                switch_.Execute(0, Packet());

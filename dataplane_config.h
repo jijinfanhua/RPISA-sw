@@ -301,4 +301,12 @@ std::array<int, PROC_NUM> tags;
 // initial increase clock
 int backward_cycle_num;
 
+int cycles_per_hb;
+
+// for debug
+
+const u64 DEBUG_FLOW_ID = 256705178760184036;
+
+bool DEBUG_ENABLE = false;
+
 #endif // RPISA_SW_DATAPLANE_CONFIG_H+

@@ -445,13 +445,14 @@ void top_heavy_hitter_config2(){
     saved_state_2.saved_state_idx_in_phv = {162, 163, 164};
     // processor_3 finished
 
-    backward_cycle_num = 100;
+    backward_cycle_num = 80;
     read_proc_ids = {0, 0, 0, 0, 1};
     write_proc_ids = {3, 4, 0, 0, 0};
     tags = {1, 2, 0, 1, 2};
 
     proc_types[4] = ProcType::WRITE;
     proc_types[1] = ProcType::READ;
+    cycles_per_hb = 2;
 }
 
 void top_heavy_hitter_config1(){
@@ -799,8 +800,8 @@ struct Switch
             logics.push_back(make_unique<GetAction>(i));
             logics.push_back(make_unique<ExecuteAction>(i));
             logics.push_back(make_unique<VerifyStateChange>(i));
-            logics.push_back(make_unique<PIR>(i));
             logics.push_back(make_unique<PIR_asyn>(i));
+            logics.push_back(make_unique<PIR>(i));
             logics.push_back(make_unique<PIW>(i));
             logics.push_back(make_unique<PO>(i));
             logics.push_back(make_unique<RI>(i));

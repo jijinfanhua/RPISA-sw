@@ -197,7 +197,7 @@ struct PIW : public Logic
             if (processor_id != PROCESSOR_NUM - 1)
             {
                 BaseRegister &getkeyReg = next->processors[processor_id + 1].getKeys;
-                handle_piw_write(cur_second_piwReg, now_proc, next_proc);
+                handle_piw_write(cur_second_piwReg, now_proc, next_proc, now->proc_states[4]);
                 if (!cur_second_piwReg.pkt_backward && cur_second_piwReg.enable1)
                 {
                     getkeyReg.enable1 = cur_second_piwReg.enable1;
@@ -208,7 +208,7 @@ struct PIW : public Logic
             }
             else
             {
-                handle_piw_write(cur_second_piwReg, now_proc, next_proc);
+                handle_piw_write(cur_second_piwReg, now_proc, next_proc, now->proc_states[4]);
             }
         }
         else
@@ -225,6 +225,11 @@ struct PIW : public Logic
         // handle asyn RI's input -> cancel_dirty
         if (now.cd_come)
         {
+            // todo: for debug
+            if(now.cd_addr == DEBUG_FLOW_ID && DEBUG_ENABLE){
+                cout << "processor " << processor_id << " cd received";
+                cout  << endl;
+            }
             next_proc.cc_received += 1;
             next_proc.dirty_cam.erase(now.cd_addr);
         }
@@ -243,16 +248,16 @@ struct PIW : public Logic
         // todo: enable/disable tag
         auto tag = now.phv[TAG_IN_PHV];
         u32 proc_bitmap = 1 << tags[processor_id];
-//        if(tag > proc_bitmap){
-//            // 不能触发写状态/回环
-//            next.state_writeback = false;
-//            next.pkt_backward = false;
-//            next.phv = now.phv;
-//            next.match_table_guider = now.match_table_guider;
-//            next.gateway_guider = now.gateway_guider;
-//            next.hash_values = now.hash_values;
-//            return;
-//        }
+        if(tag > proc_bitmap){
+            // 不能触发写状态/回环
+            next.state_writeback = false;
+            next.pkt_backward = false;
+            next.phv = now.phv;
+            next.match_table_guider = now.match_table_guider;
+            next.gateway_guider = now.gateway_guider;
+            next.hash_values = now.hash_values;
+            return;
+        }
 
 
         // in PIW, value in dirty cam is not important.
@@ -286,9 +291,6 @@ struct PIW : public Logic
             }
             else
             {
-                if(flow_id == 254453378946499298){
-                    cout << "bp" << endl;
-                }
                 next.state_writeback = false;
                 next.pkt_backward = true;
                 // statistics
@@ -301,27 +303,37 @@ struct PIW : public Logic
         next.hash_values = now.hash_values;
     }
 
-    void handle_piw_write(const PIWRegister &now, const ProcessorState &now_proc, ProcessorState &next_proc)
+    void handle_piw_write(const PIWRegister &now, const ProcessorState &now_proc, ProcessorState &next_proc, const ProcessorState& r1_proc)
     {
+        next_proc.hb_robin_flag = (now_proc.hb_robin_flag + 1) % cycles_per_hb;
+
         // send heartbeat / asyn
         RP2R_REG it{};
         it.rr.ctrl = 0b11;
-        it.rr.dst1 = 1 << (PROCESSOR_NUM - read_proc_ids[processor_id] - 1);
+        it.rr.dst1 =  1 << (PROCESSOR_NUM - read_proc_ids[processor_id] - 1);
 
         if (!now.enable1)
         {
-            next_proc.p2r.push(it);
+            if(now_proc.hb_robin_flag == 0){
+                next_proc.p2r.push(it);
+            }
             return;
         }
 
         // send pkt / write
         if (now.state_writeback)
         {
+            // todo: for testing
             // build ringreg
             it.rr.ctrl = 0b00;
-            it.rr.dst2 = it.rr.dst1;
+            it.rr.dst2 = 1 << (PROCESSOR_NUM - read_proc_ids[processor_id] - 1);
             it.rr.write_addr = get_write_addr(now.phv, read_proc_ids[processor_id]);
             it.rr.flow_addr = get_flow_id(now.phv);
+            // for debug
+            if(it.rr.flow_addr == DEBUG_FLOW_ID && DEBUG_ENABLE){
+                cout << "processor " << processor_id << ", packet " << now.phv[ID_IN_PHV] << " trigger write back";
+                cout << endl;
+            }
             for (int i = 0; i < 16; i++)
             {
                 int tmp_idx = state_idx_in_phv[processor_id][i];
@@ -349,8 +361,12 @@ struct PIW : public Logic
         {
             // need to add tag to the phv
             it.rr.ctrl = 0b01;
-            it.rr.dst2 = it.rr.dst1;
+            it.rr.dst2 = 1 << (PROCESSOR_NUM - read_proc_ids[processor_id] - 1);
             it.rr.flow_addr = get_flow_id(now.phv);
+            if(it.rr.flow_addr == DEBUG_FLOW_ID && DEBUG_ENABLE){
+                cout << "processor " << processor_id << ", packet " << now.phv[ID_IN_PHV] << " trigger bp";
+                cout << endl;
+            }
             it.rr.write_addr = get_write_addr(now.phv, read_proc_ids[processor_id]);
             auto phv = now.phv;
             phv[TAG_IN_PHV] += (1 << tags[processor_id]);
@@ -362,7 +378,9 @@ struct PIW : public Logic
         else
         {
             // just to Base of next proc
-            next_proc.p2r.push(it);
+            if(now_proc.hb_robin_flag == 0){
+                next_proc.p2r.push(it);
+            }
         }
     }
 
@@ -383,14 +401,18 @@ struct PIR : public Logic {
         const ProcessorState &now_proc = now->proc_states[processor_id]; // can only be read
         ProcessorState &next_proc = next->proc_states[processor_id];     // can only be written
 
-        handle_pir_cycle(piReg, now_proc, next_proc, poReg);
+        //todo: delete between
+        const ProcessorState& w1_proc = now->proc_states[0];
+        //todo: delete between
+
+        handle_pir_cycle(piReg, now_proc, next_proc, poReg, w1_proc);
 
 //        pir_pipe_first_cycle(piReg, now_proc, next_proc, nextPIReg);
 //        pir_pipe_second_cycle(old_nextPIReg, now_proc, next_proc, poReg);
     }
 
     void handle_pir_cycle(const PIRegister &now, const ProcessorState &now_proc, ProcessorState &next_proc,
-                          PORegister &next) {
+                          PORegister &next, const ProcessorState& w1_proc) {
         next.enable1 = now.enable1;
         if (!now.enable1) {
             next.normal_pipe_schedule = false;
@@ -409,17 +431,31 @@ struct PIR : public Logic {
         auto tag = now.phv[TAG_IN_PHV];
         u32 proc_bitmap = 1 << tags[processor_id];
         // todo: enable/disable tag
-//        if(tag > proc_bitmap){
-//            next.normal_pipe_schedule = true;
-//            next.phv = now.phv;
-//            next.match_table_guider = now.match_table_guider;
-//            next.gateway_guider = now.gateway_guider;
-//            next.hash_values = now.hash_values;
-//            next.match_table_keys = now.match_table_keys;
-//            return;
+        if(tag > proc_bitmap){
+            next.normal_pipe_schedule = true;
+            next.phv = now.phv;
+            next.match_table_guider = now.match_table_guider;
+            next.gateway_guider = now.gateway_guider;
+            next.hash_values = now.hash_values;
+            next.match_table_keys = now.match_table_keys;
+            return;
+        }
+        // todo: delete between
+        // 测试用，如果在r2处判断w1处dirty cam有该流，则直接放过
+//        if(processor_id == 1){
+//            if(w1_proc.dirty_cam.find(get_flow_id(now.phv)) != w1_proc.dirty_cam.end()){
+//                next.normal_pipe_schedule = true;
+//                next.phv = now.phv;
+//                next.match_table_guider = now.match_table_guider;
+//                next.gateway_guider = now.gateway_guider;
+//                next.hash_values = now.hash_values;
+//                next.match_table_keys = now.match_table_keys;
+//                return;
+//            }
 //        }
+        // todo: delete between
         auto flow_id = get_flow_id(now.phv);
-        auto flow_cam = now_proc.dirty_cam;
+        auto flow_cam = next_proc.dirty_cam;
         if (flow_cam.find(flow_id) == flow_cam.end()) {
             // normal pipe schedule for po
             next.normal_pipe_schedule = true;
@@ -453,7 +489,17 @@ struct PIR : public Logic {
             next_flow_info.left_pkt_num += 1;
             next_proc.dirty_cam.at(flow_id).left_pkt_num += 1;
 
-            // update global tail
+            // for debug
+            if(flow_id == DEBUG_FLOW_ID && DEBUG_ENABLE){
+                if(next.normal_pipe_schedule){
+                    cout << "processor " << processor_id << ", packet " << now.phv[ID_IN_PHV] << " goes through";
+                    cout << endl;
+                }
+                else{
+                    cout << "processor " << processor_id << ", packet " << now.phv[ID_IN_PHV] << " blocked";
+                    cout << endl;
+                }
+            }
         }
     }
 };
@@ -478,7 +524,6 @@ struct PO : public Logic
     {
         if (now.normal_pipe_schedule)
         {
-            cout << "normal packet, do not schedule" << endl;
             next_proc.po_normal += 1;
             // schedule the po's register
             next.enable1 = true;
@@ -498,7 +543,6 @@ struct PO : public Logic
 
         flow_info_in_cam schedule_flow = next_proc.schedule_queue.front();
 
-            cout << "schedule schedule queue, before: " << next_proc.schedule_queue.size() << endl;
             next.enable1 = true;
             schedule_flow.left_pkt_num -= 1;
             next_proc.dirty_cam.at(schedule_flow.flow_addr).left_pkt_num -= 1;
@@ -547,8 +591,6 @@ struct PO : public Logic
 //            if(next_proc.dirty_cam[schedule_flow.flow_addr].left_pkt_num == 0){
 //                next_proc.dirty_cam.erase(schedule_flow.flow_addr);
 //            }
-
-            cout << "schedule schedule queue, after: " << next_proc.schedule_queue.size() << endl;
             // todo: set the rp2p to null
     }
 };
@@ -888,10 +930,10 @@ struct PIR_asyn : public Logic
 
         u32 proc_bitmap = 1 << (PROCESSOR_NUM - processor_id - 1);
 
-        handle_pi_asyn(now_proc, next_proc, piAsynReg, poReg);
+        handle_pi_asyn(now_proc, next_proc, piAsynReg, poReg, now->proc_states[1], next->proc_states[0]);
     }
 
-    void handle_pi_asyn(const ProcessorState& now_proc, ProcessorState & next_proc, const PIRAsynRegister & now, PORegister & next){
+    void handle_pi_asyn(const ProcessorState& now_proc, ProcessorState & next_proc, const PIRAsynRegister & now, PORegister & next, const ProcessorState& r2_proc, ProcessorState& r1_proc){
         if(proc_types[processor_id] != READ){
             return;
         }
@@ -903,12 +945,11 @@ struct PIR_asyn : public Logic
             }
             else if(now.ringReg.ctrl == 0b01){
                 // bp with hb
-                hb = true;
+                if(now_proc.hb_robin_flag == 0){
+                    hb = true;
+                }
                 FlowInfo it{};
                 it.phv = transfer_from_payload_to_phv(now.ringReg.payload);
-                if(it.phv[ID_IN_PHV] == 0){
-                    cout << "something went wrong" << endl;
-                }
                 it.gateway_guider = now.gateway_guider;
                 it.match_table_guider = now.match_table_guider;
                 it.backward_pkt = true;
@@ -916,7 +957,9 @@ struct PIR_asyn : public Logic
             }
             else if(now.ringReg.ctrl == 0b00){
                 // write with hb
-                hb = true;
+                if(now_proc.hb_robin_flag == 0){
+                    hb = true;
+                }
                 WriteInfo it{};
                 it.write_addr = now.ringReg.write_addr;
                 it.flow_addr = now.ringReg.flow_addr;
@@ -947,6 +990,12 @@ struct PIR_asyn : public Logic
                 res.first = BP_FOUND;
             }
             res.second = get_flow_id(pkt.phv);
+        }
+
+        // for debug
+        if(res.second == DEBUG_FLOW_ID && DEBUG_ENABLE){
+            cout << "processor " << processor_id << " packet " << pkt.phv[ID_IN_PHV] << " PIR cam search result: " << res.first;
+            cout << endl;
         }
 
         switch(res.first){
@@ -984,15 +1033,36 @@ struct PIR_asyn : public Logic
             }
             case WRITE_NOT_FOUND: {
                 flow_info_in_cam flow_info{};
-                flow_info.timer = backward_cycle_num;
+                // todo: for testing
+                if(processor_id == 0){
+                    auto it = r2_proc.wait_queue.begin();
+                    for(; it != r2_proc.wait_queue.end(); it++){
+                        if(it->flow_addr == res.second){
+                            flow_info.timer = backward_cycle_num + it->timer + 40;
+                            break;
+                        }
+                    }
+                    if(it == r2_proc.wait_queue.end()){
+                        flow_info.timer = backward_cycle_num;
+                    }
+                }
+
+                if(processor_id == 1){
+                    auto it = r1_proc.wait_queue.begin();
+                    for(; it != r1_proc.wait_queue.end(); it++){
+                        if(it->flow_addr == res.second){
+                            it->timer += backward_cycle_num;
+                        }
+                    }
+                    flow_info.timer = backward_cycle_num;
+                }
+                // todo: for testing
 
                 flow_info.flow_addr = res.second;
                 flow_info.left_pkt_num = 0;
                 flow_info.cur_state = flow_info_in_cam::FSMState::WAIT;
 
                 // add to dirty table
-                cout << "write not found, insert to wait queue." << endl;
-                cout << "wait queue size: " << next_proc.wait_queue.size() << endl;
                 next_proc.dirty_cam.insert(std::pair<u64, flow_info_in_cam>(res.second, flow_info));
                 // add to wait_queue
                 next_proc.wait_queue.push_back(flow_info);
@@ -1011,7 +1081,30 @@ struct PIR_asyn : public Logic
                 {
                     next_flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
                 }
-                next_flow_info.timer = backward_cycle_num;
+                // todo: for testing
+                if(processor_id == 0){
+                    auto it = r2_proc.wait_queue.begin();
+                    for(; it != r2_proc.wait_queue.end(); it++){
+                        if(it->flow_addr == res.second){
+                            next_flow_info.timer = backward_cycle_num + it->timer + 40;
+                            break;
+                        }
+                    }
+                    if(it == r2_proc.wait_queue.end()){
+                        next_flow_info.timer = backward_cycle_num;
+                    }
+                }
+
+                if(processor_id == 1){
+                    auto it = r1_proc.wait_queue.begin();
+                    for(; it != r1_proc.wait_queue.end(); it++){
+                        if(it->flow_addr == res.second){
+                            it->timer += backward_cycle_num;
+                        }
+                    }
+                    next_flow_info.timer = backward_cycle_num;
+                }
+                // todo: for testing
 //                next_flow_info.r2p_first_pkt_idx = next_flow_info.r2p_last_pkt_idx = -1;
                 if(next_proc.r2p.find(res.second) == next_proc.r2p.end()){ // only p2p buffered
                     // no need to merge
@@ -1171,7 +1264,6 @@ struct PIR_asyn : public Logic
         return res;
     }
 
-    // todo: check all of the idx
     void handle_heartbeat(PORegister &poReg, const ProcessorState &now_proc, ProcessorState &next_proc) {
         // if wait_queue_empty, reset the clock
         if (now_proc.wait_queue.empty()) {
@@ -1179,8 +1271,6 @@ struct PIR_asyn : public Logic
         }
         // 将等待队列队首的流从等待队列中拿出加入调度队列；发送cancel dirty信号
 
-        cout << "timer out! wait queue before: " << next_proc.wait_queue.size() << endl;
-        cout << "schedule queue before: " << next_proc.schedule_queue.size() << endl;
         if (!now_proc.wait_queue.empty()) { // wait_queue has flow
             flow_info_in_cam wait_flow{};
 
@@ -1195,9 +1285,14 @@ struct PIR_asyn : public Logic
             u64 flow_addr = wait_flow.flow_addr;
             if(flow_addr == 0){
                 for(auto& flow: next_proc.wait_queue){
-                    flow.timer -= 1;
+                    flow.timer -= cycles_per_hb;
                 }
                 return;
+            }
+            // for debug
+            if(flow_addr == DEBUG_FLOW_ID && DEBUG_ENABLE){
+                    cout << "processor " << processor_id << " cancel dirty send";
+                    cout << endl;
             }
             RP2R_REG it = {
                     0,
@@ -1220,7 +1315,6 @@ struct PIR_asyn : public Logic
                 }
 
                 next_proc.dirty_cam.erase(wait_flow.flow_addr);
-                cout << "wait directly delete, wait queue after: " << next_proc.wait_queue.size() << endl;
             } else if (wait_flow.cur_state == flow_info_in_cam::FSMState::SUSPEND) {
                 auto next_schedule_flow = wait_flow;
 
@@ -1240,10 +1334,6 @@ struct PIR_asyn : public Logic
                     next_proc.p2p.at(wait_flow.flow_addr) = next_proc.r2p.at(wait_flow.flow_addr);
                     next_proc.r2p.erase(wait_flow.flow_addr);
                 }
-
-                if(next_schedule_flow.flow_addr == 0){
-                    cout << "something wrong" << endl;
-                }
                 next_proc.schedule_queue.push_back(next_schedule_flow);
 
                 // update in dirty cam
@@ -1257,14 +1347,10 @@ struct PIR_asyn : public Logic
                         if(it == next_proc.wait_queue.end()) break;
                     }
                 }
-
-                cout << "suspend, wait queue to schedule queue: " << endl;
-                cout << "wait queue after: " << next_proc.wait_queue.size();
-                cout << "schedule queue after: " << next_proc.schedule_queue.size();
             }
 
             for(auto& flow: next_proc.wait_queue){
-                flow.timer -= 1;
+                flow.timer -= cycles_per_hb;
             }
         }
     }

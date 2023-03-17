@@ -56,6 +56,7 @@ struct ProcessorState {
     queue<RP2R_REG> p2r;
     queue<RP2R_REG> r2r;
     int round_robin_flag = 0; // 0 is r2r, 1 is p2r
+    int hb_robin_flag = 0;
 
     // statistics
     int m_wait_queue = 0;
