@@ -8,6 +8,23 @@
 #include "../pipeline.h"
 #include "../dataplane_config.h"
 
+struct ArrayHash {
+    size_t operator()(const std::array<u32, 128>& arr) const {
+        std::hash<u32> hasher;
+        size_t hash_val = 0;
+        for (int i = 0; i < 128; i++) {
+            hash_val ^= hasher(arr[i]) + 0x9e3779b9 + (hash_val<<6) + (hash_val>>2);
+        }
+        return hash_val & ((1ull << 52) - 1);
+    }
+};
+
+u64 get_flow_id(PHV phv)
+{
+    // done: fetch flow id from two particular positions of phv
+    return u32_to_u64(phv[flow_id_in_phv[0]], phv[flow_id_in_phv[1]]);
+}
+
 struct GetKey : public Logic
 {
     GetKey(int id) : Logic(id) {}
@@ -204,7 +221,7 @@ struct GetHash : public Logic
     {
         const HashRegister &hashReg = now->processors[processor_id].hashes[0];
         HashRegister &nextHashReg = next->processors[processor_id].hashes[1];
-        PIRegister &piRegister = next->processors[processor_id].pi;
+        DispatcherRegister &dpRegister = next->processors[processor_id].dp;
 
         get_hash(hashReg, nextHashReg);
         for (int i = 1; i < HASH_CYCLE - 1; i++)
@@ -214,17 +231,17 @@ struct GetHash : public Logic
 
         const HashRegister &lastHashReg = now->processors[processor_id].hashes[HASH_CYCLE - 1];
 
-        piRegister.enable1 = lastHashReg.enable1;
+        dpRegister.enable1 = lastHashReg.enable1;
         if (!lastHashReg.enable1)
         {
             return;
         }
-        piRegister.phv = lastHashReg.phv;
+        dpRegister.dq_item.phv = lastHashReg.phv;
         //        getAddressRegister.key = lastHashReg.key;
-        piRegister.hash_values = lastHashReg.hash_values;
-        piRegister.match_table_guider = lastHashReg.match_table_guider;
-        piRegister.gateway_guider = lastHashReg.gateway_guider;
-        piRegister.match_table_keys = lastHashReg.match_table_keys;
+        dpRegister.dq_item.hash_values = lastHashReg.hash_values;
+        dpRegister.dq_item.match_table_guider = lastHashReg.match_table_guider;
+        dpRegister.dq_item.gateway_guider = lastHashReg.gateway_guider;
+        dpRegister.dq_item.match_table_keys = lastHashReg.match_table_keys;
     }
 
     static void get_left_hash(const HashRegister &now, HashRegister &next)
@@ -252,6 +269,7 @@ struct GetHash : public Logic
             return;
         }
         auto matchTableConfig = matchTableConfigs[processor_id];
+        // hash for match-action table
         for (int i = 0; i < matchTableConfig.match_table_num; i++)
         {
             // operate stateless table
@@ -261,40 +279,19 @@ struct GetHash : public Logic
             {
                 match_table_key[j] = now.key[match_table.match_field_byte_ids[j]];
             }
-            if (match_table.type == 0)
-            {
+
                 cal_hash(i, match_table_key, match_table.match_field_byte_len, match_table.number_of_hash_ways,
                          match_table.hash_bit_per_way, match_table.hash_bit_sum, next);
                 next.match_table_keys[i] = match_table_key;
-            }
-            else
-            {
-                continue;
-            }
-        }
 
-        for (int i = 0; i < num_of_stateful_tables[processor_id]; i++)
-        {
-            // operate stateful table
-            auto match_table = matchTableConfig.matchTables[stateful_table_ids[processor_id][i]];
-            std::array<u32, 32> match_table_key{};
-            for (int j = 0; j < match_table.match_field_byte_len; j++)
-            {
-                match_table_key[j] = now.key[match_table.match_field_byte_ids[j]];
-            }
-            // done: normal hash, but save hash value in particular position into phv
-            // done: translate 128 bit hash value into 64 bit, low 16 bit per 32 bit, save it into two particular phvs
-            cal_hash(i, match_table_key, match_table.match_field_byte_len, match_table.number_of_hash_ways,
-                     match_table.hash_bit_per_way, match_table.hash_bit_sum, next);
-            b128 hash_values = next.hash_values[i];
-            u64 hash_value = u16_array_to_u64(hash_values);
-
-            next.match_table_keys[i] = match_table_key;
-            // high 32 bit
-            phv[phv_id_to_save_hash_value[processor_id][i][0]] = hash_value >> 32;
-            // low 32 bit
-            phv[phv_id_to_save_hash_value[processor_id][i][1]] = hash_value << 32 >> 32;
         }
+        // hash for identify flow
+        ArrayHash hasher;
+        u64 flow_id = hasher(now.key);
+        // high 32 bit
+        phv[flow_id_in_phv[0]] = flow_id >> 32;
+        // low 32 bit
+        phv[flow_id_in_phv[1]] = flow_id << 32 >> 32;
 
         next.key = now.key;
         next.phv = phv;
@@ -349,6 +346,55 @@ struct GetHash : public Logic
     }
 };
 
+struct Dispatcher: public Logic{
+    Dispatcher(int id): Logic(id){}
+
+    void execute(const PipeLine* now, PipeLine* next) override{
+        const DispatcherRegister& now_dp_0 = now->processors[processor_id].dp;
+        GetAddressRegister &get_address = next->processors[processor_id].getAddress;
+
+        dispatcher_cycle_1(now_dp_0, get_address, now->proc_states[processor_id], next->proc_states[processor_id]);
+    }
+
+    bool test_flow_occupied(DispatcherQueueItem dp_item){
+        // todo: test flow occupied
+        return false;
+    };
+
+    void dispatcher_cycle_1(const DispatcherRegister& now, GetAddressRegister& next, const ProcessorState& now_proc, ProcessorState& next_proc){
+        if(now.enable1){
+            // if pipeline has packet
+            u32 queue_id = get_flow_id(now.phv) & 0xf;
+            next_proc.dispatcher_queues[queue_id].push_back(now.dq_item);
+        }
+        // get schedule id
+        int schedule_id = now_proc.schedule_id;
+        int queues_count = 0;
+        while(now_proc.dispatcher_queues[schedule_id].empty() || test_flow_occupied(now_proc.dispatcher_queues[schedule_id].front())){
+            // if queue empty or first flow occupied
+            schedule_id = (schedule_id + 1) % 16;
+            queues_count += 1;
+            if(queues_count == 16) break;
+        }
+        next_proc.schedule_id = schedule_id;
+
+        if(queues_count == 16){
+            next.enable1 = false;
+            return;
+        }
+        else{
+            next.enable1 = true;
+            auto dp_item = now_proc.dispatcher_queues[schedule_id].front();
+            next.phv = dp_item.phv;
+            next.hash_values = dp_item.hash_values;
+            next.match_table_keys = dp_item.match_table_keys;
+            next.match_table_guider = dp_item.match_table_guider;
+            next.gateway_guider = dp_item.gateway_guider;
+        }
+
+    }
+};
+
 struct GetAddress : public Logic
 {
     GetAddress(int id) : Logic(id) {}
@@ -370,43 +416,6 @@ struct GetAddress : public Logic
         }
 
         auto matchTableConfig = matchTableConfigs[processor_id];
-
-        if (now.backward_pkt)
-        {
-            // done: only lookup the stateful table using hash_value
-            for (int i = 0; i < num_of_stateful_tables[processor_id]; i++)
-            {
-
-                int stateful_table_id = stateful_table_ids[processor_id][i];
-                auto match_table = matchTableConfig.matchTables[stateful_table_id];
-                // done: hash value is 64 bit, translate it into b128, 16 in per 32 bit
-                u64 hash_value = u32_to_u64(phv_id_to_save_hash_value[processor_id][i][0], phv_id_to_save_hash_value[processor_id][i][1]);
-                b128 hash_values = u64_to_u16_array(hash_value);
-
-                for (int j = 0; j < match_table.number_of_hash_ways; j++)
-                {
-                    // done: up to four ways
-                    u32 start_index = (hash_values[j] >> 10);
-                    next.on_chip_addrs[stateful_table_id][j] = (hash_values[j] << 22 >> 22); // u64
-                    for (int k = 0; k < match_table.key_width; k++)
-                    {
-                        next.key_sram_columns[stateful_table_id][j][k] = match_table.key_sram_index_per_hash_way[j][start_index + k];
-                    }
-                    for (int k = 0; k < match_table.value_width; k++)
-                    {
-                        next.value_sram_columns[stateful_table_id][j][k] = match_table.value_sram_index_per_hash_way[j][start_index + k];
-                    }
-                }
-            }
-
-            next.phv = now.phv;
-            next.match_table_keys = now.match_table_keys;
-            next.match_table_guider = now.match_table_guider;
-            next.gateway_guider = now.gateway_guider;
-            next.backward_pkt = true;
-
-            return;
-        }
 
         // get the sram indexes per way for each match table
         for (int i = 0; i < matchTableConfig.match_table_num; i++)
@@ -456,31 +465,6 @@ struct Matches : public Logic
             return;
         }
 
-        if (now.backward_pkt)
-        {
-            for (int i = 0; i < num_of_stateful_tables[processor_id]; i++)
-            {
-
-                int stateful_table_id = stateful_table_ids[processor_id][i];
-                auto match_table = matchTableConfigs[processor_id].matchTables[stateful_table_id];
-                for (int j = 0; j < match_table.number_of_hash_ways; j++)
-                {
-                    // done: four ways
-                    for (int k = 0; k < match_table.value_width; k++)
-                    {
-                        next.obtained_values[stateful_table_id][j][k] = SRAMs[processor_id][now.value_sram_columns[stateful_table_id][j][k]]
-                                                                            .get(now.on_chip_addrs[stateful_table_id][j]);
-                    }
-                }
-            }
-
-            next.phv = now.phv;
-            next.match_table_guider = now.match_table_guider;
-            next.gateway_guider = now.gateway_guider;
-            next.backward_pkt = true;
-            return;
-        }
-
         auto matchTableConfig = matchTableConfigs[processor_id];
         for (int i = 0; i < matchTableConfig.match_table_num; i++)
         {
@@ -516,12 +500,12 @@ struct Compare : public Logic
     void execute(const PipeLine *now, PipeLine *next) override
     {
         const CompareRegister &compareReg = now->processors[processor_id].compare;
-        GetActionRegister &getActionReg = next->processors[processor_id].getAction;
+        ConditionEvaluationRegister ceReg = next->processors[processor_id].conditionEvaluation;
 
-        get_action(compareReg, getActionReg);
+        get_state(compareReg, ceReg);
     }
 
-    void get_action(const CompareRegister &now, GetActionRegister &next)
+    void get_state(const CompareRegister &now, ConditionEvaluationRegister &next)
     {
         next.enable1 = now.enable1;
         if (!now.enable1)
@@ -534,38 +518,11 @@ struct Compare : public Logic
         {
             if (!now.match_table_guider[processor_id * 16 + i])
             {
-                next.final_values[i].second = false;
+                next.hits[i] = false;
                 continue;
             }
             auto match_table = matchTableConfig.matchTables[i];
-            if (match_table.type == 1)
-            {
-                // done: four ways; fit the salu
-                int found_flag = 0;
-                b128 key_to_compare = u64_to_u16_array(u32_to_u64(now.phv[flow_id_in_phv[0]], now.phv[flow_id_in_phv[1]]));
-                for (int j = 0; j < match_table.number_of_hash_ways; j++)
-                {
-                    // key is only 128 bit long
-                    if (key_to_compare[0] == now.obtained_keys[i][j][0][0] && key_to_compare[1] == now.obtained_keys[i][j][0][1] && key_to_compare[2] == now.obtained_keys[i][j][0][2] && key_to_compare[3] == now.obtained_keys[i][j][0][3])
-                    {
-                        found_flag = 1;
-                    }
 
-                    if (found_flag == 1)
-                    {
-                        next.final_values[i] = std::make_pair(now.obtained_values[i][j], true);
-                        // 将匹配的 hash way 保存
-                        next.stateful_matched_hash_way[i] = j;
-                        break;
-                    }
-                }
-                if (found_flag == 0)
-                {
-                    next.final_values[i].second = false;
-                    next.stateful_matched_hash_way[i] = -1;
-                }
-                continue;
-            }
             int found_flag = 0;
             for (int j = 0; j < match_table.number_of_hash_ways; j++)
             {
@@ -580,23 +537,116 @@ struct Compare : public Logic
                 if (found_flag == 1)
                 {
                     // get the value of this way
-                    next.final_values[i] = std::make_pair(now.obtained_values[i][j], true);
+                    next.hits[i] = true;
+                    // first 32 bit: state; next every 32 bit: register, max 16
+                    next.states[i] = now.obtained_values[i][j][0][0];
+                    for(int m = 0; m < match_table.value_width; m++){
+                        if(m == 4) break;
+                        // register_0 == state; register 1-15 refers to registers
+                        next.registers[i][m*4] = now.obtained_values[i][j][m][0];
+                        next.registers[i][m*4+1] = now.obtained_values[i][j][m][1];
+                        next.registers[i][m*4+2] = now.obtained_values[i][j][m][2];
+                        next.registers[i][m*4+3] = now.obtained_values[i][j][m][3];
+                    }
                     break; // handle next table
                 }
             }
-            if(match_table.default_action_id != -1) {
-                next.final_values[i].second = true;
+            if(found_flag == 0){
+                //default
+                next.hits[i] = false;
             }
-            else{
-                next.final_values[i].second = false;
+        }
+        next.phv = now.phv;
+        next.gateway_guider = now.gateway_guider;
+        next.match_table_guider = now.match_table_guider;
+        next.match_table_keys = now.match_table_keys;
+        // newly added
+    }
+};
+
+struct ConditionEvaluation: public Logic{
+    ConditionEvaluation(int id): Logic(id){};
+    void execute(const PipeLine *now, PipeLine *next) override{
+        const ConditionEvaluationRegister& ceReg = now->processors[processor_id].conditionEvaluation;
+        KeyRefactorRegister& refactorReg = next->processors[processor_id].refactor;
+
+        condition_evaluation(ceReg, refactorReg);
+    }
+
+    void condition_evaluation(const ConditionEvaluationRegister& now, KeyRefactorRegister& next){
+        next.enable1 = now.enable1;
+        if(!now.enable1){
+            return;
+        }
+
+        auto enable_function_config = enable_functions_configs[processor_id];
+
+        array<array<bool, 7>, MAX_PARALLEL_MATCH_NUM> enable_function_result{};
+        for(int i = 0; i < MAX_PARALLEL_MATCH_NUM; i++){
+            for(int j = 0; j < 7; j++){
+                if(enable_function_config.enable_functions[i][j].enable){
+                    enable_function_result[i][j] = get_enable_function_result(now, enable_function_config.enable_functions[i][j], i);
+                }
             }
         }
 
+        next.enable_function_result = enable_function_result;
         next.phv = now.phv;
-        next.hash_values = now.hash_values;
-        next.gateway_guider = now.gateway_guider;
         next.match_table_guider = now.match_table_guider;
-        // newly added
+        next.gateway_guider = now.gateway_guider;
+        next.states = now.states;
+    }
+
+    static u32 get_operand_value(const ConditionEvaluationRegister &now,
+                                EnableFunctionsConfig::EnableFunction::Parameter operand, int table_id) {
+        switch (operand.type) {
+            case EnableFunctionsConfig::EnableFunction::Parameter::CONST:
+                return operand.value;
+            case EnableFunctionsConfig::EnableFunction::Parameter::HEADER:
+                return now.match_table_keys[table_id][operand.value];
+            case EnableFunctionsConfig::EnableFunction::Parameter::STATE:
+                return now.states[table_id];
+            case EnableFunctionsConfig::EnableFunction::Parameter::REGISTER:
+                return now.registers[table_id][operand.value];
+        }
+    }
+
+    bool get_enable_function_result(const ConditionEvaluationRegister& now, EnableFunctionsConfig::EnableFunction function, int table_id){
+        auto op = function.op;
+        auto operand1 = get_operand_value(now, function.operand1, table_id);
+        auto operand2 = get_operand_value(now, function.operand2, table_id);
+        switch (op) {
+            case EnableFunctionsConfig::EnableFunction::EQ: {
+                return operand1 == operand2;
+            }
+            case EnableFunctionsConfig::EnableFunction::GT: {
+                return operand1 > operand2;
+            }
+            case EnableFunctionsConfig::EnableFunction::LT: {
+                return operand1 < operand2;
+            }
+            case EnableFunctionsConfig::EnableFunction::GTE:{
+                return operand1 >= operand2;
+            }
+            case EnableFunctionsConfig::EnableFunction::LTE: {
+                return operand1 <= operand2;
+            }
+            case EnableFunctionsConfig::EnableFunction::NEQ: {
+                return operand1 != operand2;
+            }
+            default:
+                break;
+        }
+        return false;
+    }
+};
+
+struct KeyRefactor: public Logic{
+    KeyRefactor(int id): Logic(id){}
+
+    void execute(const PipeLine *now, PipeLine *next) override{
+        // 7位
+        const KeyRefactorRegister& refactorReg = now->processors[processor_id].refactor;
     }
 };
 

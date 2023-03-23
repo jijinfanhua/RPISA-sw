@@ -48,6 +48,39 @@ GetKeyConfig getKeyConfigs[PROCESSOR_NUM];
 //      ops
 //      operands: from which match_fields
 //      map result to match tables; map result to next gateways.
+
+struct EnableFunctionsConfig{
+    struct EnableFunction{
+        bool enable;
+        enum OP
+        {
+            EQ,
+            GT,
+            LT,
+            GTE,
+            LTE,
+            NEQ
+        } op;
+
+        struct Parameter{
+            enum Type{
+                CONST,
+                HEADER,
+                STATE,
+                REGISTER
+            } type;
+            // const value; id in match key; id of register
+            u32 value;
+        } operand1, operand2;
+
+        u32 mask;
+    };
+
+    EnableFunction enable_functions[MAX_PARALLEL_MATCH_NUM][7];
+};
+
+EnableFunctionsConfig enable_functions_configs[PROC_NUM];
+
 struct GatewaysConfig
 {
     int processor_id;
@@ -110,7 +143,6 @@ struct MatchTableConfig
     {
         int type;        // 0: stateless table; 1: stateful table;
         array<int, 2> hash_in_phv; // two ids of 32 bit container
-        int depth;
         int key_width;
         int value_width;
         int match_field_byte_len;
@@ -191,118 +223,9 @@ struct ActionConfig
 };
 ActionConfig actionConfigs[PROCESSOR_NUM];
 
-struct SALUnit
-{
-    int salu_id;
-    enum OP
-    {
-        READ,
-        WRITE,
-        RAW,
-        SUB,
-        PRAW,
-        IfElseRAW,
-        NestedIf
-    } op;
-
-    struct Parameter
-    {
-        enum Type
-        {
-            CONST,
-            HEADER,
-            ACTION_DATA,
-            REG,
-        } type;
-        enum IfType
-        {
-            COMPARE_EQ,
-            EQ,
-            NEQ,
-            GT,
-            LT,
-            GTE,
-            LTE
-        } if_type;
-        union
-        {
-            uint32_t value;
-            int phv_id;
-            int action_data_id;
-            // 使用第几个带状态表的value
-            int table_idx;
-        } content;
-        int value_idx;
-    } left_value, operand1, operand2, operand3, return_value;
-
-    struct ReturnValueFrom {
-        enum Type
-        {
-            CONST,
-            HEADER,
-            ACTION_DATA,
-            REG,
-            OP1,
-            OP2,
-            OP3,
-            LEFT
-        } type, false_type;
-        union
-        {
-            uint32_t value;
-            int phv_id;
-            int action_data_id;
-            // 使用第几个带状态表的value
-            int table_idx;
-        } content, false_content;
-        int value_idx, false_value_idx;
-    } return_value_from;
-};
-std::array<SALUnit[MAX_SALU_NUM], PROCESSOR_NUM> SALUs;
-
-// 每个 processor 中带状态表的数量, 最大为4
-
-std::array<int, PROCESSOR_NUM> num_of_stateful_tables;
-
-std::array<std::array<int, 4>, PROCESSOR_NUM> stateful_table_ids;
-
-enum ProcType
-{
-    NONE,
-    READ,
-    WRITE
-};
-std::array<ProcType, PROCESSOR_NUM> proc_types;
-
-std::array<int, PROCESSOR_NUM> read_proc_ids;
-std::array<int, PROCESSOR_NUM> write_proc_ids;
-
-std::array<std::array<int, 16>, PROCESSOR_NUM> state_idx_in_phv;
-
-struct SavedState
-{
-    std::array<int, 4> saved_state_idx_in_phv;
-    std::array<int, 4> state_lengths;
-    int state_num;
-};
-std::array<SavedState, PROCESSOR_NUM> state_saved_idxs;
-
-// every processor has up to 4 stateful tables, every stateful table have 64-bit hash value, need to be saved in two phvs
-std::array<std::array<std::array<u32, 2>, 4> ,PROCESSOR_NUM> phv_id_to_save_hash_value;
 
 // two positions in phv for flow id; can use any of the hash result
 std::array<int, 2> flow_id_in_phv;
-
-// 带状态表使用的salu序号
-std::array<std::array<int, MAX_PARALLEL_MATCH_NUM>, PROCESSOR_NUM> salu_id; 
-
-std::array<int, PROC_NUM> tags;
-
-// initial increase clock
-int backward_cycle_num;
-
-int cycles_per_hb;
-
 // for debug
 
 const u64 DEBUG_FLOW_ID = 256705178760184036;

@@ -58,6 +58,10 @@ struct ProcessorState {
     int round_robin_flag = 0; // 0 is r2r, 1 is p2r
     int hb_robin_flag = 0;
 
+    // flowblaze
+    u32 schedule_id = 0;
+    std::array<std::vector<DispatcherQueueItem>, 16> dispatcher_queues;
+
     // statistics
     int m_wait_queue = 0;
     int m_schedule_queue = 0;
@@ -141,20 +145,15 @@ struct ProcessorRegister {
     GetKeysRegister getKeys{};
     GatewayRegister gateway[2]{};
     HashRegister hashes[4]{};
+    DispatcherRegister dp{};
     GetAddressRegister getAddress{};
     MatchRegister match{};
     CompareRegister compare{};
+    ConditionEvaluationRegister conditionEvaluation{};
     GetActionRegister getAction;
     ExecuteActionRegister executeAction{};
-    VerifyStateChangeRegister verifyState;
+    KeyRefactorRegister refactor{};
     /****** fengyong add end *********/
-
-    PIRegister pi{};
-    PIRAsynRegister pi_asyn{};
-    PORegister po{};
-    RIRegister ri{};
-    RORegister ro{};
-    PIWRegister piw[2];
 };
 
 

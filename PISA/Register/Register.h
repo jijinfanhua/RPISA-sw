@@ -34,16 +34,28 @@ struct GatewayRegister : public BaseRegister {
     std::array<bool, MAX_GATEWAY_NUM> gate_res;
 };
 
+struct DispatcherQueueItem{
+    PHV phv;
+    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
+    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
+    std::array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM> match_table_guider;
+    std::array<bool, MAX_GATEWAY_NUM * PROCESSOR_NUM> gateway_guider;
+};
+
 struct HashRegister : public BaseRegister{
     std::array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
 };
 
+struct DispatcherRegister: public BaseRegister{
+    std::array<u32, MAX_MATCH_FIELDS_BYTE_NUM> key;
+    DispatcherQueueItem dq_item;
+};
+
 struct GetAddressRegister : public BaseRegister {
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
-    bool backward_pkt;
 };
 
 struct MatchRegister : public BaseRegister {
@@ -65,10 +77,22 @@ struct CompareRegister : public BaseRegister {
     bool backward_pkt;
 };
 
+struct ConditionEvaluationRegister: public BaseRegister{
+    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
+    std::array<bool, MAX_PARALLEL_MATCH_NUM> hits;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> states;
+    std::array<std::array<u32, 16>, MAX_PARALLEL_MATCH_NUM> registers;
+};
+
+struct KeyRefactorRegister: public BaseRegister{
+    // todo: change size
+    array<array<bool, 7>, MAX_PARALLEL_MATCH_NUM> enable_function_result;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> states;
+    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
+};
+
 struct GetActionRegister : public BaseRegister {
-    std::array<int, MAX_PARALLEL_MATCH_NUM> stateful_matched_hash_way;
     std::array<std::pair<std::array<b128, 8>, bool>, MAX_PARALLEL_MATCH_NUM> final_values;
-    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
 };
 
 struct ExecuteActionRegister : public BaseRegister {
@@ -77,97 +101,8 @@ struct ExecuteActionRegister : public BaseRegister {
     std::array<b128, 4> salu_value_data_set;
     std::array<ActionConfig::ActionData, 16> action_data_set;
     std::array<bool, MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM> vliw_enabler;
-    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
 };
 
-struct VerifyStateChangeRegister : public BaseRegister {
-    std::array<bool, 224> phv_changed_tags = {false};
-    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
-};
-
-/*********** fengyong add end ***************/
-
-struct GetKeyRegister {
-    array<PHV, GET_KEY_ALL_CYCLE> phv;
-
-    bool enable1;
-    b1024 key;
-
-    bool enable2;
-    array<array<u32,  READ_TABLE_NUM>,    HASH_CYCLE>      hashValue;
-    array<array<bool, READ_TABLE_NUM>,    HASH_CYCLE>     readEnable;
-
-    array<array<u32, ADDRESS_WAY>,    READ_TABLE_NUM>        address;
-
-};
-
-const int MATCHER_ALL_CYCLE = 4;
-
-struct MatcherRegister {
-
-    array<PHV, MATCHER_ALL_CYCLE> phv;
-
-    array<array<u32,   ADDRESS_WAY>,  READ_TABLE_NUM>        addressCycleMatch;
-    array<b1024,                      READ_TABLE_NUM>            keyCycleMatch;
-    array<bool,                       READ_TABLE_NUM>     readEnableCycleMatch;
-
-    array<array<b1024, ADDRESS_WAY>,  READ_TABLE_NUM>   valueMatchCycleCompare;
-    array<array<b1024, ADDRESS_WAY>,  READ_TABLE_NUM>     keyMatchCycleCompare;
-    array<b1024,  READ_TABLE_NUM>        keyCycleCompare;
-    array<bool,   READ_TABLE_NUM> readEnableCycleCompare;
-
-    array<array<b1024,  READ_TABLE_NUM>, MATCHER_ALL_CYCLE - 1> valueCycleOutput;
-    array<array<bool,   READ_TABLE_NUM>, MATCHER_ALL_CYCLE - 1> compare;
-    array<array<bool,   READ_TABLE_NUM>, MATCHER_ALL_CYCLE - 1> readEnableOutput;
-
-
-};
-
-const int INSTRUCTION_NUM = 8;
-
-using ALUInt = u32;
-typedef ALUInt (*ALU)(ALUInt, ALUInt);
-struct Instruction {
-
-    ALU op;
-
-    struct Parameter {
-        enum Type {
-            CONST, HEADER
-        } type;
-        union {
-            ALUInt value;
-            u32 id;
-        } content ;
-    } a, b;
-    u32 id;
-};
-
-using VLIW = array<Instruction, INSTRUCTION_NUM>;
-
-
-struct ExecutorRegister {
-
-    PHV phvIF;
-    array<bool,   READ_TABLE_NUM> readEnable;
-    array<bool,   READ_TABLE_NUM> compare;
-    array<b1024 , READ_TABLE_NUM> value;
-    array<VLIW,   READ_TABLE_NUM> vliw;
-
-
-    PHV phvID;
-    array<array<ALU,                  HEADER_NUM>, READ_TABLE_NUM> alu;
-    array<array<pair<ALUInt, ALUInt>, HEADER_NUM>, READ_TABLE_NUM> parameter;
-    array<array<bool,                 HEADER_NUM>, READ_TABLE_NUM> writeEnableEX;
-
-    PHV phvEX;
-    array<array<ALUInt ,              HEADER_NUM>, READ_TABLE_NUM> res;
-    array<array<bool,                 HEADER_NUM>, READ_TABLE_NUM> writeEnableWB;
-
-    PHV phvWB;
-
-
-};
 
 
 

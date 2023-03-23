@@ -54,6 +54,8 @@ struct PIRegister : public RingBaseRegister{
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
 };
 
+
+
 struct RIRegister : public RingBaseRegister {
     RingRegister ringReg;
 };
