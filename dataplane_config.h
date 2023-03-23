@@ -164,6 +164,7 @@ struct EFSMTableConfig{
     struct EFSMTable{
         int key_width;
         int value_width;
+        int byte_len;
         int default_action_id;
         int num_of_hash_ways;
         int hash_bit_sum;

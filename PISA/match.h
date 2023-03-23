@@ -523,7 +523,7 @@ struct Compare : public Logic
             }
             auto match_table = matchTableConfig.matchTables[i];
 
-            int found_flag = 0;
+            int found_flag = 1;
             for (int j = 0; j < match_table.number_of_hash_ways; j++)
             {
                 // compare obtained key with original key
@@ -531,7 +531,9 @@ struct Compare : public Logic
                 {
                     if (now.match_table_keys[i][k * 4 + 0] == now.obtained_keys[i][j][k][0] && now.match_table_keys[i][k * 4 + 1] == now.obtained_keys[i][j][k][1] && now.match_table_keys[i][k * 4 + 2] == now.obtained_keys[i][j][k][2] && now.match_table_keys[i][k * 4 + 3] == now.obtained_keys[i][j][k][3])
                     {
-                        found_flag = 1;
+                    }
+                    else{
+                        found_flag = 0;
                     }
                 }
                 if (found_flag == 1)
@@ -647,7 +649,7 @@ struct KeyRefactor: public Logic{
     void execute(const PipeLine *now, PipeLine *next) override{
         // 7位 enable function 放到一个32位中，state 放到一个32位中，两个32位放到matchkey之后
         const KeyRefactorRegister& refactorReg = now->processors[processor_id].refactor;
-        EfsmHashRegister& efsmHashReg = next->processors[processor_id].efsmHash;
+        EfsmHashRegister& efsmHashReg = next->processors[processor_id].efsmHash[0];
 
         refactor_key(refactorReg, efsmHashReg);
     }
@@ -670,14 +672,128 @@ struct KeyRefactor: public Logic{
 
         for(int i = 0; i < efsmTableConfigs[processor_id].efsm_table_num; i++){
             auto efsm_table = efsmTableConfigs[processor_id].efsmTables[i];
-            auto enable_result_position = efsm_table.key_width - 2;
-            auto state_position = efsm_table.key_width - 1;
+            auto enable_result_position = efsm_table.byte_len - 2;
+            auto state_position = efsm_table.byte_len - 1;
             next.match_table_keys[i] = now.match_table_keys[i];
             next.match_table_keys[i][enable_result_position] = bool_array_2_u32(now.enable_function_result[i]);
             next.match_table_keys[i][state_position] = now.states[i];
         }
 
         next.phv = now.phv;
+        next.match_table_guider = now.match_table_guider;
+        next.gateway_guider = now.gateway_guider;
+    }
+};
+
+struct EFSMHash: public Logic{
+    // 逻辑基本复用 Hash 模块，key 增加了比较结果和state
+    EFSMHash(int id): Logic(id){}
+    void execute(const PipeLine *now, PipeLine *next) override
+    {
+        const EfsmHashRegister &hashReg = now->processors[processor_id].efsmHash[0];
+        EfsmHashRegister &nextHashReg = next->processors[processor_id].efsmHash[1];
+        // DispatcherRegister &dpRegister = next->processors[processor_id].dp;
+
+        get_hash(hashReg, nextHashReg);
+        for (int i = 1; i < HASH_CYCLE - 1; i++)
+        {
+            get_left_hash(now->processors[processor_id].efsmHash[i], next->processors[processor_id].efsmHash[i + 1]);
+        }
+
+        const EfsmHashRegister &lastHashReg = now->processors[processor_id].efsmHash[HASH_CYCLE - 1];
+
+        // dpRegister.enable1 = lastHashReg.enable1;
+        if (!lastHashReg.enable1)
+        {
+            return;
+        }
+        // dpRegister.dq_item.phv = lastHashReg.phv;
+        // dpRegister.dq_item.hash_values = lastHashReg.hash_values;
+        // dpRegister.dq_item.match_table_guider = lastHashReg.match_table_guider;
+        // dpRegister.dq_item.gateway_guider = lastHashReg.gateway_guider;
+        // dpRegister.dq_item.match_table_keys = lastHashReg.match_table_keys;
+    }
+
+    static void get_left_hash(const EfsmHashRegister &now, EfsmHashRegister &next)
+    {
+        next.enable1 = now.enable1;
+        if (!now.enable1)
+        {
+            return;
+        }
+        next.phv = now.phv;
+        next.match_table_keys = now.match_table_keys;
+        next.hash_values = now.hash_values;
+        next.match_table_guider = now.match_table_guider;
+        next.gateway_guider = now.gateway_guider;
+    }
+
+    void get_hash(const EfsmHashRegister &now, EfsmHashRegister &next)
+    {
+        next.enable1 = now.enable1;
+        if (!now.enable1)
+        {
+            return;
+        }
+        auto efsmTableConfig = efsmTableConfigs[processor_id];
+        // hash for efsm table
+        for (int i = 0; i < efsmTableConfig.efsm_table_num; i++)
+        {
+            auto efsm_table = efsmTableConfig.efsmTables[i];
+                cal_hash(i, now.match_table_keys[i], efsm_table.byte_len, efsm_table.num_of_hash_ways,
+                         efsm_table.hash_bit_per_way, efsm_table.hash_bit_sum, next);
+
+        }
+        // hash for identify flow
+        next.phv = now.phv;
+        next.match_table_guider = now.match_table_guider;
+        next.gateway_guider = now.gateway_guider;
+    }
+
+    static void cal_hash(int table_id, const std::array<u32, 32> &match_table_key, int match_field_byte_len,
+                         int number_of_hash_ways, std::array<int, 4> hash_bit_per_way, int hash_bit_sum, EfsmHashRegister &next)
+    {
+        u64 hash_value = 0;
+        for (int i = 0; i < match_field_byte_len; i++)
+        {
+            hash_value += ((u64)match_table_key[i] << 32) + match_table_key[i];
+        }
+
+        // get up to 4 ways hash value to register
+        for (int i = 0; i < number_of_hash_ways; i++)
+        {
+            int left_shift = 0;
+            int right_shift = 0;
+            u32 high_bit = 0;
+            if (hash_bit_per_way[i] > 10)
+            {
+                if (i != 0)
+                {
+                    for (int j = 0; j < i; j++)
+                    {
+                        left_shift += (hash_bit_per_way[j] - 10);
+                    }
+                    left_shift += (64 - hash_bit_sum);
+                }
+                else
+                {
+                    left_shift += (64 - hash_bit_sum);
+                }
+                right_shift = 64 - left_shift - (hash_bit_per_way[i] - 10);
+                high_bit = u32(hash_value << left_shift >> left_shift >> right_shift << 10);
+            }
+            else
+            {
+                high_bit = 0;
+            }
+
+            right_shift = (number_of_hash_ways - 1 - i) * 10;
+            left_shift = 64 - right_shift - 10;
+            u32 low_bit = (hash_value << left_shift >> (left_shift + right_shift));
+
+            // set hash value to next cycle's register
+            next.hash_values[table_id][i] = high_bit + low_bit;
+        }
     }
 };
 

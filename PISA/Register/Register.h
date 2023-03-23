@@ -92,6 +92,7 @@ struct KeyRefactorRegister: public BaseRegister{
 
 struct EfsmHashRegister: public BaseRegister{
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys; // refactored match table keys
+    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
 };
 
 struct GetActionRegister : public BaseRegister {
