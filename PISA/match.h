@@ -645,8 +645,39 @@ struct KeyRefactor: public Logic{
     KeyRefactor(int id): Logic(id){}
 
     void execute(const PipeLine *now, PipeLine *next) override{
-        // 7位
+        // 7位 enable function 放到一个32位中，state 放到一个32位中，两个32位放到matchkey之后
         const KeyRefactorRegister& refactorReg = now->processors[processor_id].refactor;
+        EfsmHashRegister& efsmHashReg = next->processors[processor_id].efsmHash;
+
+        refactor_key(refactorReg, efsmHashReg);
+    }
+
+    static u32 bool_array_2_u32(const array<bool, 7> bool_array)
+    {
+        u32 sum = 0;
+        for (int i = 0; i < 7; i++)
+        {
+            if(bool_array[i]) {
+                sum += (1 << (6 - i));
+            }
+        }
+        return sum;
+    }
+
+    void refactor_key(const KeyRefactorRegister& now, EfsmHashRegister& next){
+        next.enable1 = now.enable1;
+        if(!now.enable1) return;
+
+        for(int i = 0; i < efsmTableConfigs[processor_id].efsm_table_num; i++){
+            auto efsm_table = efsmTableConfigs[processor_id].efsmTables[i];
+            auto enable_result_position = efsm_table.key_width - 2;
+            auto state_position = efsm_table.key_width - 1;
+            next.match_table_keys[i] = now.match_table_keys[i];
+            next.match_table_keys[i][enable_result_position] = bool_array_2_u32(now.enable_function_result[i]);
+            next.match_table_keys[i][state_position] = now.states[i];
+        }
+
+        next.phv = now.phv;
     }
 };
 

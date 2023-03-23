@@ -85,10 +85,13 @@ struct ConditionEvaluationRegister: public BaseRegister{
 };
 
 struct KeyRefactorRegister: public BaseRegister{
-    // todo: change size
     array<array<bool, 7>, MAX_PARALLEL_MATCH_NUM> enable_function_result;
     std::array<u32, MAX_PARALLEL_MATCH_NUM> states;
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
+};
+
+struct EfsmHashRegister: public BaseRegister{
+    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys; // refactored match table keys
 };
 
 struct GetActionRegister : public BaseRegister {

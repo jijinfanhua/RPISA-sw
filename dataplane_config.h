@@ -142,13 +142,10 @@ struct MatchTableConfig
     struct MatchTable
     {
         int type;        // 0: stateless table; 1: stateful table;
-        array<int, 2> hash_in_phv; // two ids of 32 bit container
         int key_width;
         int value_width;
         int match_field_byte_len;
         std::array<int, MAX_MATCH_FIELDS_BYTE_NUM> match_field_byte_ids;
-
-        int default_action_id; // when match_table's key & value == 0, using default action id as action id; else default_action_id = -1;
 
         int number_of_hash_ways; // stateful table 必定为 1
         int hash_bit_sum;
@@ -162,6 +159,26 @@ struct MatchTableConfig
     MatchTable matchTables[MAX_PARALLEL_MATCH_NUM];
 };
 MatchTableConfig matchTableConfigs[PROCESSOR_NUM];
+
+struct EFSMTableConfig{
+    struct EFSMTable{
+        int key_width;
+        int value_width;
+        int default_action_id;
+        int num_of_hash_ways;
+        int hash_bit_sum;
+
+        std::array<int, 4> hash_bit_per_way;
+        std::array<int, 4> srams_per_hash_way;
+        std::array<std::array<int, 80>, 4> key_sram_index_per_hash_way;
+        std::array<std::array<int, 80>, 4> mask_sram_index_per_hash_way;
+        std::array<std::array<int, 80>, 4> value_sram_index_per_hash_way;
+    };
+    int efsm_table_num;
+    EFSMTable efsmTables[MAX_PARALLEL_MATCH_NUM];
+};
+
+EFSMTableConfig efsmTableConfigs[PROCESSOR_NUM];
 
 std::array<std::array<SRAM, SRAM_NUM>, PROCESSOR_NUM> SRAMs;
 
