@@ -95,6 +95,19 @@ struct EfsmHashRegister: public BaseRegister{
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
 };
 
+struct EfsmGetAddressRegister: public BaseRegister{
+    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
+    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
+};
+
+struct EfsmMatchRegister: public BaseRegister{
+    std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> key_sram_columns;
+    std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> value_sram_columns;
+    std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> mask_sram_columns;
+    std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> on_chip_addrs;
+    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
+};
+
 struct GetActionRegister : public BaseRegister {
     std::array<std::pair<std::array<b128, 8>, bool>, MAX_PARALLEL_MATCH_NUM> final_values;
 };

@@ -692,7 +692,7 @@ struct EFSMHash: public Logic{
     {
         const EfsmHashRegister &hashReg = now->processors[processor_id].efsmHash[0];
         EfsmHashRegister &nextHashReg = next->processors[processor_id].efsmHash[1];
-        // DispatcherRegister &dpRegister = next->processors[processor_id].dp;
+        EfsmGetAddressRegister& nextGetAddrReg = next->processors[processor_id].efsmGetAddress;
 
         get_hash(hashReg, nextHashReg);
         for (int i = 1; i < HASH_CYCLE - 1; i++)
@@ -702,16 +702,16 @@ struct EFSMHash: public Logic{
 
         const EfsmHashRegister &lastHashReg = now->processors[processor_id].efsmHash[HASH_CYCLE - 1];
 
-        // dpRegister.enable1 = lastHashReg.enable1;
+         nextGetAddrReg.enable1 = lastHashReg.enable1;
         if (!lastHashReg.enable1)
         {
             return;
         }
-        // dpRegister.dq_item.phv = lastHashReg.phv;
-        // dpRegister.dq_item.hash_values = lastHashReg.hash_values;
-        // dpRegister.dq_item.match_table_guider = lastHashReg.match_table_guider;
-        // dpRegister.dq_item.gateway_guider = lastHashReg.gateway_guider;
-        // dpRegister.dq_item.match_table_keys = lastHashReg.match_table_keys;
+         nextGetAddrReg.phv = lastHashReg.phv;
+         nextGetAddrReg.hash_values = lastHashReg.hash_values;
+         nextGetAddrReg.match_table_guider = lastHashReg.match_table_guider;
+         nextGetAddrReg.gateway_guider = lastHashReg.gateway_guider;
+         nextGetAddrReg.match_table_keys = lastHashReg.match_table_keys;
     }
 
     static void get_left_hash(const EfsmHashRegister &now, EfsmHashRegister &next)
@@ -794,6 +794,63 @@ struct EFSMHash: public Logic{
             // set hash value to next cycle's register
             next.hash_values[table_id][i] = high_bit + low_bit;
         }
+    }
+};
+
+struct EFSMGetAddress: public Logic{
+    EFSMGetAddress(int id): Logic(id){}
+
+    void execute(const PipeLine* now, PipeLine* next) override{
+        const EfsmGetAddressRegister& getAddress = now->processors[processor_id].efsmGetAddress;
+        EfsmMatchRegister& match = next->processors[processor_id].efsmMatch;
+
+        get_address(getAddress, match);
+    }
+
+    void get_address(const EfsmGetAddressRegister &now, EfsmMatchRegister &next)
+    {
+        next.enable1 = now.enable1;
+        if (!now.enable1)
+        {
+            return;
+        }
+
+        auto efsmTableConfig = efsmTableConfigs[processor_id];
+
+        // get the sram indexes per way for each match table
+        for (int i = 0; i < efsmTableConfig.efsm_table_num; i++)
+        {
+            auto hash_values = now.hash_values[i];
+            auto efsmTable = efsmTableConfig.efsmTables[i];
+            for (int j = 0; j < efsmTable.num_of_hash_ways; j++)
+            {
+                u32 start_key_index = (hash_values[j] >> 10) * efsmTable.key_width;
+                u32 start_value_index = (hash_values[j] >> 10) * efsmTable.value_width;
+                next.on_chip_addrs[i][j] = (hash_values[j] << 22 >> 22);
+                for (int k = 0; k < efsmTable.key_width; k++)
+                {
+                    next.key_sram_columns[i][j][k] = efsmTable.key_sram_index_per_hash_way[j][start_key_index + k];
+                    next.mask_sram_columns[i][j][k] = efsmTable.mask_sram_index_per_hash_way[j][start_key_index + k];
+                }
+                for (int k = 0; k < efsmTable.value_width; k++)
+                {
+                    next.value_sram_columns[i][j][k] = efsmTable.value_sram_index_per_hash_way[j][start_value_index + k];
+                }
+            }
+        }
+        next.phv = now.phv;
+        next.match_table_keys = now.match_table_keys;
+        next.match_table_guider = now.match_table_guider;
+        next.gateway_guider = now.gateway_guider;
+    }
+};
+
+struct EFSMMatch: public Logic{
+    EFSMMatch(int id): Logic(id){}
+
+    void execute(const PipeLine* now, PipeLine* next) override{
+        const EfsmMatchRegister& match = now->processors[processor_id].efsmMatch;
+
     }
 };
 

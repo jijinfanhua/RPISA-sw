@@ -154,6 +154,8 @@ struct ProcessorRegister {
     ExecuteActionRegister executeAction{};
     KeyRefactorRegister refactor{};
     EfsmHashRegister efsmHash[4]{};
+    EfsmGetAddressRegister efsmGetAddress{};
+    EfsmMatchRegister efsmMatch{};
     /****** fengyong add end *********/
 };
 
