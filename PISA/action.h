@@ -75,6 +75,10 @@ struct GetAction : public Logic {
         next.match_table_guider = now.match_table_guider;
         next.states = now.states;
         next.registers = now.registers;
+
+        next.flow_context_on_chip_addrs = now.flow_context_on_chip_addrs;
+        next.flow_context_value_sram_columns = now.flow_context_value_sram_columns;
+        next.flow_context_matched_way = now.flow_context_matched_way;
     }
 };
 
@@ -95,11 +99,13 @@ struct ExecuteAction : public Logic {
         if (!now.enable1) {
             return;
         }
-
-        // caution: should copy the phv before action!
         next.phv = now.phv;
         next.gateway_guider = now.gateway_guider;
         next.match_table_guider = now.match_table_guider;
+
+        next.flow_context_on_chip_addrs = now.flow_context_on_chip_addrs;
+        next.flow_context_value_sram_columns = now.flow_context_value_sram_columns;
+        next.flow_context_matched_way = now.flow_context_matched_way;
 
         // execute stateless action
         for(int i = 0 ; i < MAX_PHV_CONTAINER_NUM; i++) {
@@ -171,7 +177,15 @@ struct UpdateState: public Logic{
     }
 
     void update_state(const UpdateStateRegister& now){
-
+        auto efsmTableConfig = efsmTableConfigs[processor_id];
+        for(int i = 0; i < efsmTableConfig.efsm_table_num; i++){
+            auto way = now.flow_context_matched_way[i];
+            for(int j = 0; j < 4; j++){
+                b128 value_128 = {now.phv[states_and_registers_in_phv[i][j*4]], now.phv[states_and_registers_in_phv[i][j*4+1]],
+                                  now.phv[states_and_registers_in_phv[i][j*4+2]], now.phv[states_and_registers_in_phv[i][j*4+3]]};
+                SRAMs[processor_id][now.flow_context_value_sram_columns[i][way][j]].set(now.flow_context_on_chip_addrs[i][way], value_128);
+            }
+        }
     }
 };
 #endif //RPISA_SW_ACTION_H

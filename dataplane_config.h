@@ -251,6 +251,9 @@ ActionConfig actionConfigs[PROCESSOR_NUM];
 
 // two positions in phv for flow id; can use any of the hash result
 std::array<int, 2> flow_id_in_phv;
+
+std::array<std::array<int, 16>, MAX_PARALLEL_MATCH_NUM> states_and_registers_in_phv;
+
 // for debug
 
 const u64 DEBUG_FLOW_ID = 256705178760184036;
