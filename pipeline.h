@@ -150,12 +150,15 @@ struct ProcessorRegister {
     MatchRegister match{};
     CompareRegister compare{};
     ConditionEvaluationRegister conditionEvaluation{};
-    GetActionRegister getAction;
-    ExecuteActionRegister executeAction{};
     KeyRefactorRegister refactor{};
     EfsmHashRegister efsmHash[4]{};
     EfsmGetAddressRegister efsmGetAddress{};
     EfsmMatchRegister efsmMatch{};
+    EfsmCompareRegister efsmCompare{};
+    GetActionRegister getAction;
+    ExecuteActionRegister executeAction{};
+    UpdateStateRegister update{};
+
     /****** fengyong add end *********/
 };
 

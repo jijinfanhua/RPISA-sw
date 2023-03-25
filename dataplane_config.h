@@ -206,13 +206,20 @@ struct ALUnit
         {
             CONST,
             HEADER,
-            ACTION_DATA
+            ACTION_DATA,
+            STATE,
+            REGISTER
         } type;
         union
         {
             uint32_t value;
             int phv_id;
             int action_data_id;
+            int table_id;
+            struct{
+                int table_id;
+                int register_id;
+            } table_register_id;
         } content;
     } operand1, operand2;
 };

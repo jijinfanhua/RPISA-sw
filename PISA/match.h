@@ -597,6 +597,7 @@ struct ConditionEvaluation: public Logic{
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
         next.states = now.states;
+        next.registers = now.registers;
     }
 
     static u32 get_operand_value(const ConditionEvaluationRegister &now,
@@ -682,6 +683,8 @@ struct KeyRefactor: public Logic{
         next.phv = now.phv;
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
+        next.states = now.states;
+        next.registers = now.registers;
     }
 };
 
@@ -712,6 +715,8 @@ struct EFSMHash: public Logic{
          nextGetAddrReg.match_table_guider = lastHashReg.match_table_guider;
          nextGetAddrReg.gateway_guider = lastHashReg.gateway_guider;
          nextGetAddrReg.match_table_keys = lastHashReg.match_table_keys;
+         nextGetAddrReg.states = lastHashReg.states;
+         nextGetAddrReg.registers = lastHashReg.registers;
     }
 
     static void get_left_hash(const EfsmHashRegister &now, EfsmHashRegister &next)
@@ -726,6 +731,8 @@ struct EFSMHash: public Logic{
         next.hash_values = now.hash_values;
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
+        next.states = now.states;
+        next.registers = now.registers;
     }
 
     void get_hash(const EfsmHashRegister &now, EfsmHashRegister &next)
@@ -748,6 +755,8 @@ struct EFSMHash: public Logic{
         next.phv = now.phv;
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
+        next.states = now.states;
+        next.registers = now.registers;
     }
 
     static void cal_hash(int table_id, const std::array<u32, 32> &match_table_key, int match_field_byte_len,
@@ -842,6 +851,8 @@ struct EFSMGetAddress: public Logic{
         next.match_table_keys = now.match_table_keys;
         next.match_table_guider = now.match_table_guider;
         next.gateway_guider = now.gateway_guider;
+        next.states = now.states;
+        next.registers = now.registers;
     }
 };
 
@@ -850,7 +861,108 @@ struct EFSMMatch: public Logic{
 
     void execute(const PipeLine* now, PipeLine* next) override{
         const EfsmMatchRegister& match = now->processors[processor_id].efsmMatch;
+        EfsmCompareRegister& compare = next->processors[processor_id].efsmCompare;
 
+        get_value_to_compare(match, compare);
+    }
+
+    void get_value_to_compare(const EfsmMatchRegister &now, EfsmCompareRegister &next)
+    {
+        next.enable1 = now.enable1;
+        if (!now.enable1)
+        {
+            return;
+        }
+
+        auto efsmTableConfig = efsmTableConfigs[processor_id];
+        for (int i = 0; i < efsmTableConfig.efsm_table_num; i++)
+        {
+            // follow match table guider
+            if (!now.match_table_guider[processor_id * 16 + i])
+                continue;
+            auto efsmTable = efsmTableConfig.efsmTables[i];
+            for (int j = 0; j < efsmTable.num_of_hash_ways; j++)
+            {
+                for (int k = 0; k < efsmTable.key_width; k++)
+                {
+                    next.obtained_keys[i][j][k] = SRAMs[processor_id][now.key_sram_columns[i][j][k]].get(now.on_chip_addrs[i][j]);
+                    next.obtained_masks[i][j][k] = SRAMs[processor_id][now.mask_sram_columns[i][j][k]].get(now.on_chip_addrs[i][j]);
+                }
+                for (int k = 0; k < efsmTable.value_width; k++)
+                {
+                    next.obtained_values[i][j][k] = SRAMs[processor_id][now.value_sram_columns[i][j][k]].get(now.on_chip_addrs[i][j]);
+                }
+            }
+        }
+
+        next.phv = now.phv;
+        next.match_table_keys = now.match_table_keys;
+        next.match_table_guider = now.match_table_guider;
+        next.gateway_guider = now.gateway_guider;
+        next.states = now.states;
+        next.registers = now.registers;
+    }
+};
+
+struct EfsmCompare: public Logic{
+    EfsmCompare(int id): Logic(id){}
+
+    void execute(const PipeLine* now, PipeLine* next) override{
+
+    }
+
+    void get_action(const EfsmCompareRegister &now, GetActionRegister &next)
+    {
+        next.enable1 = now.enable1;
+        if (!now.enable1)
+        {
+            return;
+        }
+        auto efsmTableConfig = efsmTableConfigs[processor_id];
+
+        for (int i = 0; i < efsmTableConfig.efsm_table_num; i++)
+        {
+            if (!now.match_table_guider[processor_id * 16 + i])
+            {
+                next.final_values[i].second = false;
+                continue;
+            }
+            auto efsmTable = efsmTableConfig.efsmTables[i];
+
+            int found_flag = 1;
+            for (int j = 0; j < efsmTable.num_of_hash_ways; j++)
+            {
+                // compare obtained key with original key
+                for (int k = 0; k < efsmTable.key_width; k++)
+                {
+                    if (now.match_table_keys[i][k * 4 + 0] == (now.obtained_keys[i][j][k][0] & now.obtained_masks[i][j][k][0])
+                    && now.match_table_keys[i][k * 4 + 1] == (now.obtained_keys[i][j][k][1] & now.obtained_masks[i][j][k][1])
+                    && now.match_table_keys[i][k * 4 + 2] == (now.obtained_keys[i][j][k][2] & now.obtained_masks[i][j][k][2])
+                    && now.match_table_keys[i][k * 4 + 3] == (now.obtained_keys[i][j][k][3] & now.obtained_masks[i][j][k][3]))
+                    {
+                    }
+                    else{
+                        found_flag = 0;
+                    }
+                }
+                if (found_flag == 1)
+                {
+                    // get the value of this way
+                    next.final_values[i] = std::make_pair(now.obtained_values[i][j], true);
+                    break; // handle next table
+                }
+            }
+            if(found_flag == 0){
+                //default
+                next.final_values[i].second = false;
+            }
+        }
+        next.phv = now.phv;
+        next.gateway_guider = now.gateway_guider;
+        next.match_table_guider = now.match_table_guider;
+        next.states = now.states;
+        next.registers = now.registers;
+        // newly added
     }
 };
 

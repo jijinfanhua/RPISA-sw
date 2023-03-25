@@ -66,7 +66,6 @@ struct MatchRegister : public BaseRegister {
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
     // caution: hash_value should be transferred to action, becase it should serve the SALU
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
-    bool backward_pkt;
 };
 
 struct CompareRegister : public BaseRegister {
@@ -74,7 +73,6 @@ struct CompareRegister : public BaseRegister {
     std::array<std::array<std::array<b128, 8>, 4>, MAX_PARALLEL_MATCH_NUM> obtained_keys;
     std::array<std::array<std::array<b128, 8>, 4>, MAX_PARALLEL_MATCH_NUM> obtained_values;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
-    bool backward_pkt;
 };
 
 struct ConditionEvaluationRegister: public BaseRegister{
@@ -87,17 +85,22 @@ struct ConditionEvaluationRegister: public BaseRegister{
 struct KeyRefactorRegister: public BaseRegister{
     array<array<bool, 7>, MAX_PARALLEL_MATCH_NUM> enable_function_result;
     std::array<u32, MAX_PARALLEL_MATCH_NUM> states;
+    std::array<std::array<u32, 16>, MAX_PARALLEL_MATCH_NUM> registers;
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
 };
 
 struct EfsmHashRegister: public BaseRegister{
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys; // refactored match table keys
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> states;
+    std::array<std::array<u32, 16>, MAX_PARALLEL_MATCH_NUM> registers;
 };
 
 struct EfsmGetAddressRegister: public BaseRegister{
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> states;
+    std::array<std::array<u32, 16>, MAX_PARALLEL_MATCH_NUM> registers;
 };
 
 struct EfsmMatchRegister: public BaseRegister{
@@ -106,18 +109,34 @@ struct EfsmMatchRegister: public BaseRegister{
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> mask_sram_columns;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> on_chip_addrs;
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> states;
+    std::array<std::array<u32, 16>, MAX_PARALLEL_MATCH_NUM> registers;
+};
+
+struct EfsmCompareRegister: public BaseRegister{
+    std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
+    std::array<std::array<std::array<b128, 8>, 4>, MAX_PARALLEL_MATCH_NUM> obtained_keys;
+    std::array<std::array<std::array<b128, 8>, 4>, MAX_PARALLEL_MATCH_NUM> obtained_masks;
+    std::array<std::array<std::array<b128, 8>, 4>, MAX_PARALLEL_MATCH_NUM> obtained_values;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> states;
+    std::array<std::array<u32, 16>, MAX_PARALLEL_MATCH_NUM> registers;
 };
 
 struct GetActionRegister : public BaseRegister {
     std::array<std::pair<std::array<b128, 8>, bool>, MAX_PARALLEL_MATCH_NUM> final_values;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> states;
+    std::array<std::array<u32, 16>, MAX_PARALLEL_MATCH_NUM> registers;
 };
 
 struct ExecuteActionRegister : public BaseRegister {
-    std::array<int, MAX_PARALLEL_MATCH_NUM> stateful_matched_hash_way;
-    std::array<bool, MAX_SALU_NUM> salu_compare_result;
-    std::array<b128, 4> salu_value_data_set;
     std::array<ActionConfig::ActionData, 16> action_data_set;
     std::array<bool, MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM> vliw_enabler;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> states;
+    std::array<std::array<u32, 16>, MAX_PARALLEL_MATCH_NUM> registers;
+};
+
+struct UpdateStateRegister: public BaseRegister{
+
 };
 
 
