@@ -72,8 +72,6 @@ struct EnableFunctionsConfig{
             // const value; id in match key; id of register
             u32 value;
         } operand1, operand2;
-
-        u32 mask;
     };
 
     EnableFunction enable_functions[MAX_PARALLEL_MATCH_NUM][7];
@@ -83,7 +81,6 @@ EnableFunctionsConfig enable_functions_configs[PROC_NUM];
 
 struct GatewaysConfig
 {
-    int processor_id;
     struct Gate
     {
         enum OP
@@ -141,7 +138,6 @@ struct MatchTableConfig
     int processor_id;
     struct MatchTable
     {
-        int type;        // 0: stateless table; 1: stateful table;
         int key_width;
         int value_width;
         int match_field_byte_len;
@@ -227,19 +223,13 @@ std::array<ALUnit[MAX_PHV_CONTAINER_NUM], PROCESSOR_NUM> ALUs;
 
 struct ActionConfig
 {
-    int processor_id;
-
     struct ActionData
     {
-        int data_id;
-        int byte_len;
-        int bit_len;
         u32 value;
     };
 
     struct Action
     {
-        int action_id;
         int action_data_num;
         std::array<bool, MAX_PHV_CONTAINER_NUM> vliw_enabler;
         std::array<ALUnit, MAX_PHV_CONTAINER_NUM> alu_configs;

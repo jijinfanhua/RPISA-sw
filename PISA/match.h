@@ -353,11 +353,10 @@ struct Dispatcher: public Logic{
         const DispatcherRegister& now_dp_0 = now->processors[processor_id].dp;
         GetAddressRegister &get_address = next->processors[processor_id].getAddress;
 
-        dispatcher_cycle_1(now_dp_0, get_address, now->proc_states[processor_id], next->proc_states[processor_id], now);
+        dispatcher_cycle(now_dp_0, get_address, now->proc_states[processor_id], next->proc_states[processor_id], now);
     }
 
     bool test_flow_occupied(DispatcherQueueItem dp_item, const PipeLine* now){
-        // todo: test flow occupied
         auto processor_register = now->processors[processor_id];
         if(get_flow_id(processor_register.getAddress.phv) == get_flow_id(dp_item.phv)) return true;
         if(get_flow_id(processor_register.match.phv) == get_flow_id(dp_item.phv)) return true;
@@ -376,7 +375,7 @@ struct Dispatcher: public Logic{
         return false;
     };
 
-    void dispatcher_cycle_1(const DispatcherRegister& now, GetAddressRegister& next, const ProcessorState& now_proc, ProcessorState& next_proc, const PipeLine* now_pipe){
+    void dispatcher_cycle(const DispatcherRegister& now, GetAddressRegister& next, const ProcessorState& now_proc, ProcessorState& next_proc, const PipeLine* now_pipe){
         if(now.enable1){
             // if pipeline has packet
             u32 queue_id = get_flow_id(now.phv) & 0xf;
@@ -400,6 +399,7 @@ struct Dispatcher: public Logic{
         else{
             next.enable1 = true;
             auto dp_item = now_proc.dispatcher_queues[schedule_id].front();
+            next_proc.dispatcher_queues[schedule_id].erase(next_proc.dispatcher_queues[schedule_id].begin());
             next.phv = dp_item.phv;
             next.hash_values = dp_item.hash_values;
             next.match_table_keys = dp_item.match_table_keys;
@@ -535,6 +535,7 @@ struct Compare : public Logic
         for (int i = 0; i < matchTableConfig.match_table_num; i++)
         {
             next.flow_context_matched_way[i] = -1;
+            next.flow_context_empty_way[i] = -1;
             if (!now.match_table_guider[processor_id * 16 + i])
             {
                 next.hits[i] = false;
@@ -553,6 +554,9 @@ struct Compare : public Logic
                     }
                     else{
                         found_flag = 0;
+                        if(now.obtained_keys[i][j][k] == b128({0,0,0,0})){
+                            next.flow_context_empty_way[i] = j;
+                        }
                     }
                 }
                 if (found_flag == 1)
@@ -624,6 +628,7 @@ struct ConditionEvaluation: public Logic{
         next.flow_context_on_chip_addrs = now.flow_context_on_chip_addrs;
         next.flow_context_value_sram_columns = now.flow_context_value_sram_columns;
         next.flow_context_matched_way = now.flow_context_matched_way;
+        next.flow_context_empty_way = now.flow_context_empty_way;
     }
 
     static u32 get_operand_value(const ConditionEvaluationRegister &now,
@@ -715,6 +720,7 @@ struct KeyRefactor: public Logic{
         next.flow_context_on_chip_addrs = now.flow_context_on_chip_addrs;
         next.flow_context_value_sram_columns = now.flow_context_value_sram_columns;
         next.flow_context_matched_way = now.flow_context_matched_way;
+        next.flow_context_empty_way = now.flow_context_empty_way;
     }
 };
 
@@ -751,6 +757,7 @@ struct EFSMHash: public Logic{
         nextGetAddrReg.flow_context_on_chip_addrs = lastHashReg.flow_context_on_chip_addrs;
         nextGetAddrReg.flow_context_value_sram_columns = lastHashReg.flow_context_value_sram_columns;
         nextGetAddrReg.flow_context_matched_way = lastHashReg.flow_context_matched_way;
+        nextGetAddrReg.flow_context_empty_way = lastHashReg.flow_context_empty_way;
     }
 
     static void get_left_hash(const EfsmHashRegister &now, EfsmHashRegister &next)
@@ -771,6 +778,7 @@ struct EFSMHash: public Logic{
         next.flow_context_on_chip_addrs = now.flow_context_on_chip_addrs;
         next.flow_context_value_sram_columns = now.flow_context_value_sram_columns;
         next.flow_context_matched_way = now.flow_context_matched_way;
+        next.flow_context_empty_way = now.flow_context_empty_way;
     }
 
     void get_hash(const EfsmHashRegister &now, EfsmHashRegister &next)
@@ -799,6 +807,7 @@ struct EFSMHash: public Logic{
         next.flow_context_on_chip_addrs = now.flow_context_on_chip_addrs;
         next.flow_context_value_sram_columns = now.flow_context_value_sram_columns;
         next.flow_context_matched_way = now.flow_context_matched_way;
+        next.flow_context_empty_way = now.flow_context_empty_way;
     }
 
     static void cal_hash(int table_id, const std::array<u32, 32> &match_table_key, int match_field_byte_len,
@@ -899,6 +908,7 @@ struct EFSMGetAddress: public Logic{
         next.flow_context_on_chip_addrs = now.flow_context_on_chip_addrs;
         next.flow_context_value_sram_columns = now.flow_context_value_sram_columns;
         next.flow_context_matched_way = now.flow_context_matched_way;
+        next.flow_context_empty_way = now.flow_context_empty_way;
     }
 };
 
@@ -951,6 +961,7 @@ struct EFSMMatch: public Logic{
         next.flow_context_on_chip_addrs = now.flow_context_on_chip_addrs;
         next.flow_context_value_sram_columns = now.flow_context_value_sram_columns;
         next.flow_context_matched_way = now.flow_context_matched_way;
+        next.flow_context_empty_way = now.flow_context_empty_way;
     }
 };
 
@@ -958,7 +969,10 @@ struct EfsmCompare: public Logic{
     EfsmCompare(int id): Logic(id){}
 
     void execute(const PipeLine* now, PipeLine* next) override{
+        const EfsmCompareRegister& compare = now->processors[processor_id].efsmCompare;
+        GetActionRegister& getAction = next->processors[processor_id].getAction;
 
+        get_action(compare, getAction);
     }
 
     void get_action(const EfsmCompareRegister &now, GetActionRegister &next)
@@ -1016,6 +1030,7 @@ struct EfsmCompare: public Logic{
         next.flow_context_on_chip_addrs = now.flow_context_on_chip_addrs;
         next.flow_context_value_sram_columns = now.flow_context_value_sram_columns;
         next.flow_context_matched_way = now.flow_context_matched_way;
+        next.flow_context_empty_way = now.flow_context_empty_way;
     }
 };
 

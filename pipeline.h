@@ -34,30 +34,6 @@ struct RP2R_REG {
 };
 
 struct ProcessorState {
-    u32 decrease_clk{}, increase_clk{};
-//    bool clk_enable = false;
-    // hash of four ways (32bit) -> flow info
-    std::unordered_map<u64, flow_info_in_cam> dirty_cam;
-
-    // 128 will cause segmentation fault, reason unknown
-//    std::array<FlowInfo, 128> rp2p{};
-//    // 指示下一个对象在rp2p中的位置
-//    std::array<u32, 128> rp2p_pointer{};
-    std::unordered_map<u64, std::vector<FlowInfo>> r2p;
-    std::unordered_map<u64, std::vector<FlowInfo>> p2p;
-
-    std::queue<FlowInfo> r2p_stash;
-    std::queue<WriteInfo> write_stash;
-
-    std::vector<flow_info_in_cam> wait_queue;
-
-    std::vector<flow_info_in_cam> schedule_queue;
-
-    queue<RP2R_REG> p2r;
-    queue<RP2R_REG> r2r;
-    int round_robin_flag = 0; // 0 is r2r, 1 is p2r
-    int hb_robin_flag = 0;
-
     // flowblaze
     u32 schedule_id = 0;
     std::array<std::vector<DispatcherQueueItem>, 16> dispatcher_queues;
@@ -86,62 +62,14 @@ struct ProcessorState {
     ProcessorState& operator=(const ProcessorState &other) = default;
 
     void update(){
-        if(wait_queue.size() > m_wait_queue){
-            m_wait_queue = wait_queue.size();
-        }
-        if(schedule_queue.size() > m_schedule_queue){
-            m_schedule_queue = schedule_queue.size();
-        }
-        if(dirty_cam.size() > max_dirty_cam){
-            max_dirty_cam = dirty_cam.size();
-        }
-        if(r2p.size() + p2p.size() > rp2p_max){
-            rp2p_max = r2p.size() + p2p.size();
-        }
-        if(r2p_stash.size() > r2p_stash_max){
-            r2p_stash_max = r2p_stash.size();
-        }
-        if(write_stash.size() > write_stash_max){
-            r2p_stash_max = write_stash.size();
-        }
-        if(p2r.size() > p2r_max){
-            p2r_max = p2r.size();
-        }
-        if(r2r.size() > r2r_max ){
-            r2r_max = r2r.size();
-        }
     }
 
     void log(ofstream& output) {
-        output << "max wait queue: " << m_wait_queue << endl;
-        output << "r2p stash max: " << r2p_stash_max << endl;
-        output << "write stash max: " << write_stash_max << endl;
-        output << "p2r max: " << p2r_max << endl;
-        output << "r2r max: " << r2r_max << endl;
-        output << "rp2p max: " << rp2p_max << endl;
-        output << "max dirty cam: " << max_dirty_cam << endl;
-        output << "max schedule queue: " << m_schedule_queue << endl;
-        output << "wb_packets: " << wb_packets << endl;
-        output << "bp_packets: " << bp_packets << endl;
-        output << "total_packets: " << total_packets << endl;
-        output << "hb_cycles: " << hb_cycles << endl;
-        output << "cc_send: " << cc_send << endl;
-        output << "cc_received: " << cc_received << endl;
-        output << "ro_empty: " << ro_empty << endl;
-        output << "r2r_schedule: " << r2r_schedule << endl;
-        output << dirty_cam.size() << endl;
-        output << wait_queue.size() << endl;
-        output << schedule_queue.size() << endl;
-        output << r2p_stash.size() << endl;
-        output << p2r.size() << endl;
-        output << r2r.size() << endl;
+
     }
 };
 
 struct ProcessorRegister {
-
-    /****** fengyong add begin ********/
-    BaseRegister base{};
     GetKeysRegister getKeys{};
     GatewayRegister gateway[2]{};
     HashRegister hashes[4]{};
@@ -158,8 +86,6 @@ struct ProcessorRegister {
     GetActionRegister getAction;
     ExecuteActionRegister executeAction{};
     UpdateStateRegister update{};
-
-    /****** fengyong add end *********/
 };
 
 

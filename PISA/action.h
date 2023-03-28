@@ -79,6 +79,7 @@ struct GetAction : public Logic {
         next.flow_context_on_chip_addrs = now.flow_context_on_chip_addrs;
         next.flow_context_value_sram_columns = now.flow_context_value_sram_columns;
         next.flow_context_matched_way = now.flow_context_matched_way;
+        next.flow_context_empty_way = now.flow_context_empty_way;
     }
 };
 
@@ -106,6 +107,7 @@ struct ExecuteAction : public Logic {
         next.flow_context_on_chip_addrs = now.flow_context_on_chip_addrs;
         next.flow_context_value_sram_columns = now.flow_context_value_sram_columns;
         next.flow_context_matched_way = now.flow_context_matched_way;
+        next.flow_context_empty_way = now.flow_context_empty_way;
 
         // execute stateless action
         for(int i = 0 ; i < MAX_PHV_CONTAINER_NUM; i++) {
@@ -180,6 +182,14 @@ struct UpdateState: public Logic{
         auto efsmTableConfig = efsmTableConfigs[processor_id];
         for(int i = 0; i < efsmTableConfig.efsm_table_num; i++){
             auto way = now.flow_context_matched_way[i];
+            if(way == -1){
+                if(now.flow_context_empty_way[i] == -1){
+                    return;
+                }
+                else{
+                    way = now.flow_context_empty_way[i];
+                }
+            }
             for(int j = 0; j < 4; j++){
                 b128 value_128 = {now.phv[states_and_registers_in_phv[i][j*4]], now.phv[states_and_registers_in_phv[i][j*4+1]],
                                   now.phv[states_and_registers_in_phv[i][j*4+2]], now.phv[states_and_registers_in_phv[i][j*4+3]]};

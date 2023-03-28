@@ -82,6 +82,7 @@ struct ConditionEvaluationRegister: public BaseRegister{
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_value_sram_columns;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_on_chip_addrs;
     std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_matched_way;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_empty_way;
 
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
     std::array<bool, MAX_PARALLEL_MATCH_NUM> hits;
@@ -93,6 +94,7 @@ struct KeyRefactorRegister: public BaseRegister{
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_value_sram_columns;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_on_chip_addrs;
     std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_matched_way;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_empty_way;
 
     array<array<bool, 7>, MAX_PARALLEL_MATCH_NUM> enable_function_result;
     std::array<u32, MAX_PARALLEL_MATCH_NUM> states;
@@ -104,6 +106,7 @@ struct EfsmHashRegister: public BaseRegister{
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_value_sram_columns;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_on_chip_addrs;
     std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_matched_way;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_empty_way;
 
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys; // refactored match table keys
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
@@ -115,6 +118,7 @@ struct EfsmGetAddressRegister: public BaseRegister{
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_value_sram_columns;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_on_chip_addrs;
     std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_matched_way;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_empty_way;
 
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> hash_values;
@@ -126,6 +130,7 @@ struct EfsmMatchRegister: public BaseRegister{
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_value_sram_columns;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_on_chip_addrs;
     std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_matched_way;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_empty_way;
 
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> key_sram_columns;
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> value_sram_columns;
@@ -140,6 +145,7 @@ struct EfsmCompareRegister: public BaseRegister{
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_value_sram_columns;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_on_chip_addrs;
     std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_matched_way;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_empty_way;
 
     std::array<std::array<u32, 32>, MAX_PARALLEL_MATCH_NUM> match_table_keys;
     std::array<std::array<std::array<b128, 8>, 4>, MAX_PARALLEL_MATCH_NUM> obtained_keys;
@@ -153,6 +159,7 @@ struct GetActionRegister : public BaseRegister {
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_value_sram_columns;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_on_chip_addrs;
     std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_matched_way;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_empty_way;
 
     std::array<std::pair<std::array<b128, 8>, bool>, MAX_PARALLEL_MATCH_NUM> final_values;
     std::array<u32, MAX_PARALLEL_MATCH_NUM> states;
@@ -163,6 +170,7 @@ struct ExecuteActionRegister : public BaseRegister {
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_value_sram_columns;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_on_chip_addrs;
     std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_matched_way;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_empty_way;
 
     std::array<ActionConfig::ActionData, 16> action_data_set;
     std::array<bool, MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM> vliw_enabler;
@@ -174,6 +182,7 @@ struct UpdateStateRegister: public BaseRegister{
     std::array<std::array<std::array<int, 8>, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_value_sram_columns;
     std::array<std::array<u32, 4>, MAX_PARALLEL_MATCH_NUM> flow_context_on_chip_addrs;
     std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_matched_way;
+    std::array<u32, MAX_PARALLEL_MATCH_NUM> flow_context_empty_way;
 };
 
 
