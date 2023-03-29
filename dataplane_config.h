@@ -238,6 +238,11 @@ struct ActionConfig
 };
 ActionConfig actionConfigs[PROCESSOR_NUM];
 
+const int dispatcher_queue_bit_width = 2;
+
+const int dispatcher_queue_width = 1 << dispatcher_queue_bit_width;
+
+std::array<bool, PROC_NUM> is_stateful_processor = {true, false, false, false, false, false, false, false, false, false, false, true};
 
 // two positions in phv for flow id; can use any of the hash result
 std::array<int, 2> flow_id_in_phv;

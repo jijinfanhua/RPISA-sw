@@ -29,10 +29,8 @@ struct ProcessorConfig
     explicit ProcessorConfig(int id) : processor_id(id)
     {
         getKeyConfig.used_container_num = 0;
-        gatewaysConfig.processor_id = id;
         matchTableConfig.processor_id = id;
         matchTableConfig.match_table_num = 0;
-        actionConfig.processor_id = id;
 
         gatewaysConfig.masks.clear();
         gatewaysConfig.gateway_res_2_match_tables.clear();
@@ -777,6 +775,28 @@ void commit(const vector<ProcessorConfig> &config)
 //
 //}
 
+void flowblaze_config(){
+    flow_id_in_phv = {170, 171};
+
+    ProcessorConfig proc0 = ProcessorConfig(0);
+    proc0.push_back_get_key_use_container(0, 8, 0);
+    proc0.push_back_get_key_use_container(64, 16, 1, 2);
+    proc0.push_back_get_key_use_container(65, 16, 3, 4);
+    proc0.push_back_get_key_use_container(160, 32, 5,6,7,8);
+    proc0.push_back_get_key_use_container(161, 32, 9, 10, 11, 12);
+
+    proc0.commit();
+
+    ProcessorConfig proc11 = ProcessorConfig(11);
+    proc11.push_back_get_key_use_container(0, 8, 0);
+    proc11.push_back_get_key_use_container(64, 16, 1, 2);
+    proc11.push_back_get_key_use_container(65, 16, 3, 4);
+    proc11.push_back_get_key_use_container(160, 32, 5,6,7,8);
+    proc11.push_back_get_key_use_container(161, 32, 9, 10, 11, 12);
+
+    proc11.commit();
+}
+
 struct Switch
 {
 
@@ -883,7 +903,7 @@ struct Switch
 
     void Config()
     {
-//        top_heavy_hitter_config2();
+        flowblaze_config();
     }
 };
 

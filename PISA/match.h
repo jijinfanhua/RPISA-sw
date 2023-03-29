@@ -22,7 +22,8 @@ struct ArrayHash {
 u64 get_flow_id(PHV phv)
 {
     // done: fetch flow id from two particular positions of phv
-    return u32_to_u64(phv[flow_id_in_phv[0]], phv[flow_id_in_phv[1]]);
+    auto result = u32_to_u64(phv[flow_id_in_phv[0]], phv[flow_id_in_phv[1]]);
+    return result;
 }
 
 struct GetKey : public Logic
@@ -357,6 +358,7 @@ struct Dispatcher: public Logic{
     }
 
     bool test_flow_occupied(DispatcherQueueItem dp_item, const PipeLine* now){
+        if(!is_stateful_processor[processor_id]) return false;
         auto processor_register = now->processors[processor_id];
         if(get_flow_id(processor_register.getAddress.phv) == get_flow_id(dp_item.phv)) return true;
         if(get_flow_id(processor_register.match.phv) == get_flow_id(dp_item.phv)) return true;
@@ -378,7 +380,7 @@ struct Dispatcher: public Logic{
     void dispatcher_cycle(const DispatcherRegister& now, GetAddressRegister& next, const ProcessorState& now_proc, ProcessorState& next_proc, const PipeLine* now_pipe){
         if(now.enable1){
             // if pipeline has packet
-            u32 queue_id = get_flow_id(now.phv) & 0xf;
+            u32 queue_id = get_flow_id(now.dq_item.phv) & (dispatcher_queue_width-1);
             next_proc.dispatcher_queues[queue_id].push_back(now.dq_item);
         }
         // get schedule id
@@ -386,25 +388,25 @@ struct Dispatcher: public Logic{
         int queues_count = 0;
         while(now_proc.dispatcher_queues[schedule_id].empty() || test_flow_occupied(now_proc.dispatcher_queues[schedule_id].front(), now_pipe)){
             // if queue empty or first flow occupied
-            schedule_id = (schedule_id + 1) % 16;
+            schedule_id = (schedule_id + 1) % dispatcher_queue_width;
             queues_count += 1;
-            if(queues_count == 16) break;
+            if(queues_count == dispatcher_queue_width) break;
         }
         next_proc.schedule_id = schedule_id;
 
-        if(queues_count == 16){
+        if(queues_count == dispatcher_queue_width ){
             next.enable1 = false;
             return;
         }
         else{
             next.enable1 = true;
             auto dp_item = now_proc.dispatcher_queues[schedule_id].front();
-            next_proc.dispatcher_queues[schedule_id].erase(next_proc.dispatcher_queues[schedule_id].begin());
             next.phv = dp_item.phv;
             next.hash_values = dp_item.hash_values;
             next.match_table_keys = dp_item.match_table_keys;
             next.match_table_guider = dp_item.match_table_guider;
             next.gateway_guider = dp_item.gateway_guider;
+            next_proc.dispatcher_queues[schedule_id].erase(next_proc.dispatcher_queues[schedule_id].begin());
         }
 
     }
@@ -518,7 +520,7 @@ struct Compare : public Logic
     void execute(const PipeLine *now, PipeLine *next) override
     {
         const CompareRegister &compareReg = now->processors[processor_id].compare;
-        ConditionEvaluationRegister ceReg = next->processors[processor_id].conditionEvaluation;
+        ConditionEvaluationRegister& ceReg = next->processors[processor_id].conditionEvaluation;
 
         get_state(compareReg, ceReg);
     }

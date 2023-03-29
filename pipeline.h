@@ -36,7 +36,7 @@ struct RP2R_REG {
 struct ProcessorState {
     // flowblaze
     u32 schedule_id = 0;
-    std::array<std::vector<DispatcherQueueItem>, 16> dispatcher_queues;
+    std::array<std::vector<DispatcherQueueItem>, dispatcher_queue_width> dispatcher_queues;
 
     // statistics
     int m_wait_queue = 0;
@@ -59,13 +59,22 @@ struct ProcessorState {
     int p2r_max = 0;
     int r2r_max = 0;
 
+    std::array<int, dispatcher_queue_width>  m_dispatcher_queue;
+
     ProcessorState& operator=(const ProcessorState &other) = default;
 
     void update(){
+        for(int i = 0; i < dispatcher_queue_width; i++){
+            if(dispatcher_queues[i].size() > m_dispatcher_queue[i]){
+                m_dispatcher_queue[i] = dispatcher_queues[i].size();
+            }
+        }
     }
 
     void log(ofstream& output) {
-
+        for(int i = 0; i < dispatcher_queue_width; i++){
+            output << i << "th queue max size: " << m_dispatcher_queue[i] << endl;
+        }
     }
 };
 

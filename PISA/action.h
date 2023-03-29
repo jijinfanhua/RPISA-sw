@@ -53,12 +53,12 @@ struct GetAction : public Logic {
                 if (j <= 2) {
                     next.action_data_set[action_data_id_base + j] =
                     {
-                            action_data_id_base + j, 4, 32, final_value[0][j+1]
+                            final_value[0][j+1]
                     };
                 } else {
                     next.action_data_set[action_data_id_base + j] =
                     {
-                            action_data_id_base + j, 4, 32, final_value[(para_num - 3) / 4 + 1][(para_num - 3) % 4]
+                            final_value[(para_num - 3) / 4 + 1][(para_num - 3) % 4]
                     };
                 }
             }
