@@ -124,14 +124,14 @@ struct VerifyStateChange : public Logic
 //        }
 
         // todo: change between
-        if(processor_id == 3){
+//        if(processor_id == 3){
             if(verifyReg.phv[ID_IN_PHV] % 4 == 0){
                 piwReg.state_changed = true;
             }
             else{
                 piwReg.state_changed = false;
             }
-        }
+//        }
 //        else if(processor_id == 4){
 //            if(verifyReg.phv[ID_IN_PHV] % 11 == 0){
 //                piwReg.state_changed = true;

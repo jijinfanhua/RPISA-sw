@@ -466,11 +466,7 @@ void top_heavy_hitter_config1(){
     proc0.push_back_get_key_use_container(160, 32, 5,6,7,8);
     proc0.push_back_get_key_use_container(161, 32, 9, 10, 11, 12);
 
-    array<bool, GATEWAY_NUM> key = {false};
-    array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM> value = {0};
-    value[0] = value[1] = value[2] = 1;
-    proc0.insert_gateway_res_2_match_table(key, value);
-    proc0.gatewaysConfig.masks.push_back(std::array<bool, 16>{false});
+    proc0.insert_gateway_entry({false}, {false}, {true, true, true});
 
 
     proc0.matchTableConfig.match_table_num = 3;
@@ -712,19 +708,8 @@ void top_heavy_hitter_config1(){
     gate5.operand2.type = GatewaysConfig::Gate::Parameter::CONST;
     gate5.operand2.content.value = 0;
 
-    std::array<bool, 16> mask1 = {true, true, false};
-    proc2.gatewaysConfig.masks.push_back(mask1);
-    std::array<bool, 16> mask2 = {true, true, true, true, true, false};
-    proc2.gatewaysConfig.masks.push_back(mask2);
-    std::array<bool, MAX_PARALLEL_MATCH_NUM> key1 = {true, false, false}; // todo: different from true config
-    std::array<bool, MAX_PARALLEL_MATCH_NUM * PROC_NUM> value1 = {false};
-    value1[32] = true;
-    proc2.insert_gateway_res_2_match_table(key1, value1);
-
-    std::array<bool, MAX_PARALLEL_MATCH_NUM> key2 = {false, true, true, true, true};
-    std::array<bool, MAX_PARALLEL_MATCH_NUM * PROC_NUM> value2 = {false};
-    value2[33] = true;
-    proc2.insert_gateway_res_2_match_table(key2, value2);
+    proc2.insert_gateway_entry({true, true}, {true}, {true});
+    proc2.insert_gateway_entry({true, true, true, true, true}, {false, true ,true, true, true}, {false, true});
 
     // todo: add other entries
 
@@ -774,7 +759,7 @@ void top_heavy_hitter_config1(){
     backward_cycle_num = 50;
     read_proc_ids = {0};
     write_proc_ids = {2};
-
+    cycles_per_hb = 1;
 }
 
 struct Switch
@@ -882,8 +867,10 @@ struct Switch
 
     void Config()
     {
-        top_heavy_hitter_config2();
+//        top_heavy_hitter_config2();
+        top_heavy_hitter_config1();
     }
+
 };
 
 #endif // RPISA_SW_SWITCH_H
