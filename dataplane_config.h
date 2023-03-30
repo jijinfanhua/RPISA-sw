@@ -305,7 +305,7 @@ int cycles_per_hb;
 
 // for debug
 
-const u64 DEBUG_FLOW_ID = 256705178760184036;
+const u64 DEBUG_FLOW_ID = 71498389351104549;
 
 bool DEBUG_ENABLE = false;
 

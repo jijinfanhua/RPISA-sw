@@ -450,9 +450,9 @@ void top_heavy_hitter_config2(){
     write_proc_ids = {3, 4, 0, 0, 0};
     tags = {1, 2, 0, 1, 2};
 
-    proc_types[4] = ProcType::WRITE;
-    proc_types[1] = ProcType::READ;
-    cycles_per_hb = 2;
+//    proc_types[4] = ProcType::WRITE;
+//    proc_types[1] = ProcType::READ;
+    cycles_per_hb = 1;
 }
 
 void top_heavy_hitter_config1(){

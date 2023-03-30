@@ -8,6 +8,17 @@
 #include "../pipeline.h"
 #include "../dataplane_config.h"
 
+struct ArrayHash {
+    size_t operator()(const std::array<u32, 32>& arr, int total_size) const {
+        std::hash<u32> hasher;
+        size_t hash_val = 0;
+        for (int i = 0; i < 32; i++) {
+            hash_val ^= hasher(arr[i]) + 0x9e3779b9 + (hash_val<<6) + (hash_val>>2);
+        }
+        return hash_val & ((1ull << total_size) - 1);
+    }
+};
+
 struct GetKey : public Logic
 {
     GetKey(int id) : Logic(id) {}
@@ -263,7 +274,7 @@ struct GetHash : public Logic
             }
             if (match_table.type == 0)
             {
-                cal_hash(i, match_table_key, match_table.match_field_byte_len, match_table.number_of_hash_ways,
+                cal_hash(i, match_table_key, match_table.number_of_hash_ways,
                          match_table.hash_bit_per_way, match_table.hash_bit_sum, next);
                 next.match_table_keys[i] = match_table_key;
             }
@@ -284,7 +295,7 @@ struct GetHash : public Logic
             }
             // done: normal hash, but save hash value in particular position into phv
             // done: translate 128 bit hash value into 64 bit, low 16 bit per 32 bit, save it into two particular phvs
-            cal_hash(i, match_table_key, match_table.match_field_byte_len, match_table.number_of_hash_ways,
+            cal_hash(i, match_table_key, match_table.number_of_hash_ways,
                      match_table.hash_bit_per_way, match_table.hash_bit_sum, next);
             b128 hash_values = next.hash_values[i];
             u64 hash_value = u16_array_to_u64(hash_values);
@@ -302,49 +313,16 @@ struct GetHash : public Logic
         next.gateway_guider = now.gateway_guider;
     }
 
-    static void cal_hash(int table_id, const std::array<u32, 32> &match_table_key, int match_field_byte_len,
+    static void cal_hash(int table_id, const std::array<u32, 32> &match_table_key,
                          int number_of_hash_ways, std::array<int, 4> hash_bit_per_way, int hash_bit_sum, HashRegister &next)
     {
-        u64 hash_value = 0;
-        for (int i = 0; i < match_field_byte_len; i++)
-        {
-            hash_value += ((u64)match_table_key[i] << 32) + match_table_key[i];
-        }
 
-        // get up to 4 ways hash value to register
-        for (int i = 0; i < number_of_hash_ways; i++)
-        {
-            int left_shift = 0;
-            int right_shift = 0;
-            u32 high_bit = 0;
-            if (hash_bit_per_way[i] > 10)
-            {
-                if (i != 0)
-                {
-                    for (int j = 0; j < i; j++)
-                    {
-                        left_shift += (hash_bit_per_way[j] - 10);
-                    }
-                    left_shift += (64 - hash_bit_sum);
-                }
-                else
-                {
-                    left_shift += (64 - hash_bit_sum);
-                }
-                right_shift = 64 - left_shift - (hash_bit_per_way[i] - 10);
-                high_bit = u32(hash_value << left_shift >> left_shift >> right_shift << 10);
-            }
-            else
-            {
-                high_bit = 0;
-            }
+        auto hash_unit = ArrayHash();
+        auto hash_value = hash_unit(match_table_key, hash_bit_sum);
 
-            right_shift = (number_of_hash_ways - 1 - i) * 10;
-            left_shift = 64 - right_shift - 10;
-            u32 low_bit = (hash_value << left_shift >> (left_shift + right_shift));
-
-            // set hash value to next cycle's register
-            next.hash_values[table_id][i] = high_bit + low_bit;
+        for(int i = 0; i < number_of_hash_ways; i++){
+            next.hash_values[table_id][i] = hash_value & ((1 << hash_bit_per_way[i]) - 1);
+            hash_value = hash_value >> hash_bit_per_way[i];
         }
     }
 };

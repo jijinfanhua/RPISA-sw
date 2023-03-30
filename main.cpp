@@ -100,7 +100,9 @@ int main(int argc, char** argv) {
     Switch switch_ = Switch();
     switch_.Config();
     for(int i = 0; i < 200000; i++) {
-//        if(cycle == 89000) DEBUG_ENABLE = true;
+//        if(cycle == 16348){
+//            DEBUG_ENABLE = true;
+//        }
         std::cout << "cycle: " << cycle << endl << endl;
 //        if(cycle % 7 == 0){
 //                switch_.Execute(0, Packet());

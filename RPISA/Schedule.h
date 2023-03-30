@@ -125,21 +125,21 @@ struct VerifyStateChange : public Logic
 
         // todo: change between
         if(processor_id == 3){
-            if(verifyReg.phv[ID_IN_PHV] % 9 == 0){
+            if(verifyReg.phv[ID_IN_PHV] % 4 == 0){
                 piwReg.state_changed = true;
             }
             else{
                 piwReg.state_changed = false;
             }
         }
-        else if(processor_id == 4){
-            if(verifyReg.phv[ID_IN_PHV] % 11 == 0){
-                piwReg.state_changed = true;
-            }
-            else{
-                piwReg.state_changed = false;
-            }
-        }
+//        else if(processor_id == 4){
+//            if(verifyReg.phv[ID_IN_PHV] % 11 == 0){
+//                piwReg.state_changed = true;
+//            }
+//            else{
+//                piwReg.state_changed = false;
+//            }
+//        }
         // todo: change between
 
         piwReg.phv = verifyReg.phv;
@@ -401,18 +401,14 @@ struct PIR : public Logic {
         const ProcessorState &now_proc = now->proc_states[processor_id]; // can only be read
         ProcessorState &next_proc = next->proc_states[processor_id];     // can only be written
 
-        //todo: delete between
-        const ProcessorState& w1_proc = now->proc_states[0];
-        //todo: delete between
-
-        handle_pir_cycle(piReg, now_proc, next_proc, poReg, w1_proc);
+        handle_pir_cycle(piReg, now_proc, next_proc, poReg);
 
 //        pir_pipe_first_cycle(piReg, now_proc, next_proc, nextPIReg);
 //        pir_pipe_second_cycle(old_nextPIReg, now_proc, next_proc, poReg);
     }
 
     void handle_pir_cycle(const PIRegister &now, const ProcessorState &now_proc, ProcessorState &next_proc,
-                          PORegister &next, const ProcessorState& w1_proc) {
+                          PORegister &next) {
         next.enable1 = now.enable1;
         if (!now.enable1) {
             next.normal_pipe_schedule = false;
@@ -440,20 +436,6 @@ struct PIR : public Logic {
             next.match_table_keys = now.match_table_keys;
             return;
         }
-        // todo: delete between
-        // 测试用，如果在r2处判断w1处dirty cam有该流，则直接放过
-//        if(processor_id == 1){
-//            if(w1_proc.dirty_cam.find(get_flow_id(now.phv)) != w1_proc.dirty_cam.end()){
-//                next.normal_pipe_schedule = true;
-//                next.phv = now.phv;
-//                next.match_table_guider = now.match_table_guider;
-//                next.gateway_guider = now.gateway_guider;
-//                next.hash_values = now.hash_values;
-//                next.match_table_keys = now.match_table_keys;
-//                return;
-//            }
-//        }
-        // todo: delete between
         auto flow_id = get_flow_id(now.phv);
         auto flow_cam = next_proc.dirty_cam;
         if (flow_cam.find(flow_id) == flow_cam.end()) {
@@ -968,12 +950,6 @@ struct PIR_asyn : public Logic
             }
         }
 
-//        if(now_proc.normal_pipe_schedule_flag){
-//            // todo: directly return?
-//            // schedule normal packet,
-//            return;
-//        }
-
         auto res = std::pair<CAM_SEARCH_RES, u64>();
         FlowInfo pkt;
 
@@ -1034,28 +1010,28 @@ struct PIR_asyn : public Logic
             case WRITE_NOT_FOUND: {
                 flow_info_in_cam flow_info{};
                 // todo: for testing
-                if(processor_id == 0){
-                    auto it = r2_proc.wait_queue.begin();
-                    for(; it != r2_proc.wait_queue.end(); it++){
-                        if(it->flow_addr == res.second){
-                            flow_info.timer = backward_cycle_num + it->timer + 40;
-                            break;
-                        }
-                    }
-                    if(it == r2_proc.wait_queue.end()){
-                        flow_info.timer = backward_cycle_num;
-                    }
-                }
-
-                if(processor_id == 1){
-                    auto it = r1_proc.wait_queue.begin();
-                    for(; it != r1_proc.wait_queue.end(); it++){
-                        if(it->flow_addr == res.second){
-                            it->timer += backward_cycle_num;
-                        }
-                    }
+//                if(processor_id == 0){
+//                    auto it = r2_proc.wait_queue.begin();
+//                    for(; it != r2_proc.wait_queue.end(); it++){
+//                        if(it->flow_addr == res.second){
+//                            flow_info.timer = backward_cycle_num + it->timer + 40;
+//                            break;
+//                        }
+//                    }
+//                    if(it == r2_proc.wait_queue.end()){
+//                        flow_info.timer = backward_cycle_num;
+//                    }
+//                }
+//
+//                if(processor_id == 1){
+//                    auto it = r1_proc.wait_queue.begin();
+//                    for(; it != r1_proc.wait_queue.end(); it++){
+//                        if(it->flow_addr == res.second){
+//                            it->timer += backward_cycle_num;
+//                        }
+//                    }
                     flow_info.timer = backward_cycle_num;
-                }
+//                }
                 // todo: for testing
 
                 flow_info.flow_addr = res.second;
@@ -1070,7 +1046,7 @@ struct PIR_asyn : public Logic
                 break;
             }
             case WRITE_FOUND: {
-                const flow_info_in_cam flow_info = now_proc.dirty_cam.at(res.second);
+                const flow_info_in_cam flow_info = next_proc.dirty_cam.at(res.second);
                 auto next_flow_info = flow_info;
 
                 if (flow_info.left_pkt_num == 0)
@@ -1082,30 +1058,29 @@ struct PIR_asyn : public Logic
                     next_flow_info.cur_state = flow_info_in_cam::FSMState::SUSPEND;
                 }
                 // todo: for testing
-                if(processor_id == 0){
-                    auto it = r2_proc.wait_queue.begin();
-                    for(; it != r2_proc.wait_queue.end(); it++){
-                        if(it->flow_addr == res.second){
-                            next_flow_info.timer = backward_cycle_num + it->timer + 40;
-                            break;
-                        }
-                    }
-                    if(it == r2_proc.wait_queue.end()){
-                        next_flow_info.timer = backward_cycle_num;
-                    }
-                }
-
-                if(processor_id == 1){
-                    auto it = r1_proc.wait_queue.begin();
-                    for(; it != r1_proc.wait_queue.end(); it++){
-                        if(it->flow_addr == res.second){
-                            it->timer += backward_cycle_num;
-                        }
-                    }
+//                if(processor_id == 0){
+//                    auto it = r2_proc.wait_queue.begin();
+//                    for(; it != r2_proc.wait_queue.end(); it++){
+//                        if(it->flow_addr == res.second){
+//                            next_flow_info.timer = backward_cycle_num + it->timer + 40;
+//                            break;
+//                        }
+//                    }
+//                    if(it == r2_proc.wait_queue.end()){
+//                        next_flow_info.timer = backward_cycle_num;
+//                    }
+//                }
+//
+//                if(processor_id == 1){
+//                    auto it = r1_proc.wait_queue.begin();
+//                    for(; it != r1_proc.wait_queue.end(); it++){
+//                        if(it->flow_addr == res.second){
+//                            it->timer += backward_cycle_num;
+//                        }
+//                    }
                     next_flow_info.timer = backward_cycle_num;
-                }
+//                }
                 // todo: for testing
-//                next_flow_info.r2p_first_pkt_idx = next_flow_info.r2p_last_pkt_idx = -1;
                 if(next_proc.r2p.find(res.second) == next_proc.r2p.end()){ // only p2p buffered
                     // no need to merge
                 } else if(next_proc.p2p.find(res.second) == next_proc.p2p.end()){ // only r2p buffered
