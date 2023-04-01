@@ -296,7 +296,7 @@ std::array<int, 2> flow_id_in_phv;
 // 带状态表使用的salu序号
 std::array<std::array<int, MAX_PARALLEL_MATCH_NUM>, PROCESSOR_NUM> salu_id; 
 
-std::array<int, PROC_NUM> tags;
+std::array<int, PROCESSOR_NUM> tags;
 
 // initial increase clock
 int backward_cycle_num;

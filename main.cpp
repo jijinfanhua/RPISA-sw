@@ -46,12 +46,12 @@ std::unordered_map<u64, std::vector<int>> arrive_id_by_flow;
 
 string PARENT_DIR = "C:\\Users\\PC\\Desktop\\code\\RPISA-sw\\cmake-build-debug\\";
 string INPUT_FILE_NAME = "switch.txt";
-std::array<bool, PROC_NUM> processor_selects = {true, true, true, true, true, true};
-std::array<ofstream*, PROC_NUM> outputs{};
+std::array<bool, PROCESSOR_NUM> processor_selects = {true, true, true, true, true, true};
+std::array<ofstream*, PROCESSOR_NUM> outputs{};
 int unordered_flow_count = 0;
 
 void init_outputs(const string& parent_dir){
-    for(int i = 0; i < PROC_NUM; i++){
+    for(int i = 0; i < PROCESSOR_NUM; i++){
         if(processor_selects[i]){
             auto* output = new ofstream();
             auto output_file = parent_dir + "processor_" + to_string(i) + ".txt";

@@ -19,7 +19,6 @@ const int KEY_LENGTH = 1024;
 const int KEY_NUM = 32;
 const int VALUE_NUM = 4;
 const int HEADER_NUM = 224;
-const int PROC_NUM = 12;
 const int BUFFER_SIZE = 32;
 const int READ_TABLE_NUM = 16;
 const int SRAM_NUM = 80;
@@ -37,10 +36,6 @@ using u64 = unsigned long long;
 using b1024 = std::array<u32, KEY_NUM>;
 using b128 = std::array<u32, VALUE_NUM>;
 using PHV = std::array<u32, HEADER_NUM>; // 这里8位，16位，32位都是使用u32存的，如果真实是8，那当他是8位的就好
-
-
-using HeartBeat = array<bool, PROC_NUM>;
-
 
 // 这里分成不同的逻辑段来进行实现，他们都应继承Logic，具体的实现应该写在别的文件中
 struct GetKey   ;

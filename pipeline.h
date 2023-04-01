@@ -161,8 +161,8 @@ struct ProcessorRegister {
 struct PipeLine {
 
     // And god said, let here be processor, and here was processor.
-    std::array<ProcessorRegister, PROC_NUM> processors;
-    std::array<ProcessorState, PROC_NUM> proc_states;
+    std::array<ProcessorRegister, PROCESSOR_NUM> processors;
+    std::array<ProcessorState, PROCESSOR_NUM> proc_states;
 
 };
 
