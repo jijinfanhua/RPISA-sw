@@ -10,24 +10,6 @@ using namespace std;
 #include "defs.h"
 #include "Switch/Switch.h"
 
-Packet fake_packet(){
-    Packet input_packet = Packet();
-    input_packet.push_back(1);
-    input_packet.push_back(2);
-    input_packet.push_back(3);
-    input_packet.push_back(4);
-    input_packet.push_back(5);
-    input_packet.push_back(6);
-    input_packet.push_back(7);
-    input_packet.push_back(8);
-    input_packet.push_back(9);
-    input_packet.push_back(10);
-    input_packet.push_back(11);
-    input_packet.push_back(12);
-    input_packet.push_back(13);
-    return input_packet;
-}
-
 string read_from_file(ifstream& fin){
     string line;
     getline(fin, line);

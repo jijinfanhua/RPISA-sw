@@ -281,7 +281,7 @@ std::array<std::array<int, 16>, PROCESSOR_NUM> state_idx_in_phv;
 
 struct SavedState
 {
-    std::array<int, 4> saved_state_idx_in_phv;
+    std::array<int, 16> saved_state_idx_in_phv;
     std::array<int, 4> state_lengths;
     int state_num;
 };
