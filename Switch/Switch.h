@@ -849,7 +849,7 @@ void nat(){
     proc1.insert_gateway_entry({true}, {true}, {true});
 
     proc1.matchTableConfig.match_table_num = 2;
-    auto& config_1 = proc0.matchTableConfig.matchTables[0];
+    auto& config_1 = proc1.matchTableConfig.matchTables[0];
     config_1.type = 1;
     config_1.depth = 1;
     config_1.key_width = 1;
@@ -870,7 +870,7 @@ void nat(){
     config_1.value_sram_index_per_hash_way[2] = {5};
     config_1.value_sram_index_per_hash_way[3] = {7};
 
-    auto& config_2 = proc0.matchTableConfig.matchTables[1];
+    auto& config_2 = proc1.matchTableConfig.matchTables[1];
     config_2.type = 1;
     config_2.depth = 1;
     config_2.key_width = 1;
@@ -890,6 +890,8 @@ void nat(){
     config_2.value_sram_index_per_hash_way[1] = {11};
     config_2.value_sram_index_per_hash_way[2] = {13};
     config_2.value_sram_index_per_hash_way[3] = {15};
+
+    proc1.commit();
 
     auto& salu10 = SALUs[1][0];
     salu10.salu_id = 224;
@@ -981,7 +983,66 @@ void nat(){
     saved_state_1.saved_state_idx_in_phv = {163, 164, 165, 166, 167, 168, 169, 170};
     // processor 2 finished
 
+    ProcessorConfig proc2 = ProcessorConfig(2);
+    for(int i = 0; i < 8; i++){
+        proc2.push_back_get_key_use_container(163+i, 32, 4*i, 4*i+1, 4*i+2, 4*i+3);
+    }
+    proc2.push_back_get_key_use_container(3, 8, 32);
 
+    auto& gate_21 = proc2.gatewaysConfig.gates[0];
+    gate_21.op = GatewaysConfig::Gate::EQ;
+    gate_21.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_21.operand1.content.operand_match_field_byte = {1, {32}};
+    gate_21.operand2.type = GatewaysConfig::Gate::Parameter::CONST;
+    gate_21.operand2.content.value = 1;
+
+    auto& gate_22 = proc2.gatewaysConfig.gates[1];
+    gate_22.op = GatewaysConfig::Gate::LTE;
+    gate_22.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_22.operand1.content.operand_match_field_byte = {4, {16, 17, 18, 19}};
+    gate_22.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_22.operand2.content.operand_match_field_byte = {4, {20, 21, 22, 23}};
+
+    auto& gate_23 = proc2.gatewaysConfig.gates[2];
+    gate_23.op = GatewaysConfig::Gate::LTE;
+    gate_23.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_23.operand1.content.operand_match_field_byte = {4, {16, 17, 18, 19}};
+    gate_23.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_23.operand2.content.operand_match_field_byte = {4, {24, 25, 26, 27}};
+
+    auto& gate_24 = proc2.gatewaysConfig.gates[3];
+    gate_24.op = GatewaysConfig::Gate::LTE;
+    gate_24.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_24.operand1.content.operand_match_field_byte = {4, {16, 17, 18, 19}};
+    gate_24.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_24.operand2.content.operand_match_field_byte = {4, {28, 29, 30, 31}};
+
+    auto& gate_25 = proc2.gatewaysConfig.gates[4];
+    gate_25.op = GatewaysConfig::Gate::LTE;
+    gate_25.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_25.operand1.content.operand_match_field_byte = {4, {20, 21, 22, 23}};
+    gate_25.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_25.operand2.content.operand_match_field_byte = {4, {24, 25, 26, 27}};
+
+    auto& gate_26 = proc2.gatewaysConfig.gates[5];
+    gate_26.op = GatewaysConfig::Gate::LTE;
+    gate_26.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_26.operand1.content.operand_match_field_byte = {4, {20, 21, 22, 23}};
+    gate_26.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_26.operand2.content.operand_match_field_byte = {4, {28, 29, 30, 31}};
+
+    auto& gate_27 = proc2.gatewaysConfig.gates[6];
+    gate_27.op = GatewaysConfig::Gate::LTE;
+    gate_27.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_27.operand1.content.operand_match_field_byte = {4, {24, 25, 26, 27}};
+    gate_27.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_27.operand2.content.operand_match_field_byte = {4, {28, 29, 30, 31}};
+
+    proc2.insert_gateway_entry({true}, {false}, {false, false, false, false, true});
+    proc2.insert_gateway_entry({true, true, true, true}, {true, true, true, true}, {true});
+    proc2.insert_gateway_entry({true, true, false, false, true}, {true, false, false, false, true, true}, {false, true});
+    proc2.insert_gateway_entry({true, false, true, false, true, false, true}, {true, false, false, false, false, false, true}, {false, false, true});
+    proc2.insert_gateway_entry({true, false, false, false, true, false, true}, {true}, {false, false, false, true});
 }
 
 struct Switch
