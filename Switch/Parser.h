@@ -94,7 +94,7 @@ string conversion(string str, int m, int n){
     return result;
 }
 
-Packet input_to_packet(const string& input){
+Packet input_to_packet(const string& input, const string& pkt_length){
     Packet output = Packet();
     // src ip 32 bit; dst ip 32 bit; src_addr 16 bit; dst addr 16 bit; is_tcp 1 bit
     string result = conversion(input, 2, 10);
@@ -106,6 +106,8 @@ Packet input_to_packet(const string& input){
         output.push_back(input_byte);
     }
     output.push_back(bitset<1>(bitsStr.substr(96, 1)).to_ulong());
+
+    output.push_back(pkt_length.)
 
     return output;
 }

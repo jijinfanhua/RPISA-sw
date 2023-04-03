@@ -10,7 +10,7 @@ using namespace std;
 #include "defs.h"
 #include "Switch/Switch.h"
 
-string read_from_file(string& line){
+string read_five_tuple_from_file(const string& line){
     if(line == ""){
         return "";
     }
@@ -20,6 +20,14 @@ string read_from_file(string& line){
         string result = line.substr(start_pos+1, end_pos-start_pos-1);
         return result;
     }
+}
+
+string read_pkt_length_from_file(const string& line){
+    int pos_1 = line.find("'");
+    int pos_2 = line.find("'", pos_1+1);
+    int start_pos = line.find("'", pos_2+1);
+    int end_pos = line.find("'", start_pos+1);
+    return line.substr(start_pos+1, end_pos-start_pos-1);
 }
 
 std::unordered_map<u64, std::vector<int>> arrive_id_by_flow;
@@ -90,13 +98,14 @@ int main(int argc, char** argv) {
 //        else{
         string line;
         getline(infile, line);
-        string input = read_from_file(line);
+        string input = read_five_tuple_from_file(line);
+        string pkt_length = read_pkt_length_from_file(line);
         if(input == ""){
             switch_.Execute(0, Packet(), cycle);
         }
         else{
             pkt += 1;
-            switch_.Execute(1, input_to_packet(input), cycle);
+            switch_.Execute(1, input_to_packet(input, pkt_length), cycle);
         }
 //        }
 
