@@ -838,15 +838,7 @@ void nat(){
     proc1.push_back_get_key_use_container(3, 8, 0);
     proc1.push_back_get_key_use_container(161, 32, 1, 2, 3, 4);
 
-    auto& gate_1 = proc1.gatewaysConfig.gates[0];
-    gate_1.op = GatewaysConfig::Gate::EQ;
-    gate_1.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_1.operand1.content.operand_match_field_byte = {1, {0}};
-    gate_1.operand2.type = GatewaysConfig::Gate::Parameter::CONST;
-    gate_1.operand2.content.value = 1;
-
-    proc1.insert_gateway_entry({true}, {false}, {false});
-    proc1.insert_gateway_entry({true}, {true}, {true});
+    proc1.insert_gateway_entry({false}, {false}, {true});
 
     proc1.matchTableConfig.match_table_num = 2;
     auto& config_1 = proc1.matchTableConfig.matchTables[0];
@@ -987,12 +979,13 @@ void nat(){
     for(int i = 0; i < 8; i++){
         proc2.push_back_get_key_use_container(163+i, 32, 4*i, 4*i+1, 4*i+2, 4*i+3);
     }
-    proc2.push_back_get_key_use_container(3, 8, 32);
+    proc2.push_back_get_key_use_container(162, 32, 32, 33, 34, 35);
+    proc2.push_back_get_key_use_container(3, 8, 36);
 
     auto& gate_21 = proc2.gatewaysConfig.gates[0];
     gate_21.op = GatewaysConfig::Gate::EQ;
     gate_21.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_21.operand1.content.operand_match_field_byte = {1, {32}};
+    gate_21.operand1.content.operand_match_field_byte = {1, {36}};
     gate_21.operand2.type = GatewaysConfig::Gate::Parameter::CONST;
     gate_21.operand2.content.value = 1;
 
@@ -1038,11 +1031,167 @@ void nat(){
     gate_27.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
     gate_27.operand2.content.operand_match_field_byte = {4, {28, 29, 30, 31}};
 
-    proc2.insert_gateway_entry({true}, {false}, {false, false, false, false, true});
+    auto& gate_28 = proc2.gatewaysConfig.gates[7];
+    gate_28.op = GatewaysConfig::Gate::EQ;
+    gate_28.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_28.operand1.content.operand_match_field_byte = {4, {32, 33, 34, 35}};
+    gate_28.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_28.operand2.content.operand_match_field_byte = {4, {16, 17, 18, 19}};
+
+    auto& gate_29 = proc2.gatewaysConfig.gates[8];
+    gate_29.op = GatewaysConfig::Gate::EQ;
+    gate_29.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_29.operand1.content.operand_match_field_byte = {4, {32, 33, 34, 35}};
+    gate_29.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_29.operand2.content.operand_match_field_byte = {4, {20, 21, 22, 23}};
+
+    auto& gate_210 = proc2.gatewaysConfig.gates[9];
+    gate_210.op = GatewaysConfig::Gate::EQ;
+    gate_210.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_210.operand1.content.operand_match_field_byte = {4, {32, 33, 34, 35}};
+    gate_210.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_210.operand2.content.operand_match_field_byte = {4, {24, 25, 26, 27}};
+
+    auto& gate_211 = proc2.gatewaysConfig.gates[10];
+    gate_211.op = GatewaysConfig::Gate::EQ;
+    gate_211.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_211.operand1.content.operand_match_field_byte = {4, {32, 33, 34, 35}};
+    gate_211.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
+    gate_211.operand2.content.operand_match_field_byte = {4, {28, 29, 30, 31}};
+
     proc2.insert_gateway_entry({true, true, true, true}, {true, true, true, true}, {true});
     proc2.insert_gateway_entry({true, true, false, false, true}, {true, false, false, false, true, true}, {false, true});
     proc2.insert_gateway_entry({true, false, true, false, true, false, true}, {true, false, false, false, false, false, true}, {false, false, true});
     proc2.insert_gateway_entry({true, false, false, false, true, false, true}, {true}, {false, false, false, true});
+
+    proc2.insert_gateway_entry({true, false, false, false, false, false, false, true}, {false, false, false, false, false, false, false, true}, {false, false, false, false, true});
+    proc2.insert_gateway_entry({true, false, false, false, false, false, false, false, true}, {false, false, false, false, false, false, false, false, true}, {false, false, false, false, false, true});
+    proc2.insert_gateway_entry({true, false, false, false, false, false, false, false, false, true}, {false, false, false, false, false, false, false, false, false, true}, {false, false, false, false, false, false, true});
+    proc2.insert_gateway_entry({true, false, false, false, false, false, false, false, false, false, true}, {false, false, false, false, false, false, false, false, false, false, true}, {false, false, false, false, false, false, false, true});
+
+    proc2.matchTableConfig.match_table_num = 8;
+    for(int i = 0; i < 8; i++){
+        proc2.matchTableConfig.matchTables[i].default_action_id = i;
+    }
+
+    proc2.commit();
+
+    auto& action20 = actionConfigs[2].actions[0];
+    action20.action_id = 0;
+    action20.vliw_enabler = {false};
+    action20.vliw_enabler[162] = true;
+    action20.alu_configs[162].op = ALUnit::SET;
+    action20.alu_configs[162].operand1.type = ALUnit::Parameter::HEADER;
+    action20.alu_configs[162].operand1.content.phv_id = 163;
+    action20.vliw_enabler[167] = true;
+    action20.alu_configs[167].op = ALUnit::PLUS;
+    action20.alu_configs[167].operand1.type = ALUnit::Parameter::HEADER;
+    action20.alu_configs[167].operand1.content.phv_id = 2;
+    action20.alu_configs[167].operand2.type = ALUnit::Parameter::HEADER;
+    action20.alu_configs[167].operand2.content.phv_id = 167;
+
+    auto& action21 = actionConfigs[2].actions[1];
+    action21.action_id = 1;
+    action21.vliw_enabler = {false};
+    action21.vliw_enabler[162] = true;
+    action21.alu_configs[162].op = ALUnit::SET;
+    action21.alu_configs[162].operand1.type = ALUnit::Parameter::HEADER;
+    action21.alu_configs[162].operand1.content.phv_id = 164;
+    action21.vliw_enabler[168] = true;
+    action21.alu_configs[168].op = ALUnit::PLUS;
+    action21.alu_configs[168].operand1.type = ALUnit::Parameter::HEADER;
+    action21.alu_configs[168].operand1.content.phv_id = 2;
+    action21.alu_configs[168].operand2.type = ALUnit::Parameter::HEADER;
+    action21.alu_configs[168].operand2.content.phv_id = 168;
+
+    auto& action22 = actionConfigs[2].actions[2];
+    action22.action_id = 2;
+    action22.vliw_enabler = {false};
+    action22.vliw_enabler[162] = true;
+    action22.alu_configs[162].op = ALUnit::SET;
+    action22.alu_configs[162].operand1.type = ALUnit::Parameter::HEADER;
+    action22.alu_configs[162].operand1.content.phv_id = 165;
+    action22.vliw_enabler[169] = true;
+    action22.alu_configs[169].op = ALUnit::PLUS;
+    action22.alu_configs[169].operand1.type = ALUnit::Parameter::HEADER;
+    action22.alu_configs[169].operand1.content.phv_id = 2;
+    action22.alu_configs[169].operand2.type = ALUnit::Parameter::HEADER;
+    action22.alu_configs[169].operand2.content.phv_id = 169;
+
+    auto& action23 = actionConfigs[2].actions[3];
+    action23.action_id = 3;
+    action23.vliw_enabler = {false};
+    action23.vliw_enabler[162] = true;
+    action23.alu_configs[162].op = ALUnit::SET;
+    action23.alu_configs[162].operand1.type = ALUnit::Parameter::HEADER;
+    action23.alu_configs[162].operand1.content.phv_id = 166;
+    action23.vliw_enabler[170] = true;
+    action23.alu_configs[170].op = ALUnit::PLUS;
+    action23.alu_configs[170].operand1.type = ALUnit::Parameter::HEADER;
+    action23.alu_configs[170].operand1.content.phv_id = 2;
+    action23.alu_configs[170].operand2.type = ALUnit::Parameter::HEADER;
+    action23.alu_configs[170].operand2.content.phv_id = 170;
+
+    auto& action24 = actionConfigs[2].actions[4];
+    action24.action_id = 4;
+    action24.vliw_enabler = {false};
+    action24.vliw_enabler[167] = true;
+    action24.alu_configs[167].op = ALUnit::PLUS;
+    action24.alu_configs[167].operand1.type = ALUnit::Parameter::HEADER;
+    action24.alu_configs[167].operand1.content.phv_id = 2;
+    action24.alu_configs[167].operand2.type = ALUnit::Parameter::HEADER;
+    action24.alu_configs[167].operand2.content.phv_id = 167;
+
+    auto& action25 = actionConfigs[2].actions[5];
+    action25.action_id = 5;
+    action25.vliw_enabler = {false};
+    action25.vliw_enabler[168] = true;
+    action25.alu_configs[168].op = ALUnit::PLUS;
+    action25.alu_configs[168].operand1.type = ALUnit::Parameter::HEADER;
+    action25.alu_configs[168].operand1.content.phv_id = 2;
+    action25.alu_configs[168].operand2.type = ALUnit::Parameter::HEADER;
+    action25.alu_configs[168].operand2.content.phv_id = 168;
+
+    auto& action26 = actionConfigs[2].actions[6];
+    action26.action_id = 6;
+    action26.vliw_enabler = {false};
+    action26.vliw_enabler[169] = true;
+    action26.alu_configs[169].op = ALUnit::PLUS;
+    action26.alu_configs[169].operand1.type = ALUnit::Parameter::HEADER;
+    action26.alu_configs[169].operand1.content.phv_id = 2;
+    action26.alu_configs[169].operand2.type = ALUnit::Parameter::HEADER;
+    action26.alu_configs[169].operand2.content.phv_id = 169;
+
+    auto& action27 = actionConfigs[2].actions[7];
+    action27.action_id = 7;
+    action27.vliw_enabler = {false};
+    action27.vliw_enabler[170] = true;
+    action27.alu_configs[170].op = ALUnit::PLUS;
+    action27.alu_configs[170].operand1.type = ALUnit::Parameter::HEADER;
+    action27.alu_configs[170].operand1.content.phv_id = 2;
+    action27.alu_configs[170].operand2.type = ALUnit::Parameter::HEADER;
+    action27.alu_configs[170].operand2.content.phv_id = 170;
+
+    proc_types[2] = WRITE;
+    state_idx_in_phv[2] = {162};
+    auto& saved_state_2 = state_saved_idxs[2];
+    saved_state_2.state_num = 1;
+    saved_state_2.state_lengths = {1};
+    saved_state_2.saved_state_idx_in_phv = {162};
+    // processor 3 finished
+
+    proc_types[3] = WRITE;
+    state_idx_in_phv[3] = {163, 164, 165, 166, 167, 168, 169, 170};
+    auto& saved_state_3 = state_saved_idxs[3];
+    saved_state_3.state_num = 2;
+    saved_state_3.state_lengths = {4, 4};
+    saved_state_3.saved_state_idx_in_phv = {163, 164, 165, 166, 167, 168, 169, 170};
+    // processor 4 finished
+
+    read_proc_ids = {0, 0, 0, 1};
+    write_proc_ids = {2, 3, 0, 0};
+    backward_cycle_num = 50;
+    cycles_per_hb = 2;
 }
 
 struct Switch

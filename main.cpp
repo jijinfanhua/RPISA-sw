@@ -10,9 +10,7 @@ using namespace std;
 #include "defs.h"
 #include "Switch/Switch.h"
 
-string read_from_file(ifstream& fin){
-    string line;
-    getline(fin, line);
+string read_from_file(string& line){
     if(line == ""){
         return "";
     }
@@ -90,7 +88,9 @@ int main(int argc, char** argv) {
 //                switch_.Execute(0, Packet());
 //        }
 //        else{
-        string input = read_from_file(infile);
+        string line;
+        getline(infile, line);
+        string input = read_from_file(line);
         if(input == ""){
             switch_.Execute(0, Packet(), cycle);
         }
