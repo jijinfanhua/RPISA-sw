@@ -118,15 +118,18 @@ struct Gateway : public Logic
         next.gateway_guider = now.gateway_guider;
 
         auto gatewayConfig = gatewaysConfigs[processor_id];
-        for(auto mask: gatewayConfig.masks){
+        int gateway_entry_num = gatewayConfig.masks.size();
+        for(int k = 0; k < gateway_entry_num; k++){
             std::array<bool, 16> after_mask = {false};
+            auto mask = gatewayConfig.masks[k];
+            auto key = gatewayConfig.keys[k];
+            auto value = gatewayConfig.values[k];
             for(int i = 0; i < MAX_PARALLEL_MATCH_NUM; i++){
                 after_mask[i] = mask[i] & now.gate_res[i];
             }
             u32 res = bool_array_2_u32(after_mask);
-            if(gatewayConfig.gateway_res_2_match_tables.find(res) != gatewayConfig.gateway_res_2_match_tables.end()){
-
-                auto match_bitmap = gatewayConfig.gateway_res_2_match_tables[res];
+            if(res == key){
+                auto match_bitmap = value;
                 auto gateway_bitmap = gatewayConfig.gateway_res_2_gates[res];
                 // get the newest match table guider and gateway guider
                 for (int i = processor_id * 16; i < MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM; i++)
@@ -302,9 +305,9 @@ struct GetHash : public Logic
 
             next.match_table_keys[i] = match_table_key;
             // high 32 bit
-            phv[phv_id_to_save_hash_value[processor_id][i][0]] = hash_value >> 32;
+            phv[match_table.hash_in_phv[0]] = hash_value >> 32;
             // low 32 bit
-            phv[phv_id_to_save_hash_value[processor_id][i][1]] = hash_value << 32 >> 32;
+            phv[match_table.hash_in_phv[1]] = hash_value << 32 >> 32;
         }
 
         next.key = now.key;
@@ -520,7 +523,7 @@ struct Compare : public Logic
             {
                 // done: four ways; fit the salu
                 int found_flag = 0;
-                b128 key_to_compare = u64_to_u16_array(u32_to_u64(now.phv[flow_id_in_phv[0]], now.phv[flow_id_in_phv[1]]));
+                b128 key_to_compare = u64_to_u16_array(u32_to_u64(now.phv[match_table.hash_in_phv[0]], now.phv[match_table.hash_in_phv[1]]));
                 for (int j = 0; j < match_table.number_of_hash_ways; j++)
                 {
                     // key is only 128 bit long
@@ -544,15 +547,15 @@ struct Compare : public Logic
                 }
                 continue;
             }
-            int found_flag = 0;
             for (int j = 0; j < match_table.number_of_hash_ways; j++)
             {
+                int found_flag = 1;
                 // compare obtained key with original key
                 for (int k = 0; k < match_table.key_width; k++)
                 {
-                    if (now.match_table_keys[i][k * 4 + 0] == now.obtained_keys[i][j][k][0] && now.match_table_keys[i][k * 4 + 1] == now.obtained_keys[i][j][k][1] && now.match_table_keys[i][k * 4 + 2] == now.obtained_keys[i][j][k][2] && now.match_table_keys[i][k * 4 + 3] == now.obtained_keys[i][j][k][3])
+                    if (now.match_table_keys[i][k * 4 + 0] != now.obtained_keys[i][j][k][0] || now.match_table_keys[i][k * 4 + 1] != now.obtained_keys[i][j][k][1] || now.match_table_keys[i][k * 4 + 2] != now.obtained_keys[i][j][k][2] || now.match_table_keys[i][k * 4 + 3] != now.obtained_keys[i][j][k][3])
                     {
-                        found_flag = 1;
+                        found_flag = 0;
                     }
                 }
                 if (found_flag == 1)

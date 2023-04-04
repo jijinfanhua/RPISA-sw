@@ -115,22 +115,22 @@ struct VerifyStateChange : public Logic
         }
 
         auto state_saved = state_saved_idxs[processor_id];
-//        for (int i = 0; i < state_saved.state_num; i++)
-//        {
-//            if (verifyReg.phv_changed_tags[state_saved.saved_state_idx_in_phv[i]])
-//            {
-//                piwReg.state_changed = true;
-//            }
-//        }
+        for (int i = 0; i < state_saved.state_num; i++)
+        {
+            if (verifyReg.phv_changed_tags[state_saved.saved_state_idx_in_phv[i]])
+            {
+                piwReg.state_changed = true;
+            }
+        }
 
         // todo: change between
 //        if(processor_id == 3){
-            if(verifyReg.phv[ID_IN_PHV] % 4 == 0){
-                piwReg.state_changed = true;
-            }
-            else{
-                piwReg.state_changed = false;
-            }
+//            if(verifyReg.phv[ID_IN_PHV] % 4 == 0){
+//                piwReg.state_changed = true;
+//            }
+//            else{
+//                piwReg.state_changed = false;
+//            }
 //        }
 //        else if(processor_id == 4){
 //            if(verifyReg.phv[ID_IN_PHV] % 11 == 0){
@@ -1311,7 +1311,7 @@ struct PIR_asyn : public Logic
                 }
                 next_proc.schedule_queue.push_back(next_schedule_flow);
 
-                // update in dirty cam
+                // Update in dirty cam
                 next_proc.dirty_cam[next_schedule_flow.flow_addr] = next_schedule_flow;
 
                 // delete the flow in the wait_queue

@@ -35,7 +35,8 @@ struct ProcessorConfig
         actionConfig.processor_id = id;
 
         gatewaysConfig.masks.clear();
-        gatewaysConfig.gateway_res_2_match_tables.clear();
+        gatewaysConfig.keys.clear();
+        gatewaysConfig.values.clear();
         gatewaysConfig.gateway_res_2_gates.clear();
     }
 
@@ -113,18 +114,19 @@ private:
     }
 
 public:
-    void insert_gateway_res_2_match_table(
-        const array<bool, GATEWAY_NUM> &key,
-        const array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM> &value)
-    {
-        gatewaysConfig.gateway_res_2_match_tables[bool_array_2_u32(key)] = value;
+
+   void insert_gateway_entry(std::array<bool, GATEWAY_NUM> mask, std::array<bool, GATEWAY_NUM> key, std::array<bool, GATEWAY_NUM> value){
+        gatewaysConfig.masks.push_back(mask);
+        std::array<bool, PROCESSOR_NUM*GATEWAY_NUM> v{};
+        std::copy(value.begin(), value.end(), v.begin() + processor_id*GATEWAY_NUM);
+        gatewaysConfig.values.push_back(v);
+        gatewaysConfig.keys.push_back(bool_array_2_u32(key));
     }
 
-   void insert_gateway_entry(std::array<bool, MAX_PARALLEL_MATCH_NUM> mask, std::array<bool, MAX_PARALLEL_MATCH_NUM> key, std::array<bool, MAX_PARALLEL_MATCH_NUM> value){
-        gatewaysConfig.masks.push_back(mask);
-        std::array<bool, PROCESSOR_NUM*MAX_PARALLEL_MATCH_NUM> v{};
-        std::copy(value.begin(), value.end(), v.begin() + processor_id*MAX_PARALLEL_MATCH_NUM);
-       insert_gateway_res_2_match_table(key, v);
+    void set_gateway_enable(const std::vector<int>& enable_id) const{
+        for(auto i: enable_id){
+            gateway_guider[GATEWAY_NUM*processor_id+i] = true;
+        }
     }
 
     void commit() const
@@ -765,6 +767,7 @@ void top_heavy_hitter_config1(){
 void nat(){
     flow_id_in_phv = {171, 172};
 
+
     ProcessorConfig proc0 = ProcessorConfig(0);
 
     proc0.push_back_get_key_use_container(0, 8, 0);
@@ -781,7 +784,7 @@ void nat(){
     config_0.depth = 1;
     config_0.key_width = 1;
     config_0.value_width = 1;
-    config_0.hash_in_phv = {166, 167};
+    config_0.hash_in_phv = {171, 172};
     config_0.match_field_byte_len = 13;
     config_0.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
     config_0.number_of_hash_ways = 4; // stateful tables also using 4 way hash
@@ -838,7 +841,7 @@ void nat(){
     proc1.push_back_get_key_use_container(3, 8, 0);
     proc1.push_back_get_key_use_container(161, 32, 1, 2, 3, 4);
 
-    proc1.insert_gateway_entry({false}, {false}, {true});
+    proc1.insert_gateway_entry({false}, {false}, {true, true});
 
     proc1.matchTableConfig.match_table_num = 2;
     auto& config_1 = proc1.matchTableConfig.matchTables[0];
@@ -1059,15 +1062,17 @@ void nat(){
     gate_211.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
     gate_211.operand2.content.operand_match_field_byte = {4, {28, 29, 30, 31}};
 
-    proc2.insert_gateway_entry({true, true, true, true}, {true, true, true, true}, {true});
-    proc2.insert_gateway_entry({true, true, false, false, true}, {true, false, false, false, true, true}, {false, true});
-    proc2.insert_gateway_entry({true, false, true, false, true, false, true}, {true, false, false, false, false, false, true}, {false, false, true});
-    proc2.insert_gateway_entry({true, false, false, false, true, false, true}, {true}, {false, false, false, true});
+    proc2.set_gateway_enable({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
 
-    proc2.insert_gateway_entry({true, false, false, false, false, false, false, true}, {false, false, false, false, false, false, false, true}, {false, false, false, false, true});
-    proc2.insert_gateway_entry({true, false, false, false, false, false, false, false, true}, {false, false, false, false, false, false, false, false, true}, {false, false, false, false, false, true});
-    proc2.insert_gateway_entry({true, false, false, false, false, false, false, false, false, true}, {false, false, false, false, false, false, false, false, false, true}, {false, false, false, false, false, false, true});
-    proc2.insert_gateway_entry({true, false, false, false, false, false, false, false, false, false, true}, {false, false, false, false, false, false, false, false, false, false, true}, {false, false, false, false, false, false, false, true});
+    proc2.insert_gateway_entry({true, true, true, true}, {false, true, true, true}, {true});
+    proc2.insert_gateway_entry({true, true, false, false, true}, {false, false, false, false, true, true}, {false, true});
+    proc2.insert_gateway_entry({true, false, true, false, true, false, true}, {false, false, false, false, false, false, true}, {false, false, true});
+    proc2.insert_gateway_entry({true, false, false, false, true, false, true}, {}, {false, false, false, true});
+
+    proc2.insert_gateway_entry({true, false, false, false, false, false, false, true}, {true, false, false, false, false, false, false, true}, {false, false, false, false, true});
+    proc2.insert_gateway_entry({true, false, false, false, false, false, false, false, true}, {true, false, false, false, false, false, false, false, true}, {false, false, false, false, false, true});
+    proc2.insert_gateway_entry({true, false, false, false, false, false, false, false, false, true}, {true, false, false, false, false, false, false, false, false, true}, {false, false, false, false, false, false, true});
+    proc2.insert_gateway_entry({true, false, false, false, false, false, false, false, false, false, true}, {true, false, false, false, false, false, false, false, false, false, true}, {false, false, false, false, false, false, false, true});
 
     proc2.matchTableConfig.match_table_num = 8;
     for(int i = 0; i < 8; i++){
@@ -1190,7 +1195,7 @@ void nat(){
 
     read_proc_ids = {0, 0, 0, 1};
     write_proc_ids = {2, 3, 0, 0};
-    backward_cycle_num = 50;
+    backward_cycle_num = 75;
     cycles_per_hb = 2;
 }
 
@@ -1231,6 +1236,10 @@ struct Switch
         if (interface != 0)
         {
             PHV phv = parser.parse(packet);
+            // todo: change between
+            insertKeyValuePairToMatchTable(1, matchTableConfigs[1].matchTables[0], phv, {1,2,3,4});
+            insertKeyValuePairToMatchTable(1, matchTableConfigs[1].matchTables[1], phv, {0,0,0,0});
+            // todo: change between
             phv[ID_IN_PHV] = arrive_id;
             pipeline_->processors[0].getKeys.enable1 = true;
             pipeline_->processors[0].getKeys.phv = phv;
@@ -1251,7 +1260,7 @@ struct Switch
         next = new PipeLine();
         GetInput(interface, packet, next, arrive_id);
         for(int i = 0; i < PROCESSOR_NUM; i++){
-            update();
+            Update();
             next->proc_states[i] = pipeline->proc_states[i];
         }
         for (auto &logic : logics)
@@ -1291,7 +1300,7 @@ struct Switch
         }
     };
 
-    void update(){
+    void Update(){
         for(int i = 0; i < PROCESSOR_NUM; i++){
                 pipeline->proc_states[i].update();
         }
@@ -1300,7 +1309,102 @@ struct Switch
     void Config()
     {
 //        top_heavy_hitter_config2();
-        top_heavy_hitter_config1();
+        nat();
+    }
+
+    static void insertKeyValuePairToMatchTable(int processor_id, MatchTableConfig::MatchTable match_table, PHV phv, std::array<b128, 8> value){
+        // get key
+        GetKeyConfig getKeyConfig = getKeyConfigs[processor_id];
+        std::array<u32, 32> key{};
+        for (int i = 0; i < getKeyConfig.used_container_num; i++)
+        {
+            GetKeyConfig::UsedContainer2MatchFieldByte it = getKeyConfig.used_container_2_match_field_byte[i];
+            int id = it.used_container_id;
+            if (it.container_type == GetKeyConfig::UsedContainer2MatchFieldByte::U8)
+            {
+                key[it.match_field_byte_ids[0]] = phv[id];
+            }
+            else if (it.container_type == GetKeyConfig::UsedContainer2MatchFieldByte::U16)
+            {
+                key[it.match_field_byte_ids[0]] = phv[id] << 16 >> 24;
+                key[it.match_field_byte_ids[1]] = phv[id] << 24 >> 24;
+            }
+            else
+            {
+                key[it.match_field_byte_ids[0]] = phv[id] >> 24;
+                key[it.match_field_byte_ids[1]] = phv[id] << 8 >> 24;
+                key[it.match_field_byte_ids[2]] = phv[id] << 16 >> 24;
+                key[it.match_field_byte_ids[3]] = phv[id] << 24 >> 24;
+            }
+        }
+
+        // hash
+        std::array<u32, 32> match_table_key{};
+        for (int j = 0; j < match_table.match_field_byte_len; j++)
+        {
+            match_table_key[j] = key[match_table.match_field_byte_ids[j]];
+        }
+        std::array<u32, 4> hash_values{};
+        auto hash_unit = ArrayHash();
+        auto hash_value = hash_unit(match_table_key, match_table.hash_bit_sum);
+
+        for(int i = 0; i < match_table.number_of_hash_ways; i++){
+            hash_values[i] = hash_value & ((1 << match_table.hash_bit_per_way[i]) - 1);
+            hash_value = hash_value >> match_table.hash_bit_per_way[i];
+        }
+
+        // write
+        for (int j = 0; j < match_table.number_of_hash_ways; j++)
+        {
+            // translate from hash to addr
+            u32 start_key_index = (hash_values[j] >> 10) * match_table.key_width;
+            u32 start_value_index = (hash_values[j] >> 10) * match_table.value_width;
+            auto on_chip_addr = (hash_values[j] << 22 >> 22);
+            std::array<int, 8> key_sram_columns{};
+            std::array<int, 8> value_sram_columns{};
+            std::array<b128, 8> obtained_key{};
+
+            for (int k = 0; k < match_table.key_width; k++)
+            {
+                // in fact, key_width & value_width here must be 1
+                key_sram_columns[k] = match_table.key_sram_index_per_hash_way[j][start_key_index + k];
+                obtained_key[k] = SRAMs[processor_id][key_sram_columns[k]].get(on_chip_addr);
+            }
+            for (int k = 0; k < match_table.value_width; k++)
+            {
+                value_sram_columns[k] = match_table.value_sram_index_per_hash_way[j][start_value_index + k];
+            }
+
+            // compare key & flow_id (here use flow_id as identifier of a match key)
+
+            bool vacant_flag = true;
+            for(int k = 0; k < match_table.key_width; k++){
+                if(obtained_key[k][0] != 0 || obtained_key[k][1] != 0 || obtained_key[k][2] != 0 || obtained_key[k][3] != 0){
+                    vacant_flag = false;
+                    break;
+                }
+            }
+            if(vacant_flag){
+                // vacant entry
+                // write value to proper position
+                if(match_table.type == 1){
+                    SRAMs[processor_id][key_sram_columns[0]].set(int(on_chip_addr), hash_values);
+                }
+                else if(match_table.type == 0){
+                    for(int k = 0; k < match_table.key_width; k++){
+                        SRAMs[processor_id][key_sram_columns[k]].set(int(on_chip_addr), {match_table_key[4*k], match_table_key[4*k+1], match_table_key[4*k+2], match_table_key[4*k+3]});
+                    }
+                }
+                for(int k = 0; k < match_table.value_width; k++){
+                    SRAMs[processor_id][value_sram_columns[k]].set(int(on_chip_addr), value[k]);
+                }
+                break;
+            }
+        }
+    }
+
+    void dataplaneConfig(){
+
     }
 
 };

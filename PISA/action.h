@@ -27,10 +27,14 @@ struct GetAction : public Logic {
         auto matchTableConfig = matchTableConfigs[processor_id];
         std::array<bool, MAX_PHV_CONTAINER_NUM + MAX_SALU_NUM> vliw_enabler = {false};
         int action_data_id_base = 0;
+        for(int i = 0; i < MAX_SALU_NUM; i++){
+            if(salu_id[processor_id][i] != 0){
+                vliw_enabler[salu_id[processor_id][i]] = true;
+            }
+        }
         for(int i = 0; i < num_of_stateful_tables[processor_id]; i++){
             // 处理带状态表
             auto match_table_id = stateful_table_ids[processor_id][i];
-            vliw_enabler[salu_id[processor_id][match_table_id]] = true;
             if(now.final_values[match_table_id].second){
                 next.salu_value_data_set[i] = now.final_values[match_table_id].first[0];
             }
@@ -48,6 +52,12 @@ struct GetAction : public Logic {
             // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
             // | action_id |    data1     |    data2     |    data3     |
             // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+            // todo: debug
+            if(processor_id == 2){
+                cout << "debug" << endl;
+            }
+
             u32 action_id;
             auto final_value = now.final_values[i].first;
             // 判断表中是否有内容
@@ -59,12 +69,12 @@ struct GetAction : public Logic {
             }
 
             // config alus using action_id
-            for(int i = 0; i < MAX_PHV_CONTAINER_NUM; i++){
-                if(actionConfigs[processor_id].actions[action_id].vliw_enabler[i]){
-                    auto alu_config = actionConfigs[processor_id].actions[action_id].alu_configs[i];
-                    ALUs[processor_id][i].op = alu_config.op;
-                    ALUs[processor_id][i].operand1 = alu_config.operand1;
-                    ALUs[processor_id][i].operand2 = alu_config.operand2;
+            for(int j = 0; j < MAX_PHV_CONTAINER_NUM; j++){
+                if(actionConfigs[processor_id].actions[action_id].vliw_enabler[j]){
+                    auto alu_config = actionConfigs[processor_id].actions[action_id].alu_configs[j];
+                    ALUs[processor_id][j].op = alu_config.op;
+                    ALUs[processor_id][j].operand1 = alu_config.operand1;
+                    ALUs[processor_id][j].operand2 = alu_config.operand2;
                 }
             }
 

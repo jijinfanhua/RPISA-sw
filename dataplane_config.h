@@ -85,9 +85,9 @@ struct GatewaysConfig
 
     // every processor has some masks, input key go through masks, and then searching the unordered_map
     std::vector<std::array<bool, MAX_PARALLEL_MATCH_NUM>> masks;
-    std::unordered_map<uint32_t,
-                       std::array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM>>
-        gateway_res_2_match_tables;
+    std::vector<uint32_t> keys;
+    std::vector<std::array<bool, MAX_PARALLEL_MATCH_NUM * PROCESSOR_NUM>>
+        values;
     std::unordered_map<uint32_t,
                        std::array<bool, MAX_GATEWAY_NUM * PROCESSOR_NUM>>
         gateway_res_2_gates;

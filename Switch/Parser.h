@@ -59,6 +59,7 @@ struct Parser {
         phv[65] = bytes_to_u32(packet[10], packet[11]);
         phv[160] = bytes_to_u32(packet[0], packet[1], packet[2], packet[3]);
         phv[161] = bytes_to_u32(packet[4], packet[5], packet[6], packet[7]);
+        phv[2] = packet[13];
         return phv;
     }
 };
@@ -107,7 +108,7 @@ Packet input_to_packet(const string& input, const string& pkt_length){
     }
     output.push_back(bitset<1>(bitsStr.substr(96, 1)).to_ulong());
 
-    output.push_back(pkt_length.)
+    output.push_back(stoi(pkt_length));
 
     return output;
 }

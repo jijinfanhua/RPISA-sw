@@ -11,28 +11,30 @@ using namespace std;
 #include "Switch/Switch.h"
 
 string read_five_tuple_from_file(const string& line){
-    if(line == ""){
+    if(line.empty()){
         return "";
     }
     else{
-        int start_pos = line.find("'");
-        int end_pos = line.find("'", start_pos+1);
+        auto start_pos = line.find('\'');
+        auto end_pos = line.find('\'', start_pos+1);
         string result = line.substr(start_pos+1, end_pos-start_pos-1);
         return result;
     }
 }
 
 string read_pkt_length_from_file(const string& line){
-    int pos_1 = line.find("'");
-    int pos_2 = line.find("'", pos_1+1);
-    int start_pos = line.find("'", pos_2+1);
-    int end_pos = line.find("'", start_pos+1);
+    auto pos_1 = line.find('\'');
+    auto pos_2 = line.find('\'', pos_1+1);
+    auto start_pos = line.find('\'', pos_2+1);
+    auto end_pos = line.find('\'', start_pos+1);
     return line.substr(start_pos+1, end_pos-start_pos-1);
 }
 
 std::unordered_map<u64, std::vector<int>> arrive_id_by_flow;
 
-string PARENT_DIR = "C:\\Users\\PC\\Desktop\\code\\RPISA-sw\\cmake-build-debug\\";
+std::unordered_map<string, int> flow_occurrence;
+
+string PARENT_DIR = R"(C:\Users\PC\Desktop\code\RPISA-sw\cmake-build-debug\)";
 string INPUT_FILE_NAME = "switch.txt";
 std::array<bool, PROCESSOR_NUM> processor_selects = {true, true, true, true, true, true};
 std::array<ofstream*, PROCESSOR_NUM> outputs{};
@@ -87,7 +89,7 @@ int main(int argc, char** argv) {
     std::vector<int> execute_latency;
     Switch switch_ = Switch();
     switch_.Config();
-    for(int i = 0; i < 200000; i++) {
+    for(int i = 0; i < 20000; i++) {
 //        if(cycle == 16348){
 //            DEBUG_ENABLE = true;
 //        }
@@ -100,7 +102,7 @@ int main(int argc, char** argv) {
         getline(infile, line);
         string input = read_five_tuple_from_file(line);
         string pkt_length = read_pkt_length_from_file(line);
-        if(input == ""){
+        if(input.empty()){
             switch_.Execute(0, Packet(), cycle);
         }
         else{
