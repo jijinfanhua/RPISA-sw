@@ -164,7 +164,7 @@ struct MatchTableConfig
             this->type = type;
             this->hash_in_phv = hash_in_phv;
             this->depth = depth;
-            this->key_widthh = key_width;
+            this->key_width = key_width;
             this->value_width = value_width;
             this->match_field_byte_len = match_field_byte_len;
             this->match_field_byte_ids = match_field_byte_ids;
@@ -215,7 +215,7 @@ struct ALUnit
             uint32_t value;
             int phv_id;
             int action_data_id;
-            void config(int any_id) {this->phv_id = any_id}
+            void config(int any_id) {this->phv_id = any_id;}
         } content;
         void config(Type type, auto content_data) 
         {
@@ -247,17 +247,17 @@ struct ActionConfig
         void config_alu(
             int config_id,
             ALUnit::OP op,
-            ALUnit::Parameter operand1_type,
+            ALUnit::Parameter::Type operand1_type,
             auto operand1_content_data,
-            ALUnit::Parameter operand2_type,
+            ALUnit::Parameter::Type operand2_type,
             auto operand2_content_data
         ) 
         {
             this->vliw_enabler[config_id] = true;
             this->alu_configs[config_id].operand1.type = operand1_type;
-            this->alu_configs[config_id].operand1.content = operand1_content_data;
+            this->alu_configs[config_id].operand1.content.config(operand1_content_data);
             this->alu_configs[config_id].operand2.type = operand2_type;
-            this->alu_configs[config_id].operand2.content = operand2_content_data;
+            this->alu_configs[config_id].operand2.content.config(operand2_content_data);
         }
     };
     Action actions[16];
@@ -309,18 +309,25 @@ struct SALUnit
         } content;
         int value_idx;
 
-        void config(
-            Type type,
-            IfType if_type,
-            auto content_data,
-            int value_idx
-        ) 
+        void config(Type type, IfType if_type, auto content_data, int value_idx) 
         {
             this->type = type;
             this->if_type = if_type;
             this->content.config(content_data);
             this->value_idx = value_idx;
         }
+        void config(Type type, auto content_data, int valude_idx) 
+        {
+            this->type = type;
+            this->content.config(content_data);
+            this->value_idx = value_idx;
+        }
+        void config(Type type, auto content_data) 
+        {
+            this->type = type;
+            this->content.config(content_data);
+        }
+
     } left_value, operand1, operand2, operand3, return_value;
 
     struct ReturnValueFrom {
@@ -353,7 +360,7 @@ struct SALUnit
             int value_idx,
             int false_value_idx,
             auto content_data,
-            auto false_content_data,
+            auto false_content_data
         ) {
             this->type = type;
             this->false_type = false_type;
@@ -373,10 +380,13 @@ struct SALUnit
         int                   left_value_value_idx,
         Parameter::Type       operand1_type,
         auto                  operand1_content_data,
+        int                   operand1_value_index,
         Parameter::Type       operand2_type,
         auto                  operand2_content_data,
+        int                   operand2_value_index,
         Parameter::Type       operand3_type,
         auto                  operand3_content_data,
+        int                   operand3_value_index,
         Parameter::Type       return_value_type,
         auto                  return_value_content_data,
         ReturnValueFrom::Type return_value_from_type,
@@ -399,28 +409,24 @@ struct SALUnit
 
         this->operand1.config(
             operand1_type,
-            0, 
             operand1_content_data,
-            0
+            operand1_value_index
         );
 
         this->operand2.config(
             operand2_type,
-            0,
             operand2_content_data,
-            0
+            operand2_value_index
         );
 
         this->operand3.config(
             operand3_type,
-            0,
             operand3_content_data,
             0
         );
 
         this->return_value.config(
             return_value_type,
-            0,
             return_value_content_data,   
             0
         );

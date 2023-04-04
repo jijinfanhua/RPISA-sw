@@ -182,8 +182,7 @@ void top_heavy_hitter_config2(){
         1, 1, 1,
         13, 
         {0,1,2,3,4,5,6,7,8,9,10,11,12},
-        4,
-        40,
+        4, 40,
         {10, 10, 10, 10},
         {2, 2, 2, 2},
         {{{8},{10},{12},{14}}},
@@ -196,8 +195,7 @@ void top_heavy_hitter_config2(){
         1, 1, 1,
         13, 
         {0,1,2,3,4,5,6,7,8,9,10,11,12},
-        4,
-        40,
+        4, 40,
         {10, 10, 10, 10},
         {2, 2, 2, 2},
         {{{16},{18},{20},{22}}},
@@ -207,7 +205,7 @@ void top_heavy_hitter_config2(){
     array<bool, 224> vliw_enabler = {0};
     proc0.commit();
 
-    auto& salu = SALUS[0][0];
+    auto& salu = SALUs[0][0];
     salu.config(
         224,
         SALUnit::IfElseRAW,
@@ -216,11 +214,11 @@ void top_heavy_hitter_config2(){
         SALUnit::Parameter::IfType::COMPARE_EQ,
         (int)0, 3,
         //operand1
-        SALUnit::Parameter::Type::CONST, (int)0,
+        SALUnit::Parameter::Type::CONST, (int)0, 0,
         //operand2
-        SALUnit::Parameter::Type::CONST, (uint32_t)1,
+        SALUnit::Parameter::Type::CONST, (uint32_t)1, 0,
         //operand3
-        SALUnit::Parameter::Type::CONST, (uint32_t)0,
+        SALUnit::Parameter::Type::CONST, (uint32_t)0, 0,
         //return value
         SALUnit::Parameter::Type::HEADER, (int)162,
         //return value from
@@ -232,19 +230,13 @@ void top_heavy_hitter_config2(){
     salu1.config(
         225,
         SALUnit::IfElseRAW,
-        //left value
         SALUnit::Parameter::Type::REG,
         SALUnit::Parameter::IfType::COMPARE_EQ,
         (int)1, 3,
-        //operand1
-        SALUnit::Parameter::Type::CONST, (uint32_t)0,
-        //operand2
-        SALUnit::Parameter::Type::CONST, (uint32_t)1,
-        //operand3
-        SALUnit::Parameter::Type::CONST, (uint32_t)0,
-        //return value
+        SALUnit::Parameter::Type::CONST, (uint32_t)0, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t)1, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t)0, 0,
         SALUnit::Parameter::Type::HEADER,(int)163,
-        //return value from
         SALUnit::ReturnValueFrom::Type::REG, (int)1, 3,
         SALUnit::ReturnValueFrom::Type::CONST, (uint32_t)0, 0
     );
@@ -253,19 +245,13 @@ void top_heavy_hitter_config2(){
     salu2.config(
         226,
         SALUnit::IfElseRAW,
-        //left value
         SALUnit::Parameter::Type::REG,
         SALUnit::Parameter::IfType::COMPARE_EQ,
         (int)2, 3,
-        //operand1
-        SALUnit::Parameter::Type::CONST, (uint32_t)0,
-        //operand2
-        SALUnit::Parameter::Type::CONST, (uint32_t)1,
-        //operand3
-        SALUnit::Parameter::Type::CONST, (uint32_t)0,
-        //return value
+        SALUnit::Parameter::Type::CONST, (uint32_t)0, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t)1, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t)0, 0,
         SALUnit::Parameter::Type::HEADER, (int)164,
-        //return value from 
         SALUnit::ReturnValueFrom::Type::REG, (int)2, 3,
         SALUnit::ReturnValueFrom::Type::CONST, (uint32_t)0, 0
     );
@@ -284,9 +270,7 @@ void top_heavy_hitter_config2(){
     salu_id_0 = {224, 225, 226};
 
     auto& saved_state_0 = state_saved_idxs[0];
-    saved_state_0.state_num = 3;
-    saved_state_0.state_lengths = {1, 1, 1};
-    saved_state_0.saved_state_idx_in_phv = {162, 163, 164};
+    saved_state_0.config(3, {162, 163, 164}, {1, 1, 1});
     // processor1 finished
 
     ProcessorConfig proc1 = ProcessorConfig(2);
@@ -308,37 +292,16 @@ void top_heavy_hitter_config2(){
     salu_id_1 = {224, 225};
     // if phv_162 >= phv_163, phv_165 = phv_162; else: phv_165 = phv_163
     auto& salu3 = SALUs[2][0];
-    // salu3.salu_id = 224;
-    // salu3.op = SALUnit::OP::IfElseRAW;
-    // salu3.left_value.type = SALUnit::Parameter::Type::HEADER;
-    // salu3.left_value.content.phv_id = 162;
-    // salu3.left_value.if_type = SALUnit::Parameter::IfType::GTE;
-    // salu3.operand1.type = SALUnit::Parameter::Type::HEADER;
-    // salu3.operand1.content.phv_id = 163;
-    // salu3.operand2.type = SALUnit::Parameter::Type::CONST;
-    // salu3.operand2.content.value = 0;
-    // salu3.operand3.type = SALUnit::Parameter::Type::CONST;
-    // salu3.operand3.content.value = 0;
-    // salu3.return_value.type = SALUnit::Parameter::Type::HEADER;
-    // salu3.return_value.content.phv_id = 165;
-    // salu3.return_value_from.type = SALUnit::ReturnValueFrom::Type::LEFT;
-    // salu3.return_value_from.false_type = SALUnit::ReturnValueFrom::Type::OP1;
     salu3.config(
         224,
         SALUnit::OP::IfElseRAW,
-        //left value
         SALUnit::Parameter::Type::HEADER,
         SALUnit::Parameter::IfType::GTE,
         (int) 162, 0,
-        // operand1
-        SALUnit::Parameter::Type::HEADER, (int) 163,
-        // operand2
-        SALUnit::Parameter::Type::CONST, (uint32_t) 0,
-        // operand3
-        SALUnit::Parameter::Type::CONST, (uint32_t) 0,
-        // return value
+        SALUnit::Parameter::Type::HEADER, (int) 163, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 0, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 0, 0,
         SALUnit::Parameter::Type::HEADER, (int) 165,
-        //return value from
         SALUnit::ReturnValueFrom::Type::LEFT, (uint32_t)0, 0,
         SALUnit::ReturnValueFrom::Type::OP1, (uint32_t)0, 0 
     );
@@ -346,40 +309,17 @@ void top_heavy_hitter_config2(){
 
     // if phv_162 >= phv_163, phv_1 = 0; else: phv_1 = 1;
     auto& salu4 = SALUs[2][1];
-    // salu4.salu_id = 225;
-    // salu4.op = SALUnit::OP::IfElseRAW;
-    // salu4.left_value.type = SALUnit::Parameter::Type::HEADER;
-    // salu4.left_value.content.phv_id = 162;
-    // salu4.left_value.if_type = SALUnit::Parameter::IfType::GTE;
-    // salu4.operand1.type = SALUnit::Parameter::Type::HEADER;
-    // salu4.operand1.content.phv_id = 163;
-    // salu4.operand2.type = SALUnit::Parameter::Type::CONST;
-    // salu4.operand2.content.value = 0;
-    // salu4.operand3.type = SALUnit::Parameter::Type::CONST;
-    // salu4.operand3.content.value = 0;
-    // salu4.return_value.type = SALUnit::Parameter::Type::HEADER;
-    // salu4.return_value.content.phv_id = 1;
-    // salu4.return_value_from.type = SALUnit::ReturnValueFrom::CONST;
-    // salu4.return_value_from.content.value = 0;
-    // salu4.return_value_from.false_type = SALUnit::ReturnValueFrom::CONST;
-    // salu4.return_value_from.false_content.value = 1;
     // processor_2 finished, using salu instead of normal alu
     salu4.config(
         225,
         SALUnit::OP::IfElseRAW,
-        //left value
         SALUnit::Parameter::Type::HEADER,
         SALUnit::Parameter::IfType::GTE,
         (int) 162, 0,
-        // operand1
-        SALUnit::Parameter::Type::HEADER, (int) 163,
-        // operand2
-        SALUnit::Parameter::Type::CONST, (uint32_t) 0,
-        // operand3
-        SALUnit::Parameter::Type::CONST, (uint32_t) 0,
-        // return_value
+        SALUnit::Parameter::Type::HEADER, (int) 163, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 0, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 0, 0,
         SALUnit::Parameter::Type::HEADER, (int) 1,
-        // return value from
         SALUnit::ReturnValueFrom::CONST, (uint32_t) 0, 0,
         SALUnit::ReturnValueFrom::CONST, (uint32_t) 1, 0
     );
@@ -394,29 +334,19 @@ void top_heavy_hitter_config2(){
     gate1.config(
         GatewaysConfig::Gate::OP::LTE,
         GatewaysConfig::Gate::Parameter::HEADER,
-        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {0, 1, 2, 3}};
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {0, 1, 2, 3}},
         GatewaysConfig::Gate::Parameter::HEADER,
-        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {4, 5, 6, 7}};
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {4, 5, 6, 7}}
     );
-    // gate1.op = GatewaysConfig::Gate::LTE;
-    // gate1.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    // gate1.operand1.content.operand_match_field_byte = {4, {0, 1, 2, 3}};
-    // gate1.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    // gate1.operand2.content.operand_match_field_byte = {4, {4, 5, 6, 7}};
 
     auto& gate2 = proc2.gatewaysConfig.gates[1];
     gate2.config(
         GatewaysConfig::Gate::OP::NEQ,
         GatewaysConfig::Gate::Parameter::HEADER,
-        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {0, 1, 2, 3}};
-        GatewaysConfig::Gate::Parameter::CONST;
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {0, 1, 2, 3}},
+        GatewaysConfig::Gate::Parameter::CONST,
         (uint32_t) 0
     );
-    // gate2.op = GatewaysConfig::Gate::NEQ;
-    // gate2.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    // gate2.operand1.content.operand_match_field_byte = {4, {0, 1, 2, 3}};
-    // gate2.operand2.type = GatewaysConfig::Gate::Parameter::CONST;
-    // gate2.operand2.content.value = 0;
 
     auto& gate3 = proc2.gatewaysConfig.gates[2];
     gate3.config(
@@ -427,39 +357,23 @@ void top_heavy_hitter_config2(){
         GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {4, 5, 6, 7}}
     );
 
-    // gate3.op = GatewaysConfig::Gate::GTE;
-    // gate3.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    // gate3.operand1.content.operand_match_field_byte = {4, {0, 1, 2, 3}};
-    // gate3.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    // gate3.operand2.content.operand_match_field_byte = {4, {4, 5, 6, 7}};
-
     auto& gate4 = proc2.gatewaysConfig.gates[3];
     gate4.config(
         GatewaysConfig::Gate::NEQ,
         GatewaysConfig::Gate::Parameter::HEADER,
-        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {4, 5, 6, 7}};
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {4, 5, 6, 7}},
         GatewaysConfig::Gate::Parameter::CONST,
         (uint32_t) 0
-    )
-    // gate4.op = GatewaysConfig::Gate::NEQ;
-    // gate4.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    // gate4.operand1.content.operand_match_field_byte = {4, {4, 5, 6, 7}};
-    // gate4.operand2.type = GatewaysConfig::Gate::Parameter::CONST;
-    // gate4.operand2.content.value = 0;
+    );
 
     auto& gate5 = proc2.gatewaysConfig.gates[4];
     gate5.config(
         GatewaysConfig::Gate::EQ,
         GatewaysConfig::Gate::Parameter::HEADER,
-        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{1, {8}};
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{1, {8}},
         GatewaysConfig::Gate::Parameter::CONST,
         (uint32_t) 0
-    )
-    // gate5.op = GatewaysConfig::Gate::EQ;
-    // gate5.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    // gate5.operand1.content.operand_match_field_byte = {1, {8}};
-    // gate5.operand2.type = GatewaysConfig::Gate::Parameter::CONST;
-    // gate5.operand2.content.value = 0;
+    );
 
     proc2.insert_gateway_entry({true, true}, {true}, {true});
     proc2.insert_gateway_entry({true, true, true, true, true}, {false, true ,true, true, true}, {false, true});
@@ -476,10 +390,6 @@ void top_heavy_hitter_config2(){
     auto& action = actionConfigs[3].actions[5];
     action.action_id = 5;
     action.vliw_enabler = {false};
-    // action.vliw_enabler[163] = true;
-    // action.alu_configs[163].op = ALUnit::SET;
-    // action.alu_configs[163].operand1.type = ALUnit::Parameter::CONST;
-    // action.alu_configs[163].operand1.content.value = 1;
     action.config_alu(163, ALUnit::OP::SET, 
         // operand1
         ALUnit::Parameter::CONST,(uint32_t) 1,
@@ -491,11 +401,6 @@ void top_heavy_hitter_config2(){
         ALUnit::Parameter::CONST,(uint32_t) 0
     );
 
-    // action.vliw_enabler[164] = true;
-    // action.alu_configs[164].op = ALUnit::SET;
-    // action.alu_configs[164].operand1.type = ALUnit::Parameter::CONST;
-    // action.alu_configs[164].operand1.content.value = 1;
-
     auto& action1 = actionConfigs[3].actions[6];
     action1.action_id = 6;
     action1.vliw_enabler = {false};
@@ -504,18 +409,9 @@ void top_heavy_hitter_config2(){
         ALUnit::Parameter::CONST,(uint32_t) 0
     );
 
-    // action1.vliw_enabler[162] = true;
-    // action1.alu_configs[162].op = ALUnit::SET;
-    // action1.alu_configs[162].operand1.type = ALUnit::Parameter::CONST;
-    // action1.alu_configs[162].operand1.content.value = 1;
-
     auto& action2 = actionConfigs[3].actions[7];
     action2.action_id = 7;
     action2.vliw_enabler = {false};
-    // action2.vliw_enabler[163] = true;
-    // action2.alu_configs[163].op = ALUnit::SET;
-    // action2.alu_configs[163].operand1.type = ALUnit::Parameter::CONST;
-    // action2.alu_configs[163].operand1.content.value = 1;
     action2.config_alu(163, ALUnit::SET, 
         ALUnit::Parameter::CONST, (uint32_t) 1,
         ALUnit::Parameter::CONST, (uint32_t) 0  
@@ -525,10 +421,7 @@ void top_heavy_hitter_config2(){
     proc_types[3] = ProcType::WRITE;
     state_idx_in_phv[3] = {162, 163, 164};
     auto& saved_state_2 = state_saved_idxs[3];
-    // saved_state_2.state_num = 3;
-    // saved_state_2.state_lengths = {1, 1, 1};
-    // saved_state_2.saved_state_idx_in_phv = {162, 163, 164};
-    saved_state_2.config(3, {1, 1, 1}, {162, 163, 164});
+    saved_state_2.config(3, {162, 163, 164}, {1, 1, 1});
     // processor_3 finished
 
     backward_cycle_num = 80;
@@ -568,25 +461,6 @@ void top_heavy_hitter_config1(){
         {{{0},{2},{4},{6}}},
         {{{1},{3},{5},{7}}}
     );
-    // config_0.type = 1;
-    // config_0.depth = 1;
-    // config_0.key_width = 1;
-    // config_0.value_width = 1;
-    // config_0.hash_in_phv = {166, 167};
-    // config_0.match_field_byte_len = 13;
-    // config_0.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
-    // config_0.number_of_hash_ways = 4; // stateful tables also using 4 way hash
-    // config_0.hash_bit_sum = 40;
-    // config_0.hash_bit_per_way = {10, 10, 10, 10};
-    // config_0.srams_per_hash_way = {2, 2, 2, 2};
-    // config_0.key_sram_index_per_hash_way[0] = {0};
-    // config_0.key_sram_index_per_hash_way[1] = {2};
-    // config_0.key_sram_index_per_hash_way[2] = {4};
-    // config_0.key_sram_index_per_hash_way[3] = {6};
-    // config_0.value_sram_index_per_hash_way[0] = {1};
-    // config_0.value_sram_index_per_hash_way[1] = {3};
-    // config_0.value_sram_index_per_hash_way[2] = {5};
-    // config_0.value_sram_index_per_hash_way[3] = {7};
 
     auto&  config_1 = proc0.matchTableConfig.matchTables[1];
     config_1.config_match_table(
@@ -600,25 +474,6 @@ void top_heavy_hitter_config1(){
         {{{8},{10},{12},{14}}},
         {{{9},{11},{13},{15}}}
     );
-    // config_1.type = 1;
-    // config_1.depth = 1;
-    // config_1.key_width = 1;
-    // config_1.value_width = 1;
-    // config_1.hash_in_phv = {168, 169};
-    // config_1.match_field_byte_len = 13;
-    // config_1.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
-    // config_1.number_of_hash_ways = 4;
-    // config_1.hash_bit_sum = 40;
-    // config_1.hash_bit_per_way = {10, 10, 10, 10};
-    // config_1.srams_per_hash_way = {2, 2, 2, 2};
-    // config_1.key_sram_index_per_hash_way[0] = {8};
-    // config_1.key_sram_index_per_hash_way[1] = {10};
-    // config_1.key_sram_index_per_hash_way[2] = {12};
-    // config_1.key_sram_index_per_hash_way[3] = {14};
-    // config_1.value_sram_index_per_hash_way[0] = {9};
-    // config_1.value_sram_index_per_hash_way[1] = {11};
-    // config_1.value_sram_index_per_hash_way[2] = {13};
-    // config_1.value_sram_index_per_hash_way[3] = {15};
 
     auto& config_2 = proc0.matchTableConfig.matchTables[2];
     config_2.config_match_table(
@@ -633,6 +488,28 @@ void top_heavy_hitter_config1(){
         {{{17}, {19}, {21}, {23}}}
     );
     
+    
+    // config_2.type = 1;
+    // config_2.depth = 1;
+    // config_2.key_width = 1;
+    // config_2.value_width = 1;
+    // config_2.hash_in_phv = {170, 171};
+    // config_2.match_field_byte_len = 13;
+    // config_2.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
+    // config_2.number_of_hash_ways = 4;
+    // config_2.hash_bit_sum = 40;
+    // config_2.hash_bit_per_way = {10, 10, 10, 10};
+    // config_2.srams_per_hash_way = {2, 2, 2, 2};
+    // config_2.key_sram_index_per_hash_way[0] = {16};
+    // config_2.key_sram_index_per_hash_way[1] = {18};
+    // config_2.key_sram_index_per_hash_way[2] = {20};
+    // config_2.key_sram_index_per_hash_way[3] = {22};
+    // config_2.value_sram_index_per_hash_way[0] = {17};
+    // config_2.value_sram_index_per_hash_way[1] = {19};
+    // config_2.value_sram_index_per_hash_way[2] = {21};
+    // config_2.value_sram_index_per_hash_way[3] = {23};
+
+
     // config_2.type = 1;
     // config_2.depth = 1;
     // config_2.key_width = 1;
@@ -657,30 +534,14 @@ void top_heavy_hitter_config1(){
     proc0.commit();
 
     auto& salu = SALUs[0][0];
-    // salu.salu_id = 224;
-    // salu.op = SALUnit::IfElseRAW;
-    // salu.left_value.type = SALUnit::Parameter::Type::REG;
-    // salu.left_value.if_type = SALUnit::Parameter::IfType::COMPARE_EQ;
-    // salu.left_value.content.table_idx = 0;
-    // salu.left_value.value_idx = 3;
-    // salu.operand2.type = SALUnit::Parameter::Type::CONST;
-    // salu.operand2.content.value = 1;
-    // salu.operand3.type = SALUnit::Parameter::Type::CONST;
-    // salu.operand3.content.value = 0;
-    // salu.return_value.type = SALUnit::Parameter::Type::HEADER;
-    // salu.return_value.content.phv_id = 162;
-    // salu.return_value_from.type = SALUnit::ReturnValueFrom::Type::REG;
-    // salu.return_value_from.content.table_idx = 0;
-    // salu.return_value_from.value_idx = 3;
-    // salu.return_value_from.false_type = SALUnit::ReturnValueFrom::Type::CONST;
-    // salu.return_value_from.false_content.value = 0;
     salu.config(
         224, SALUnit::IfElseRAW,
         SALUnit::Parameter::Type::REG,
         SALUnit::Parameter::IfType::COMPARE_EQ,
         (int) 0, 3,
-        SALUnit::Parameter::Type::CONST, (uint32_t) 1,
-        SALUnit::Parameter::Type::CONST, (uint32_t) 0,
+        SALUnit::Parameter::Type::CONST, (int)0, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 1, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 0, 0,
         SALUnit::Parameter::Type::HEADER, (int) 162,
         SALUnit::ReturnValueFrom::Type::REG, (int) 0, 3,
         SALUnit::ReturnValueFrom::Type::CONST, (int) 0, 0
@@ -688,53 +549,33 @@ void top_heavy_hitter_config1(){
 
 
     auto& salu1 = SALUs[0][1];
-    // salu1.salu_id = 225;
-    // salu1.op = SALUnit::IfElseRAW;
-    // salu1.left_value.type = SALUnit::Parameter::Type::REG;
-    // salu1.left_value.if_type = SALUnit::Parameter::IfType::COMPARE_EQ;
-    // salu1.left_value.content.table_idx = 1;
-    // salu1.left_value.value_idx = 3;
-    // salu1.operand2.type = SALUnit::Parameter::Type::CONST;
-    // salu1.operand2.content.value = 1;
-    // salu1.operand3.type = SALUnit::Parameter::Type::CONST;
-    // salu1.operand3.content.value = 0;
-    // salu1.return_value.type = SALUnit::Parameter::Type::HEADER;
-    // salu1.return_value.content.phv_id = 163;
-    // salu1.return_value_from.type = SALUnit::ReturnValueFrom::Type::REG;
-    // salu1.return_value_from.content.table_idx = 1;
-    // salu1.return_value_from.value_idx = 3;
-    // salu1.return_value_from.false_type = SALUnit::ReturnValueFrom::Type::CONST;
-    // salu1.return_value_from.false_content.value = 0;
     salu1.config(
         225, SALUnit::IfElseRAW,
         SALUnit::Parameter::Type::REG,
         SALUnit::Parameter::IfType::COMPARE_EQ,
         (int) 1, 3,
-        SALUnit::Parameter::Type::CONST, (uint32_t) 1,
-        SALUnit::Parameter::Type::CONST, (uint32_t) 0,
+        SALUnit::Parameter::Type::CONST, (int)0, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 1, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 0, 0,
         SALUnit::Parameter::Type::HEADER, (int) 163,
         SALUnit::ReturnValueFrom::Type::REG, (int) 1, 3,
         SALUnit::ReturnValueFrom::Type::CONST, (int) 0, 0
     );
 
     auto& salu2 = SALUs[0][2];
-    salu2.salu_id = 226;
-    salu2.op = SALUnit::IfElseRAW;
-    salu2.left_value.type = SALUnit::Parameter::Type::REG;
-    salu2.left_value.if_type = SALUnit::Parameter::IfType::COMPARE_EQ;
-    salu2.left_value.content.table_idx = 2;
-    salu2.left_value.value_idx = 3;
-    salu2.operand2.type = SALUnit::Parameter::Type::CONST;
-    salu2.operand2.content.value = 1;
-    salu2.operand3.type = SALUnit::Parameter::Type::CONST;
-    salu2.operand3.content.value = 0;
-    salu2.return_value.type = SALUnit::Parameter::Type::HEADER;
-    salu2.return_value.content.phv_id = 164;
-    salu2.return_value_from.type = SALUnit::ReturnValueFrom::Type::REG;
-    salu2.return_value_from.content.table_idx = 2;
-    salu2.return_value_from.value_idx = 3;
-    salu2.return_value_from.false_type = SALUnit::ReturnValueFrom::Type::CONST;
-    salu2.return_value_from.false_content.value = 0;
+    salu2.config(
+        226, SALUnit::IfElseRAW,
+        SALUnit::Parameter::Type::REG,
+        SALUnit::Parameter::IfType::COMPARE_EQ,
+        (int) 2, 3,
+        SALUnit::Parameter::Type::CONST, (int)0, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 1, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 0, 0,
+        SALUnit::Parameter::Type::HEADER, (int) 164,
+        SALUnit::ReturnValueFrom::Type::REG, (int) 2, 3,
+        SALUnit::ReturnValueFrom::Type::CONST, (uint32_t) 0, 0
+    );
+
 
     num_of_stateful_tables[0] = 3;
     stateful_table_ids[0] = {0, 1, 2};
@@ -750,9 +591,7 @@ void top_heavy_hitter_config1(){
     salu_id_0 = {224, 225, 226};
 
     auto& saved_state_0 = state_saved_idxs[0];
-    saved_state_0.state_num = 3;
-    saved_state_0.state_lengths = {1, 1, 1};
-    saved_state_0.saved_state_idx_in_phv = {162, 163, 164};
+    saved_state_0.config(3, {162, 163, 164}, {1, 1, 1});
     // processor1 finished
 
     ProcessorConfig proc1 = ProcessorConfig(1);
@@ -774,41 +613,33 @@ void top_heavy_hitter_config1(){
     salu_id_1 = {224, 225};
     // if phv_162 >= phv_163, phv_165 = phv_162; else: phv_165 = phv_163
     auto& salu3 = SALUs[1][0];
-    salu3.salu_id = 224;
-    salu3.op = SALUnit::OP::IfElseRAW;
-    salu3.left_value.type = SALUnit::Parameter::Type::HEADER;
-    salu3.left_value.content.phv_id = 162;
-    salu3.left_value.if_type = SALUnit::Parameter::IfType::GTE;
-    salu3.operand1.type = SALUnit::Parameter::Type::HEADER;
-    salu3.operand1.content.phv_id = 163;
-    salu3.operand2.type = SALUnit::Parameter::Type::CONST;
-    salu3.operand2.content.value = 0;
-    salu3.operand3.type = SALUnit::Parameter::Type::CONST;
-    salu3.operand3.content.value = 0;
-    salu3.return_value.type = SALUnit::Parameter::Type::HEADER;
-    salu3.return_value.content.phv_id = 165;
-    salu3.return_value_from.type = SALUnit::ReturnValueFrom::Type::LEFT;
-    salu3.return_value_from.false_type = SALUnit::ReturnValueFrom::Type::OP1;
+    salu3.config(
+        224, SALUnit::OP::IfElseRAW,
+        SALUnit::Parameter::Type::HEADER,
+        SALUnit::Parameter::IfType::GTE,
+        (int) 162, 0,
+        SALUnit::Parameter::Type::HEADER, (int) 163, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 0, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 0, 0,
+        SALUnit::Parameter::Type::HEADER, (int) 165,
+        SALUnit::ReturnValueFrom::Type::LEFT, 0, 0,
+        SALUnit::ReturnValueFrom::Type::OP1, 0, 0
+    );
 
     // if phv_162 >= phv_163, phv_1 = 0; else: phv_1 = 1;
     auto& salu4 = SALUs[1][1];
-    salu4.salu_id = 225;
-    salu4.op = SALUnit::OP::IfElseRAW;
-    salu4.left_value.type = SALUnit::Parameter::Type::HEADER;
-    salu4.left_value.content.phv_id = 162;
-    salu4.left_value.if_type = SALUnit::Parameter::IfType::GTE;
-    salu4.operand1.type = SALUnit::Parameter::Type::HEADER;
-    salu4.operand1.content.phv_id = 163;
-    salu4.operand2.type = SALUnit::Parameter::Type::CONST;
-    salu4.operand2.content.value = 0;
-    salu4.operand3.type = SALUnit::Parameter::Type::CONST;
-    salu4.operand3.content.value = 0;
-    salu4.return_value.type = SALUnit::Parameter::Type::HEADER;
-    salu4.return_value.content.phv_id = 1;
-    salu4.return_value_from.type = SALUnit::ReturnValueFrom::CONST;
-    salu4.return_value_from.content.value = 0;
-    salu4.return_value_from.false_type = SALUnit::ReturnValueFrom::CONST;
-    salu4.return_value_from.false_content.value = 1;
+    salu4.config(
+        225, SALUnit::OP::IfElseRAW,
+        SALUnit::Parameter::Type::HEADER,
+        SALUnit::Parameter::IfType::GTE,
+        (int) 162, 0,
+        SALUnit::Parameter::Type::HEADER, (int) 163, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 0, 0,
+        SALUnit::Parameter::Type::CONST, (uint32_t) 0, 0,
+        SALUnit::Parameter::Type::HEADER, (int) 1,
+        SALUnit::ReturnValueFrom::CONST, (uint32_t) 0, 0,
+        SALUnit::ReturnValueFrom::CONST, (uint32_t) 1, 0    
+    );
     // processor_2 finished, using salu instead of normal alu
 
     ProcessorConfig proc2 = ProcessorConfig(2);
@@ -817,39 +648,49 @@ void top_heavy_hitter_config1(){
     proc2.push_back_get_key_use_container(1, 8, 8);
 
     auto& gate1 = proc2.gatewaysConfig.gates[0];
-    gate1.op = GatewaysConfig::Gate::LTE;
-    gate1.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate1.operand1.content.operand_match_field_byte = {4, {0, 1, 2, 3}};
-    gate1.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate1.operand2.content.operand_match_field_byte = {4, {4, 5, 6, 7}};
+    gate1.config(
+        GatewaysConfig::Gate::OP::LTE,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {0, 1, 2, 3}},
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {4, 5, 6, 7}}
+    );
 
     auto& gate2 = proc2.gatewaysConfig.gates[1];
-    gate2.op = GatewaysConfig::Gate::NEQ;
-    gate2.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate2.operand1.content.operand_match_field_byte = {4, {0, 1, 2, 3}};
-    gate2.operand2.type = GatewaysConfig::Gate::Parameter::CONST;
-    gate2.operand2.content.value = 0;
+    gate2.config(
+        GatewaysConfig::Gate::OP::NEQ,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {0, 1, 2, 3}},
+        GatewaysConfig::Gate::Parameter::CONST,
+        (uint32_t) 0
+    );
 
     auto& gate3 = proc2.gatewaysConfig.gates[2];
-    gate3.op = GatewaysConfig::Gate::GTE;
-    gate3.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate3.operand1.content.operand_match_field_byte = {4, {0, 1, 2, 3}};
-    gate3.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate3.operand2.content.operand_match_field_byte = {4, {4, 5, 6, 7}};
+    gate3.config(
+        GatewaysConfig::Gate::GTE,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {0, 1, 2, 3}},
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {4, 5, 6, 7}}
+    );
 
     auto& gate4 = proc2.gatewaysConfig.gates[3];
-    gate4.op = GatewaysConfig::Gate::NEQ;
-    gate4.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate4.operand1.content.operand_match_field_byte = {4, {4, 5, 6, 7}};
-    gate4.operand2.type = GatewaysConfig::Gate::Parameter::CONST;
-    gate4.operand2.content.value = 0;
+    gate4.config(
+        GatewaysConfig::Gate::NEQ,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {4, 5, 6, 7}},
+        GatewaysConfig::Gate::Parameter::CONST,
+        (uint32_t) 0
+    );
 
     auto& gate5 = proc2.gatewaysConfig.gates[4];
-    gate5.op = GatewaysConfig::Gate::EQ;
-    gate5.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate5.operand1.content.operand_match_field_byte = {1, {8}};
-    gate5.operand2.type = GatewaysConfig::Gate::Parameter::CONST;
-    gate5.operand2.content.value = 0;
+    gate5.config(
+        GatewaysConfig::Gate::EQ,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{1, {8}},
+        GatewaysConfig::Gate::Parameter::CONST,
+        (uint32_t) 0
+    );
 
     proc2.insert_gateway_entry({true, true}, {true}, {true});
     proc2.insert_gateway_entry({true, true, true, true, true}, {false, true ,true, true, true}, {false, true});
@@ -866,37 +707,35 @@ void top_heavy_hitter_config1(){
     auto& action = actionConfigs[2].actions[5];
     action.action_id = 5;
     action.vliw_enabler = {false};
-    action.vliw_enabler[163] = true;
-    action.alu_configs[163].op = ALUnit::SET;
-    action.alu_configs[163].operand1.type = ALUnit::Parameter::CONST;
-    action.alu_configs[163].operand1.content.value = 1;
-    action.vliw_enabler[164] = true;
-    action.alu_configs[164].op = ALUnit::SET;
-    action.alu_configs[164].operand1.type = ALUnit::Parameter::CONST;
-    action.alu_configs[164].operand1.content.value = 1;
+    action.config_alu(163, ALUnit::OP::SET, 
+        ALUnit::Parameter::CONST,(uint32_t) 1,
+        ALUnit::Parameter::CONST,(uint32_t) 0
+    );
+    action.config_alu(164, ALUnit::OP::SET,
+        ALUnit::Parameter::CONST,(uint32_t) 1,
+        ALUnit::Parameter::CONST,(uint32_t) 0
+    );
 
     auto& action1 = actionConfigs[2].actions[6];
     action1.action_id = 6;
     action1.vliw_enabler = {false};
-    action1.vliw_enabler[162] = true;
-    action1.alu_configs[162].op = ALUnit::SET;
-    action1.alu_configs[162].operand1.type = ALUnit::Parameter::CONST;
-    action1.alu_configs[162].operand1.content.value = 1;
+    action1.config_alu(162, ALUnit::OP::SET,
+        ALUnit::Parameter::CONST,(uint32_t) 1,
+        ALUnit::Parameter::CONST,(uint32_t) 0
+    );
 
     auto& action2 = actionConfigs[2].actions[7];
     action2.action_id = 7;
     action2.vliw_enabler = {false};
-    action2.vliw_enabler[163] = true;
-    action2.alu_configs[163].op = ALUnit::SET;
-    action2.alu_configs[163].operand1.type = ALUnit::Parameter::CONST;
-    action2.alu_configs[163].operand1.content.value = 1;
+    action2.config_alu(163, ALUnit::SET, 
+        ALUnit::Parameter::CONST, (uint32_t) 1,
+        ALUnit::Parameter::CONST, (uint32_t) 0  
+    );
 
     proc_types[2] = ProcType::WRITE;
     state_idx_in_phv[2] = {162, 163, 164};
     auto& saved_state_2 = state_saved_idxs[2];
-    saved_state_2.state_num = 3;
-    saved_state_2.state_lengths = {1, 1, 1};
-    saved_state_2.saved_state_idx_in_phv = {162, 163, 164};
+    saved_state_2.config(3, {162, 163, 164}, {1, 1, 1});
     // processor_3 finished
 
     backward_cycle_num = 50;
@@ -920,48 +759,34 @@ void nat(){
 
     proc0.matchTableConfig.match_table_num = 1;
     auto& config_0 = proc0.matchTableConfig.matchTables[0];
-    config_0.type = 1; // stateful table
-    config_0.depth = 1;
-    config_0.key_width = 1;
-    config_0.value_width = 1;
-    config_0.hash_in_phv = {166, 167};
-    config_0.match_field_byte_len = 13;
-    config_0.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
-    config_0.number_of_hash_ways = 4; // stateful tables also using 4 way hash
-    config_0.hash_bit_sum = 40;
-    config_0.hash_bit_per_way = {10, 10, 10, 10};
-    config_0.srams_per_hash_way = {2, 2, 2, 2};
-    config_0.key_sram_index_per_hash_way[0] = {0};
-    config_0.key_sram_index_per_hash_way[1] = {2};
-    config_0.key_sram_index_per_hash_way[2] = {4};
-    config_0.key_sram_index_per_hash_way[3] = {6};
-    config_0.value_sram_index_per_hash_way[0] = {1};
-    config_0.value_sram_index_per_hash_way[1] = {3};
-    config_0.value_sram_index_per_hash_way[2] = {5};
-    config_0.value_sram_index_per_hash_way[3] = {7};
+    config_0.config_match_table(
+        1, {166, 167},
+        1, 1, 1,
+        13, {0,1,2,3,4,5,6,7,8,9,10,11,12},
+        4, 40,
+        {10, 10, 10, 10},
+        {2, 2, 2, 2},
+        {{{0},{2},{4},{6}}},
+        {{{1},{3},{5},{7}}}
+    );
+
 
     proc0.commit();
 
     auto& salu00 = SALUs[0][0];
     salu00.salu_id = 224;
     salu00.op = SALUnit::IfElseRAW;
-    salu00.left_value.type = SALUnit::Parameter::Type::HEADER;
-    salu00.left_value.if_type = SALUnit::Parameter::IfType::COMPARE_EQ;
-    salu00.left_value.content.phv_id = 3;
-    salu00.operand2.type = SALUnit::Parameter::Type::CONST;
-    salu00.operand2.content.value = 1;
-    salu00.operand3.type = SALUnit::Parameter::Type::CONST;
-    salu00.operand3.content.value = 0;
+    salu00.left_value.config(SALUnit::Parameter::Type::HEADER, 
+        SALUnit::Parameter::IfType::COMPARE_EQ, (int) 3, 0);
+    salu00.operand2.config(SALUnit::Parameter::Type::CONST, (uint32_t) 1);
+    salu00.operand3.config(SALUnit::Parameter::Type::CONST, (uint32_t) 0);
 
     auto& salu01 = SALUs[0][1];
     salu01.salu_id = 225;
     salu01.op = SALUnit::PRAW;
-    salu01.left_value.if_type = SALUnit::Parameter::COMPARE_EQ;
-    salu01.left_value.type = SALUnit::Parameter::HEADER;
-    salu01.left_value.content.phv_id = 162;
-    salu01.operand2.type = SALUnit::Parameter::REG;
-    salu01.operand2.content.table_idx = 0;
-    salu01.operand2.value_idx = 3;
+    salu01.left_value.config(SALUnit::Parameter::HEADER,
+        SALUnit::Parameter::COMPARE_EQ, (int) 162, 0);
+    salu01.operand2.config(SALUnit::Parameter::REG, (uint32_t) 0, 3);
 
     num_of_stateful_tables[0] = 1;
     stateful_table_ids[0] = {0};
@@ -972,9 +797,7 @@ void nat(){
     salu_id[0] = {224, 225};
 
     auto& ss_0 = state_saved_idxs[0];
-    ss_0.state_num = 1;
-    ss_0.state_lengths = {1};
-    ss_0.saved_state_idx_in_phv = {162};
+    ss_0.config(1, {1}, {162});
     // processor 1 finished
 
     ProcessorConfig proc1 = ProcessorConfig(1);
@@ -985,120 +808,78 @@ void nat(){
 
     proc1.matchTableConfig.match_table_num = 2;
     auto& config_1 = proc1.matchTableConfig.matchTables[0];
-    config_1.type = 1;
-    config_1.depth = 1;
-    config_1.key_width = 1;
-    config_1.value_width = 1;
-    config_1.hash_in_phv = {173, 174};
-    config_1.match_field_byte_len = 4;
-    config_1.match_field_byte_ids = {1,2,3,4};
-    config_1.number_of_hash_ways = 4; // stateful tables also using 4 way hash
-    config_1.hash_bit_sum = 40;
-    config_1.hash_bit_per_way = {10, 10, 10, 10};
-    config_1.srams_per_hash_way = {2, 2, 2, 2};
-    config_1.key_sram_index_per_hash_way[0] = {0};
-    config_1.key_sram_index_per_hash_way[1] = {2};
-    config_1.key_sram_index_per_hash_way[2] = {4};
-    config_1.key_sram_index_per_hash_way[3] = {6};
-    config_1.value_sram_index_per_hash_way[0] = {1};
-    config_1.value_sram_index_per_hash_way[1] = {3};
-    config_1.value_sram_index_per_hash_way[2] = {5};
-    config_1.value_sram_index_per_hash_way[3] = {7};
+    config_1.config_match_table(
+        1, {173, 174},
+        1, 1, 1,
+        4, {1, 2, 3, 4},
+        4, 40,
+        {10, 10, 10, 10},
+        {2, 2, 2, 2},
+        {{{0},{2},{4},{6}}},
+        {{{1},{3},{5},{7}}}
+    );
 
     auto& config_2 = proc1.matchTableConfig.matchTables[1];
-    config_2.type = 1;
-    config_2.depth = 1;
-    config_2.key_width = 1;
-    config_2.value_width = 1;
-    config_2.hash_in_phv = {175, 176};
-    config_2.match_field_byte_len = 4;
-    config_2.match_field_byte_ids = {1,2,3,4};
-    config_2.number_of_hash_ways = 4; // stateful tables also using 4 way hash
-    config_2.hash_bit_sum = 40;
-    config_2.hash_bit_per_way = {10, 10, 10, 10};
-    config_2.srams_per_hash_way = {2, 2, 2, 2};
-    config_2.key_sram_index_per_hash_way[0] = {8};
-    config_2.key_sram_index_per_hash_way[1] = {10};
-    config_2.key_sram_index_per_hash_way[2] = {12};
-    config_2.key_sram_index_per_hash_way[3] = {14};
-    config_2.value_sram_index_per_hash_way[0] = {9};
-    config_2.value_sram_index_per_hash_way[1] = {11};
-    config_2.value_sram_index_per_hash_way[2] = {13};
-    config_2.value_sram_index_per_hash_way[3] = {15};
+    config_2.config_match_table(
+        1, {175, 176},
+        1, 1, 1,
+        4, {1, 2, 3, 4},
+        4, 40,
+        {10, 10, 10, 10},
+        {2, 2, 2, 2},
+        {{{8}, {10}, {12}, {14}}},
+        {{{9}, {11}, {13}, {15}}}
+    );
 
     proc1.commit();
 
     auto& salu10 = SALUs[1][0];
     salu10.salu_id = 224;
     salu10.op = SALUnit::READ;
-    salu10.left_value.type = SALUnit::Parameter::HEADER;
-    salu10.left_value.content.phv_id = 163;
-    salu10.operand1.type = SALUnit::Parameter::REG;
-    salu10.operand1.content.table_idx = 0;
-    salu10.operand1.value_idx = 0;
+    salu10.left_value.config(SALUnit::Parameter::HEADER, (int) 163);
+    salu10.operand1.config(SALUnit::Parameter::REG, (int) 0, 0);
 
     auto& salu11 = SALUs[1][1];
     salu11.salu_id = 225;
     salu11.op = SALUnit::READ;
-    salu11.left_value.type = SALUnit::Parameter::HEADER;
-    salu11.left_value.content.phv_id = 164;
-    salu11.operand1.type = SALUnit::Parameter::REG;
-    salu11.operand1.content.table_idx = 0;
-    salu11.operand1.value_idx = 1;
+    salu11.left_value.config(SALUnit::Parameter::HEADER, (int) 164);
+    salu11.operand1.config(SALUnit::Parameter::REG, (int) 0, 1);
 
     auto& salu12 = SALUs[1][2];
     salu12.salu_id = 226;
     salu12.op = SALUnit::READ;
-    salu12.left_value.type = SALUnit::Parameter::HEADER;
-    salu12.left_value.content.phv_id = 165;
-    salu12.operand1.type = SALUnit::Parameter::REG;
-    salu12.operand1.content.table_idx = 0;
-    salu12.operand1.value_idx = 2;
+    salu12.left_value.config(SALUnit::Parameter::HEADER, (int) 165);
+    salu12.operand1.config(SALUnit::Parameter::REG, (int) 0, 2);
 
     auto& salu13 = SALUs[1][3];
     salu13.salu_id = 227;
     salu13.op = SALUnit::READ;
-    salu13.left_value.type = SALUnit::Parameter::HEADER;
-    salu13.left_value.content.phv_id = 166;
-    salu13.operand1.type = SALUnit::Parameter::REG;
-    salu13.operand1.content.table_idx = 0;
-    salu13.operand1.value_idx = 3;
+    salu13.left_value.config(SALUnit::Parameter::HEADER, (int) 166);
+    salu13.operand1.config(SALUnit::Parameter::REG, (int) 0, 3);
 
     auto& salu14 = SALUs[1][4];
     salu14.salu_id = 228;
     salu14.op = SALUnit::READ;
-    salu14.left_value.type = SALUnit::Parameter::HEADER;
-    salu14.left_value.content.phv_id = 167;
-    salu14.operand1.type = SALUnit::Parameter::REG;
-    salu14.operand1.content.table_idx = 1;
-    salu14.operand1.value_idx = 0;
+    salu14.left_value.config(SALUnit::Parameter::HEADER, (int) 167);
+    salu14.operand1.config(SALUnit::Parameter::REG, (int) 1, 0);
 
     auto& salu15 = SALUs[1][5];
     salu15.salu_id = 229;
     salu15.op = SALUnit::READ;
-    salu15.left_value.type = SALUnit::Parameter::HEADER;
-    salu15.left_value.content.phv_id = 168;
-    salu15.operand1.type = SALUnit::Parameter::REG;
-    salu15.operand1.content.table_idx = 1;
-    salu15.operand1.value_idx = 1;
+    salu15.left_value.config(SALUnit::Parameter::HEADER, (int) 168);
+    salu15.operand1.config(SALUnit::Parameter::REG, (int) 1, 1);
 
     auto& salu16 = SALUs[1][6];
     salu16.salu_id = 230;
     salu16.op = SALUnit::READ;
-    salu16.left_value.type = SALUnit::Parameter::HEADER;
-    salu16.left_value.content.phv_id = 169;
-    salu16.operand1.type = SALUnit::Parameter::REG;
-    salu16.operand1.content.table_idx = 1;
-    salu16.operand1.value_idx = 2;
+    salu16.left_value.config(SALUnit::Parameter::HEADER, (int) 169);
+    salu16.operand1.config(SALUnit::Parameter::REG, (int) 1, 2);
 
     auto& salu17 = SALUs[1][7];
     salu17.salu_id = 231;
     salu17.op = SALUnit::READ;
-    salu17.left_value.type = SALUnit::Parameter::HEADER;
-    salu17.left_value.content.phv_id = 170;
-    salu17.operand1.type = SALUnit::Parameter::REG;
-    salu17.operand1.content.table_idx = 1;
-    salu17.operand1.value_idx = 3;
+    salu17.left_value.config(SALUnit::Parameter::HEADER, (int) 170);
+    salu17.operand1.config(SALUnit::Parameter::REG, (int) 1, 3);
 
     num_of_stateful_tables[1] = 2;
     stateful_table_ids[1] = {0, 1};
@@ -1113,9 +894,7 @@ void nat(){
     salu_id_1 = {224, 225, 226, 227, 228, 229, 230, 231};
 
     auto& saved_state_1 = state_saved_idxs[1];
-    saved_state_1.state_num = 2;
-    saved_state_1.state_lengths = {4, 4};
-    saved_state_1.saved_state_idx_in_phv = {163, 164, 165, 166, 167, 168, 169, 170};
+    saved_state_1.config(2, {163, 164, 165, 166, 167, 168, 169, 170} ,{4, 4});
     // processor 2 finished
 
     ProcessorConfig proc2 = ProcessorConfig(2);
@@ -1126,81 +905,103 @@ void nat(){
     proc2.push_back_get_key_use_container(3, 8, 36);
 
     auto& gate_21 = proc2.gatewaysConfig.gates[0];
-    gate_21.op = GatewaysConfig::Gate::EQ;
-    gate_21.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_21.operand1.content.operand_match_field_byte = {1, {36}};
-    gate_21.operand2.type = GatewaysConfig::Gate::Parameter::CONST;
-    gate_21.operand2.content.value = 1;
+    gate_21.config(
+        GatewaysConfig::Gate::OP::EQ,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{1, {36}},
+        GatewaysConfig::Gate::Parameter::CONST,
+        (uint32_t) 1
+    );
 
     auto& gate_22 = proc2.gatewaysConfig.gates[1];
-    gate_22.op = GatewaysConfig::Gate::LTE;
-    gate_22.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_22.operand1.content.operand_match_field_byte = {4, {16, 17, 18, 19}};
-    gate_22.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_22.operand2.content.operand_match_field_byte = {4, {20, 21, 22, 23}};
+    gate_22.config(
+        GatewaysConfig::Gate::LTE,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {16, 17, 18, 19}},
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {20, 21, 22, 23}}
+    );
 
     auto& gate_23 = proc2.gatewaysConfig.gates[2];
-    gate_23.op = GatewaysConfig::Gate::LTE;
-    gate_23.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_23.operand1.content.operand_match_field_byte = {4, {16, 17, 18, 19}};
-    gate_23.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_23.operand2.content.operand_match_field_byte = {4, {24, 25, 26, 27}};
+    gate_23.config(
+        GatewaysConfig::Gate::LTE,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {16, 17, 18, 19}},
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {24, 25, 26, 27}}
+    );
 
     auto& gate_24 = proc2.gatewaysConfig.gates[3];
-    gate_24.op = GatewaysConfig::Gate::LTE;
-    gate_24.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_24.operand1.content.operand_match_field_byte = {4, {16, 17, 18, 19}};
-    gate_24.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_24.operand2.content.operand_match_field_byte = {4, {28, 29, 30, 31}};
+    gate_24.config(
+        GatewaysConfig::Gate::LTE,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {16, 17, 18, 19}},
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {28, 29, 30, 31}}
+    );
 
     auto& gate_25 = proc2.gatewaysConfig.gates[4];
-    gate_25.op = GatewaysConfig::Gate::LTE;
-    gate_25.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_25.operand1.content.operand_match_field_byte = {4, {20, 21, 22, 23}};
-    gate_25.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_25.operand2.content.operand_match_field_byte = {4, {24, 25, 26, 27}};
+    gate_25.config(
+        GatewaysConfig::Gate::LTE,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {20, 21, 22, 23}},
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {24, 25, 26, 27}}
+    );
 
     auto& gate_26 = proc2.gatewaysConfig.gates[5];
-    gate_26.op = GatewaysConfig::Gate::LTE;
-    gate_26.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_26.operand1.content.operand_match_field_byte = {4, {20, 21, 22, 23}};
-    gate_26.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_26.operand2.content.operand_match_field_byte = {4, {28, 29, 30, 31}};
+    gate_26.config(
+        GatewaysConfig::Gate::LTE,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {20, 21, 22, 23}},
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {28, 29, 30, 31}}
+    );
 
     auto& gate_27 = proc2.gatewaysConfig.gates[6];
-    gate_27.op = GatewaysConfig::Gate::LTE;
-    gate_27.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_27.operand1.content.operand_match_field_byte = {4, {24, 25, 26, 27}};
-    gate_27.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_27.operand2.content.operand_match_field_byte = {4, {28, 29, 30, 31}};
+    gate_27.config(
+        GatewaysConfig::Gate::LTE,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {24, 25, 26, 27}},
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {28, 29, 30, 31}}
+    );
 
     auto& gate_28 = proc2.gatewaysConfig.gates[7];
-    gate_28.op = GatewaysConfig::Gate::EQ;
-    gate_28.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_28.operand1.content.operand_match_field_byte = {4, {32, 33, 34, 35}};
-    gate_28.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_28.operand2.content.operand_match_field_byte = {4, {16, 17, 18, 19}};
+    gate_28.config(
+        GatewaysConfig::Gate::EQ,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {32, 33, 34, 35}},
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {16, 17, 18, 19}}
+    );
 
     auto& gate_29 = proc2.gatewaysConfig.gates[8];
-    gate_29.op = GatewaysConfig::Gate::EQ;
-    gate_29.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_29.operand1.content.operand_match_field_byte = {4, {32, 33, 34, 35}};
-    gate_29.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_29.operand2.content.operand_match_field_byte = {4, {20, 21, 22, 23}};
+    gate_29.config(
+        GatewaysConfig::Gate::EQ,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {32, 33, 34, 35}},
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {20, 21, 22, 23}}
+    );
 
     auto& gate_210 = proc2.gatewaysConfig.gates[9];
-    gate_210.op = GatewaysConfig::Gate::EQ;
-    gate_210.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_210.operand1.content.operand_match_field_byte = {4, {32, 33, 34, 35}};
-    gate_210.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_210.operand2.content.operand_match_field_byte = {4, {24, 25, 26, 27}};
+    gate_210.config(
+        GatewaysConfig::Gate::EQ,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {32, 33, 34, 35}},
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {24, 25, 26, 27}}
+    );
 
     auto& gate_211 = proc2.gatewaysConfig.gates[10];
-    gate_211.op = GatewaysConfig::Gate::EQ;
-    gate_211.operand1.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_211.operand1.content.operand_match_field_byte = {4, {32, 33, 34, 35}};
-    gate_211.operand2.type = GatewaysConfig::Gate::Parameter::HEADER;
-    gate_211.operand2.content.operand_match_field_byte = {4, {28, 29, 30, 31}};
+    gate_211.config(
+        GatewaysConfig::Gate::EQ,
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {32, 33, 34, 35}},
+        GatewaysConfig::Gate::Parameter::HEADER,
+        GatewaysConfig::Gate::Parameter::Content::Operand_match_field_byte{4, {28, 29, 30, 31}}
+    );
 
     proc2.insert_gateway_entry({true, true, true, true}, {true, true, true, true}, {true});
     proc2.insert_gateway_entry({true, true, false, false, true}, {true, false, false, false, true, true}, {false, true});
