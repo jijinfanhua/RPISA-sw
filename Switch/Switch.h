@@ -773,26 +773,6 @@ void nat(){
         {{{1},{3},{5},{7}}}
     );
 
-    config_0.type = 1; // stateful table
-    config_0.depth = 1;
-    config_0.key_width = 1;
-    config_0.value_width = 1;
-    config_0.hash_in_phv = {171, 172};
-    config_0.match_field_byte_len = 13;
-    config_0.match_field_byte_ids = {0,1,2,3,4,5,6,7,8,9,10,11,12};
-    config_0.number_of_hash_ways = 4; // stateful tables also using 4 way hash
-    config_0.hash_bit_sum = 40;
-    config_0.hash_bit_per_way = {10, 10, 10, 10};
-    config_0.srams_per_hash_way = {2, 2, 2, 2};
-    config_0.key_sram_index_per_hash_way[0] = {0};
-    config_0.key_sram_index_per_hash_way[1] = {2};
-    config_0.key_sram_index_per_hash_way[2] = {4};
-    config_0.key_sram_index_per_hash_way[3] = {6};
-    config_0.value_sram_index_per_hash_way[0] = {1};
-    config_0.value_sram_index_per_hash_way[1] = {3};
-    config_0.value_sram_index_per_hash_way[2] = {5};
-    config_0.value_sram_index_per_hash_way[3] = {7};
-
     proc0.commit();
 
     auto& salu00 = SALUs[0][0];
