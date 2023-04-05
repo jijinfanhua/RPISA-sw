@@ -1023,113 +1023,93 @@ void nat(){
     auto& action20 = actionConfigs[2].actions[0];
     action20.action_id = 0;
     action20.vliw_enabler = {false};
-    action20.vliw_enabler[162] = true;
-    action20.alu_configs[162].op = ALUnit::SET;
-    action20.alu_configs[162].operand1.type = ALUnit::Parameter::HEADER;
-    action20.alu_configs[162].operand1.content.phv_id = 163;
-    action20.vliw_enabler[167] = true;
-    action20.alu_configs[167].op = ALUnit::PLUS;
-    action20.alu_configs[167].operand1.type = ALUnit::Parameter::HEADER;
-    action20.alu_configs[167].operand1.content.phv_id = 2;
-    action20.alu_configs[167].operand2.type = ALUnit::Parameter::HEADER;
-    action20.alu_configs[167].operand2.content.phv_id = 167;
+    action20.config_alu(162, ALUnit::OP::SET,
+        ALUnit::Parameter::HEADER, (int) 163,
+        ALUnit::Parameter::CONST, (uint32_t) 0
+    );
+    action20.config_alu(167, ALUnit::PLUS,
+        ALUnit::Parameter::HEADER, (int) 2,
+        ALUnit::Parameter::HEADER, (int) 167
+    );
 
     auto& action21 = actionConfigs[2].actions[1];
     action21.action_id = 1;
     action21.vliw_enabler = {false};
-    action21.vliw_enabler[162] = true;
-    action21.alu_configs[162].op = ALUnit::SET;
-    action21.alu_configs[162].operand1.type = ALUnit::Parameter::HEADER;
-    action21.alu_configs[162].operand1.content.phv_id = 164;
-    action21.vliw_enabler[168] = true;
-    action21.alu_configs[168].op = ALUnit::PLUS;
-    action21.alu_configs[168].operand1.type = ALUnit::Parameter::HEADER;
-    action21.alu_configs[168].operand1.content.phv_id = 2;
-    action21.alu_configs[168].operand2.type = ALUnit::Parameter::HEADER;
-    action21.alu_configs[168].operand2.content.phv_id = 168;
+    action21.config_alu(162, ALUnit::SET,
+        ALUnit::Parameter::HEADER, (int) 164,
+        ALUnit::Parameter::CONST, (uint32_t) 0
+    );
+    action21.config_alu(168, ALUnit::PLUS,
+        ALUnit::Parameter::HEADER, (int) 2,
+        ALUnit::Parameter::HEADER, (int) 168    
+    );
 
     auto& action22 = actionConfigs[2].actions[2];
     action22.action_id = 2;
     action22.vliw_enabler = {false};
-    action22.vliw_enabler[162] = true;
-    action22.alu_configs[162].op = ALUnit::SET;
-    action22.alu_configs[162].operand1.type = ALUnit::Parameter::HEADER;
-    action22.alu_configs[162].operand1.content.phv_id = 165;
-    action22.vliw_enabler[169] = true;
-    action22.alu_configs[169].op = ALUnit::PLUS;
-    action22.alu_configs[169].operand1.type = ALUnit::Parameter::HEADER;
-    action22.alu_configs[169].operand1.content.phv_id = 2;
-    action22.alu_configs[169].operand2.type = ALUnit::Parameter::HEADER;
-    action22.alu_configs[169].operand2.content.phv_id = 169;
+    action22.config_alu(162, ALUnit::SET,
+        ALUnit::Parameter::HEADER, (int) 165,
+        ALUnit::Parameter::CONST, (uint32_t) 0
+    );
+    action22.config_alu(169, ALUnit::PLUS,
+        ALUnit::Parameter::HEADER, (int) 2,
+        ALUnit::Parameter::HEADER, (int) 169
+    );
 
     auto& action23 = actionConfigs[2].actions[3];
     action23.action_id = 3;
     action23.vliw_enabler = {false};
-    action23.vliw_enabler[162] = true;
-    action23.alu_configs[162].op = ALUnit::SET;
-    action23.alu_configs[162].operand1.type = ALUnit::Parameter::HEADER;
-    action23.alu_configs[162].operand1.content.phv_id = 166;
-    action23.vliw_enabler[170] = true;
-    action23.alu_configs[170].op = ALUnit::PLUS;
-    action23.alu_configs[170].operand1.type = ALUnit::Parameter::HEADER;
-    action23.alu_configs[170].operand1.content.phv_id = 2;
-    action23.alu_configs[170].operand2.type = ALUnit::Parameter::HEADER;
-    action23.alu_configs[170].operand2.content.phv_id = 170;
+    action23.config_alu(162, ALUnit::SET,
+        ALUnit::Parameter::HEADER, (int) 166,
+        ALUnit::Parameter::CONST, (uint32_t) 0
+    );
+    action23.config_alu(170, ALUnit::PLUS,
+        ALUnit::Parameter::HEADER, (int) 2,
+        ALUnit::Parameter::HEADER, (int) 170
+    );
 
     auto& action24 = actionConfigs[2].actions[4];
     action24.action_id = 4;
     action24.vliw_enabler = {false};
-    action24.vliw_enabler[167] = true;
-    action24.alu_configs[167].op = ALUnit::PLUS;
-    action24.alu_configs[167].operand1.type = ALUnit::Parameter::HEADER;
-    action24.alu_configs[167].operand1.content.phv_id = 2;
-    action24.alu_configs[167].operand2.type = ALUnit::Parameter::HEADER;
-    action24.alu_configs[167].operand2.content.phv_id = 167;
+    action24.config_alu(167, ALUnit::PLUS,
+        ALUnit::Parameter::HEADER, (int) 2,
+        ALUnit::Parameter::HEADER, (int) 167
+    );
 
     auto& action25 = actionConfigs[2].actions[5];
     action25.action_id = 5;
     action25.vliw_enabler = {false};
-    action25.vliw_enabler[168] = true;
-    action25.alu_configs[168].op = ALUnit::PLUS;
-    action25.alu_configs[168].operand1.type = ALUnit::Parameter::HEADER;
-    action25.alu_configs[168].operand1.content.phv_id = 2;
-    action25.alu_configs[168].operand2.type = ALUnit::Parameter::HEADER;
-    action25.alu_configs[168].operand2.content.phv_id = 168;
+    action25.config_alu(168, ALUnit::PLUS,
+        ALUnit::Parameter::HEADER, (int) 2,
+        ALUnit::Parameter::HEADER, (int) 168
+    );
 
     auto& action26 = actionConfigs[2].actions[6];
     action26.action_id = 6;
     action26.vliw_enabler = {false};
-    action26.vliw_enabler[169] = true;
-    action26.alu_configs[169].op = ALUnit::PLUS;
-    action26.alu_configs[169].operand1.type = ALUnit::Parameter::HEADER;
-    action26.alu_configs[169].operand1.content.phv_id = 2;
-    action26.alu_configs[169].operand2.type = ALUnit::Parameter::HEADER;
-    action26.alu_configs[169].operand2.content.phv_id = 169;
+    action26.config_alu(169, ALUnit::PLUS,
+        ALUnit::Parameter::HEADER, (int) 2,
+        ALUnit::Parameter::HEADER, (int) 169
+    );
 
     auto& action27 = actionConfigs[2].actions[7];
     action27.action_id = 7;
     action27.vliw_enabler = {false};
-    action27.vliw_enabler[170] = true;
-    action27.alu_configs[170].op = ALUnit::PLUS;
-    action27.alu_configs[170].operand1.type = ALUnit::Parameter::HEADER;
-    action27.alu_configs[170].operand1.content.phv_id = 2;
-    action27.alu_configs[170].operand2.type = ALUnit::Parameter::HEADER;
-    action27.alu_configs[170].operand2.content.phv_id = 170;
+    action27.config_alu(170, ALUnit::PLUS,
+        ALUnit::Parameter::HEADER, (int) 2,
+        ALUnit::Parameter::HEADER, (int) 170
+    );
 
     proc_types[2] = WRITE;
     state_idx_in_phv[2] = {162};
     auto& saved_state_2 = state_saved_idxs[2];
-    saved_state_2.state_num = 1;
-    saved_state_2.state_lengths = {1};
-    saved_state_2.saved_state_idx_in_phv = {162};
+    saved_state_2.config(1, {162}, {1});
     // processor 3 finished
 
     proc_types[3] = WRITE;
     state_idx_in_phv[3] = {163, 164, 165, 166, 167, 168, 169, 170};
     auto& saved_state_3 = state_saved_idxs[3];
-    saved_state_3.state_num = 2;
-    saved_state_3.state_lengths = {4, 4};
-    saved_state_3.saved_state_idx_in_phv = {163, 164, 165, 166, 167, 168, 169, 170};
+    saved_state_3.config(2, {163, 164, 165, 166, 167, 168, 169, 170}, {4, 4});
     // processor 4 finished
 
     read_proc_ids = {0, 0, 0, 1};
