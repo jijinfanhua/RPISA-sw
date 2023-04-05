@@ -109,28 +109,22 @@ struct ProcessorState {
     }
 
     void log(ofstream& output) {
-        output << "max wait queue: " << m_wait_queue << endl;
-        output << "r2p stash max: " << r2p_stash_max << endl;
-        output << "write stash max: " << write_stash_max << endl;
-        output << "p2r max: " << p2r_max << endl;
-        output << "r2r max: " << r2r_max << endl;
-        output << "rp2p max: " << rp2p_max << endl;
-        output << "max dirty cam: " << max_dirty_cam << endl;
-        output << "max schedule queue: " << m_schedule_queue << endl;
-        output << "wb_packets: " << wb_packets << endl;
-        output << "bp_packets: " << bp_packets << endl;
-        output << "total_packets: " << total_packets << endl;
-        output << "hb_cycles: " << hb_cycles << endl;
-        output << "cc_send: " << cc_send << endl;
-        output << "cc_received: " << cc_received << endl;
-        output << "ro_empty: " << ro_empty << endl;
-        output << "r2r_schedule: " << r2r_schedule << endl;
-        output << dirty_cam.size() << endl;
-        output << wait_queue.size() << endl;
-        output << schedule_queue.size() << endl;
-        output << r2p_stash.size() << endl;
-        output << p2r.size() << endl;
-        output << r2r.size() << endl;
+        output << "wait queue: " << m_wait_queue << endl;
+//        output << "r2p stash max: " << r2p_stash_max << endl;
+//        output << "write stash max: " << write_stash_max << endl;
+        output << "p2r: " << p2r_max << endl;
+        output << "r2r: " << r2r_max << endl;
+        output << "rp2p: " << rp2p_max << endl;
+        output << "dirty cam: " << max_dirty_cam << endl;
+        output << "schedule queue: " << m_schedule_queue << endl;
+//        output << "wb_packets: " << wb_packets << endl;
+//        output << "bp_packets: " << bp_packets << endl;
+//        output << "total_packets: " << total_packets << endl;
+//        output << "hb_cycles: " << hb_cycles << endl;
+//        output << "cc_send: " << cc_send << endl;
+//        output << "cc_received: " << cc_received << endl;
+//        output << "ro_empty: " << ro_empty << endl;
+//        output << "r2r_schedule: " << r2r_schedule << endl;
     }
 };
 

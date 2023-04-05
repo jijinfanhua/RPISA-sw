@@ -38,6 +38,7 @@ string PARENT_DIR = R"(C:\Users\PC\Desktop\code\RPISA-sw\cmake-build-debug\)";
 string INPUT_FILE_NAME = "switch.txt";
 std::array<bool, PROCESSOR_NUM> processor_selects = {true, true, true, true, true, true};
 std::array<ofstream*, PROCESSOR_NUM> outputs{};
+ofstream* main_output;
 int unordered_flow_count = 0;
 
 void init_outputs(const string& parent_dir){
@@ -49,6 +50,11 @@ void init_outputs(const string& parent_dir){
             outputs[i] = output;
         }
     }
+
+    main_output = new ofstream();
+    auto output_file = parent_dir + "main" + ".txt";
+    main_output->open(output_file, ios_base::out);
+
 }
 
 void testing_order(){
@@ -75,6 +81,8 @@ float average(std::vector<int>& v){
 }
 
 int main(int argc, char** argv) {
+    // argc = 3
+    // argv[1] = num of cycle; argv[2] = percent of throughput; argv[3] = percent of write back of processor 2
     // phv[223]: packet id
     // phv[222]: tag
     // tag 为 proc_num 位的独热码，哪一位为 1 代表有该 proc 的 tag.
@@ -83,33 +91,38 @@ int main(int argc, char** argv) {
     infile.open(PARENT_DIR + INPUT_FILE_NAME);
     init_outputs(PARENT_DIR);
 
+    float empty_controller = 0;
+    float throughput_ratio = stof(argv[2]);
+
     int cycle = 0;
     int pkt = 0;
     int output_pkt = 0;
     std::vector<int> execute_latency;
     Switch switch_ = Switch();
     switch_.Config();
-    for(int i = 0; i < 20000; i++) {
+    for(int i = 0; i < stoi(argv[1]); i++) {
 //        if(cycle == 16348){
 //            DEBUG_ENABLE = true;
 //        }
+        empty_controller += throughput_ratio;
         std::cout << "cycle: " << cycle << endl << endl;
-//        if(cycle % 7 == 0){
-//                switch_.Execute(0, Packet());
-//        }
-//        else{
-        string line;
-        getline(infile, line);
-        string input = read_five_tuple_from_file(line);
-        string pkt_length = read_pkt_length_from_file(line);
-        if(input.empty()){
+        if(empty_controller < 1){
             switch_.Execute(0, Packet(), cycle);
         }
         else{
-            pkt += 1;
-            switch_.Execute(1, input_to_packet(input, pkt_length), cycle);
+            empty_controller -= 1;
+            string line;
+            getline(infile, line);
+            string input = read_five_tuple_from_file(line);
+            string pkt_length = read_pkt_length_from_file(line);
+            if(input.empty()){
+                switch_.Execute(0, Packet(), cycle);
+            }
+            else{
+                pkt += 1;
+                switch_.Execute(1, input_to_packet(input, pkt_length), cycle);
+            }
         }
-//        }
 
         auto output_arrive_id = switch_.get_output_arrive_id();
         if(output_arrive_id.first != -1){
@@ -128,11 +141,8 @@ int main(int argc, char** argv) {
     switch_.Log(outputs, processor_selects);
 
     testing_order();
-    cout << "total flow: " << arrive_id_by_flow.size() << endl;
-    cout << "unordered flow: " << unordered_flow_count << endl;
-
-    cout << "output pkt: " << output_pkt << endl;
-    cout << "input pkt: " << pkt << endl;
-    cout << "average execute latency: " << average(execute_latency) << endl;
+    *main_output << "output pkt: " << output_pkt << endl;
+    *main_output << "input pkt: " << pkt << endl;
+    *main_output << "average execute latency: " << average(execute_latency) << endl;
     return 0;
 }

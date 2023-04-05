@@ -53,11 +53,6 @@ struct GetAction : public Logic {
             // | action_id |    data1     |    data2     |    data3     |
             // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-            // todo: debug
-            if(processor_id == 2){
-                cout << "debug" << endl;
-            }
-
             u32 action_id;
             auto final_value = now.final_values[i].first;
             // 判断表中是否有内容
