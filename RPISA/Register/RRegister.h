@@ -40,6 +40,13 @@ struct flow_info_in_cam {
 
 };
 
+struct flow_info_in_write_cam {
+    enum FSMState {
+        RUN, EXPIRING, EXPIRED
+    } cur_state;
+    int pkt_passed_left;
+};
+
 struct RingBaseRegister {
     bool enable1;
     PHV phv;

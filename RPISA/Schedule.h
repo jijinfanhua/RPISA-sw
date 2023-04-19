@@ -115,23 +115,23 @@ struct VerifyStateChange : public Logic
         }
 
         auto state_saved = state_saved_idxs[processor_id];
-        for (int i = 0; i < state_saved.state_num; i++)
-        {
-            if (verifyReg.phv_changed_tags[state_saved.saved_state_idx_in_phv[i]])
-            {
-                piwReg.state_changed = true;
-            }
-        }
+//        for (int i = 0; i < state_saved.state_num; i++)
+//        {
+//            if (verifyReg.phv_changed_tags[state_saved.saved_state_idx_in_phv[i]])
+//            {
+//                piwReg.state_changed = true;
+//            }
+//        }
 
         // todo: change between
-        if(processor_id == 3){
-            if(verifyReg.phv[ID_IN_PHV] % 4 == 0){
+//        if(processor_id == 3){
+            if(verifyReg.phv[ID_IN_PHV] % 2 == 0){
                 piwReg.state_changed = true;
             }
             else{
                 piwReg.state_changed = false;
             }
-        }
+//        }
         // todo: change between
 
         piwReg.phv = verifyReg.phv;
@@ -223,7 +223,7 @@ struct PIW : public Logic
                 cout  << endl;
             }
             next_proc.cc_received += 1;
-            next_proc.dirty_cam.erase(now.cd_addr);
+            next_proc.write_dirty_cam.erase(now.cd_addr);
         }
 
         // search the dirty table in PIW using hash addr
@@ -252,17 +252,20 @@ struct PIW : public Logic
         }
 
 
-        // in PIW, value in dirty cam is not important.
         auto flow_id = get_flow_id(now.phv);
-        auto flow_cam = now_proc.dirty_cam;
+        auto flow_cam = now_proc.write_dirty_cam;
         if (flow_cam.find(flow_id) == flow_cam.end())
         {
             // if you need to writeback: stateless / stateful
             if (now.state_changed)
             { // state changed; state is in PHV
                 // add item into dirty cam
-
-                next_proc.dirty_cam.insert(std::pair<u64, flow_info_in_cam>(flow_id, flow_info_in_cam{}));
+                if(WEAK_CONSISTENCY){
+                    next_proc.write_dirty_cam.insert(std::pair<u64, flow_info_in_write_cam>(flow_id, flow_info_in_write_cam{flow_info_in_write_cam::FSMState::EXPIRING, pkt_pass_allow}));
+                }
+                else{
+                    next_proc.write_dirty_cam.insert(std::pair<u64, flow_info_in_write_cam>(flow_id, flow_info_in_write_cam{flow_info_in_write_cam::FSMState::EXPIRED, 0}));
+                }
                 next.state_writeback = true;
                 next.pkt_backward = false;
                 // for statistics
@@ -276,17 +279,46 @@ struct PIW : public Logic
         }
         else
         {
-            if (now.cd_come && now.cd_addr == flow_id)
-            {
-                next.state_writeback = false;
-                next.pkt_backward = false;
+            if(WEAK_CONSISTENCY){
+                // under weak consistency & dirty cam find
+                auto &flow_info = next_proc.write_dirty_cam.at(flow_id);
+                if(flow_info.cur_state == flow_info_in_write_cam::EXPIRING){
+                    // if expiring, do not backward; do not write back
+                        next.state_writeback = false;
+                        next.pkt_backward = false;
+                    flow_info.pkt_passed_left -= 1;
+                    if(flow_info.pkt_passed_left == 0){
+                        flow_info.cur_state = flow_info_in_write_cam::EXPIRED;
+                    }
+                }
+                else if(flow_info.cur_state == flow_info_in_write_cam::EXPIRED){
+                    if (now.cd_come && now.cd_addr == flow_id)
+                    {
+                        next.state_writeback = false;
+                        next.pkt_backward = false;
+                    }
+                    else
+                    {
+                        next.state_writeback = false;
+                        next.pkt_backward = true;
+                        // statistics
+                        next_proc.bp_packets += 1;
+                    }
+                }
             }
-            else
-            {
-                next.state_writeback = false;
-                next.pkt_backward = true;
-                // statistics
-                next_proc.bp_packets += 1;
+            else{
+                if (now.cd_come && now.cd_addr == flow_id)
+                {
+                    next.state_writeback = false;
+                    next.pkt_backward = false;
+                }
+                else
+                {
+                    next.state_writeback = false;
+                    next.pkt_backward = true;
+                    // statistics
+                    next_proc.bp_packets += 1;
+                }
             }
         }
         next.phv = now.phv;
@@ -558,8 +590,10 @@ struct PO : public Logic
             }
             else
             {
-                next_proc.schedule_queue.erase(next_proc.schedule_queue.begin());
-                next_proc.schedule_queue.push_back(schedule_flow);
+                if(next_proc.schedule_queue.size() > 0){
+                    next_proc.schedule_queue.erase(next_proc.schedule_queue.begin());
+                    next_proc.schedule_queue.push_back(schedule_flow);
+                }
             }
 
 //            if(next_proc.dirty_cam[schedule_flow.flow_addr].left_pkt_num == 0){

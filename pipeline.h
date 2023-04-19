@@ -34,15 +34,11 @@ struct RP2R_REG {
 };
 
 struct ProcessorState {
-    u32 decrease_clk{}, increase_clk{};
-//    bool clk_enable = false;
-    // hash of four ways (32bit) -> flow info
+    int id;
     std::unordered_map<u64, flow_info_in_cam> dirty_cam;
 
-    // 128 will cause segmentation fault, reason unknown
-//    std::array<FlowInfo, 128> rp2p{};
-//    // 指示下一个对象在rp2p中的位置
-//    std::array<u32, 128> rp2p_pointer{};
+    std::unordered_map<u64, flow_info_in_write_cam> write_dirty_cam;
+
     std::unordered_map<u64, std::vector<FlowInfo>> r2p;
     std::unordered_map<u64, std::vector<FlowInfo>> p2p;
 
@@ -88,8 +84,11 @@ struct ProcessorState {
         if(schedule_queue.size() > m_schedule_queue){
             m_schedule_queue = schedule_queue.size();
         }
-        if(dirty_cam.size() > max_dirty_cam){
+        if(dirty_cam.size() > max_dirty_cam && proc_types[id] == READ){
             max_dirty_cam = dirty_cam.size();
+        }
+        else if(write_dirty_cam.size() > max_dirty_cam && proc_types[id] == WRITE){
+            max_dirty_cam = write_dirty_cam.size();
         }
         if(r2p.size() + p2p.size() > rp2p_max){
             rp2p_max = r2p.size() + p2p.size();
@@ -110,7 +109,7 @@ struct ProcessorState {
 
     void log(ofstream& output) {
         output << "wait queue: " << m_wait_queue << endl;
-//        output << "r2p stash max: " << r2p_stash_max << endl;
+        output << "r2p: " << r2p_stash_max << endl;
 //        output << "write stash max: " << write_stash_max << endl;
         output << "p2r: " << p2r_max << endl;
         output << "r2r: " << r2r_max << endl;
@@ -157,6 +156,12 @@ struct PipeLine {
     // And god said, let here be processor, and here was processor.
     std::array<ProcessorRegister, PROCESSOR_NUM> processors;
     std::array<ProcessorState, PROCESSOR_NUM> proc_states;
+
+    void set_id(){
+        for(int i = 0; i < PROCESSOR_NUM; i++){
+            proc_states[i].id = i;
+        }
+    }
 
 };
 

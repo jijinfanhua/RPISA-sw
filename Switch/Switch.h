@@ -1133,6 +1133,7 @@ struct Switch
     Switch()
     {
         pipeline = new PipeLine();
+        pipeline->set_id();
         for (int i = 0; i < PROCESSOR_NUM; i++)
         {
             // done Logic 需要一个虚析构函数，但现在不算什么大问题还
@@ -1181,6 +1182,7 @@ struct Switch
     void Execute(int interface, const Packet &packet, int arrive_id)
     {
         next = new PipeLine();
+        next->set_id();
         GetInput(interface, packet, next, arrive_id);
         for(int i = 0; i < PROCESSOR_NUM; i++){
             Update();

@@ -503,4 +503,8 @@ const u64 DEBUG_FLOW_ID = 71498389351104549;
 
 bool DEBUG_ENABLE = false;
 
+bool WEAK_CONSISTENCY = false;
+
+int pkt_pass_allow = 3;
+
 #endif // RPISA_SW_DATAPLANE_CONFIG_H+
