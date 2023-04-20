@@ -46,7 +46,7 @@ std::unordered_map<u64, std::vector<int>> arrive_id_by_flow;
 
 string PARENT_DIR = "C:\\Users\\PC\\Desktop\\code\\RPISA-sw\\cmake-build-debug\\";
 string INPUT_FILE_NAME = "switch.txt";
-std::array<bool, PROC_NUM> processor_selects = {true, true, true, true, true, true};
+std::array<bool, PROC_NUM> processor_selects = {true};
 std::array<ofstream*, PROC_NUM> outputs{};
 int unordered_flow_count = 0;
 
@@ -99,13 +99,8 @@ int main(int argc, char** argv) {
     std::vector<int> execute_latency;
     Switch switch_ = Switch();
     switch_.Config();
-    for(int i = 0; i < 200000; i++) {
-//        if(cycle == 89000) DEBUG_ENABLE = true;
+    for(int i = 0; i < 20000; i++) {
         std::cout << "cycle: " << cycle << endl << endl;
-//        if(cycle % 7 == 0){
-//                switch_.Execute(0, Packet());
-//        }
-//        else{
             string input = read_from_file(infile);
             if(input == ""){
                 switch_.Execute(0, Packet(), cycle);

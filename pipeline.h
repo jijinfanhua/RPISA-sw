@@ -80,21 +80,9 @@ struct ProcessorState {
 
 struct ProcessorRegister {
     GetKeysRegister getKeys{};
-    GatewayRegister gateway[2]{};
-    HashRegister hashes[4]{};
+    HashRegister hashes{};
     DispatcherRegister dp{};
-    GetAddressRegister getAddress{};
-    MatchRegister match{};
-    CompareRegister compare{};
-    ConditionEvaluationRegister conditionEvaluation{};
-    KeyRefactorRegister refactor{};
-    EfsmHashRegister efsmHash[4]{};
-    EfsmGetAddressRegister efsmGetAddress{};
-    EfsmMatchRegister efsmMatch{};
-    EfsmCompareRegister efsmCompare{};
-    GetActionRegister getAction;
-    ExecuteActionRegister executeAction{};
-    UpdateStateRegister update{};
+    OperateRegister op[PROCESSING_FUNCTION_NUM]{};
 };
 
 
