@@ -4,30 +4,18 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 //#include <direct.h>
 using namespace std;
 
 #include "defs.h"
 #include "Switch/Switch.h"
 
-string read_five_tuple_from_file(const string& line){
-    if(line.empty()){
-        return "";
-    }
-    else{
-        auto start_pos = line.find('\'');
-        auto end_pos = line.find('\'', start_pos+1);
-        string result = line.substr(start_pos+1, end_pos-start_pos-1);
-        return result;
-    }
-}
-
-string read_pkt_length_from_file(const string& line){
-    auto pos_1 = line.find('\'');
-    auto pos_2 = line.find('\'', pos_1+1);
-    auto start_pos = line.find('\'', pos_2+1);
-    auto end_pos = line.find('\'', start_pos+1);
-    return line.substr(start_pos+1, end_pos-start_pos-1);
+FiveTuple read_five_tuple_from_file(const string& line){
+    FiveTuple input{};
+    std::stringstream ss(line);
+    ss >> input.time >> input.src_ip >> input.dst_ip >> input.protocol >> input.src_port >> input.dst_port >> input.pkt_length;
+    return input;
 }
 
 std::unordered_map<u64, std::vector<int>> arrive_id_by_flow;
@@ -113,15 +101,9 @@ int main(int argc, char** argv) {
             empty_controller -= 1;
             string line;
             getline(infile, line);
-            string input = read_five_tuple_from_file(line);
-            string pkt_length = read_pkt_length_from_file(line);
-            if(input.empty()){
-                switch_.Execute(0, Packet(), cycle);
-            }
-            else{
-                pkt += 1;
-                switch_.Execute(1, input_to_packet(input, pkt_length), cycle);
-            }
+            auto input = read_five_tuple_from_file(line);
+            pkt += 1;
+            switch_.Execute(1, input_to_packet(input), cycle);
         }
 
         auto output_arrive_id = switch_.get_output_arrive_id();

@@ -95,21 +95,24 @@ string conversion(string str, int m, int n){
     return result;
 }
 
-Packet input_to_packet(const string& input, const string& pkt_length){
+Packet input_to_packet(FiveTuple input){
     Packet output = Packet();
     // src ip 32 bit; dst ip 32 bit; src_addr 16 bit; dst addr 16 bit; is_tcp 1 bit
-    string result = conversion(input, 2, 10);
-    bitset<97> bits(result);
-    string bitsStr = bits.to_string();
 
-    for(int i = 0; i < 12; i++){
-        byte input_byte = bitset<8>(bitsStr.substr(i*8, 8)).to_ulong();
-        output.push_back(input_byte);
-    }
-    output.push_back(bitset<1>(bitsStr.substr(96, 1)).to_ulong());
-
-    output.push_back(stoi(pkt_length));
-
+    output.push_back(static_cast<byte>(input.src_ip));
+    output.push_back(static_cast<byte>(input.src_ip >> 8));
+    output.push_back(static_cast<byte>(input.src_ip >> 16));
+    output.push_back(static_cast<byte>(input.src_ip >> 24));
+    output.push_back(static_cast<byte>(input.dst_ip));
+    output.push_back(static_cast<byte>(input.dst_ip >> 8));
+    output.push_back(static_cast<byte>(input.dst_ip >> 16));
+    output.push_back(static_cast<byte>(input.dst_ip >> 24));
+    output.push_back(static_cast<byte>(input.src_port));
+    output.push_back(static_cast<byte>(input.src_port >> 8));
+    output.push_back(static_cast<byte>(input.dst_port));
+    output.push_back(static_cast<byte>(input.dst_port >> 8));
+    output.push_back(static_cast<byte>(input.protocol));
+    output.push_back(static_cast<byte>(input.pkt_length));
     return output;
 }
 
