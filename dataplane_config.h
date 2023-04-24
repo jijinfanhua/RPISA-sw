@@ -14,8 +14,6 @@
 #define MAX_PARALLEL_MATCH_NUM 16
 #define PROCESSOR_NUM 1
 
-#define PROCESSING_FUNCTION_NUM 150
-
 // store all configs that dataplane processors need: global variables;
 // can only be configured before dataplane start
 
@@ -45,7 +43,11 @@ struct GetKeyConfig
 
 GetKeyConfig getKeyConfigs[PROC_NUM];
 
-const int dispatcher_queue_width = 16;
+int dispatcher_queue_width = 8;
+
+int processing_function_num = 150;
+
+int max_queue_size_allowed = 16;
 
 // two positions in phv for flow id; can use any of the hash result
 std::array<int, 2> flow_id_in_phv;

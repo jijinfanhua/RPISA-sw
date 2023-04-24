@@ -121,23 +121,35 @@ struct Dispatcher: public Logic{
         if(now.enable1){
             // if pipeline has packet
             u32 queue_id = get_flow_id(now.dq_item.phv) & (dispatcher_queue_width-1);
-            next_proc.dispatcher_queues[queue_id].push_back(now.dq_item);
+            if(now_proc.dispatcher_queues[queue_id].size() == max_queue_size_allowed){
+                // queue reached max, packet will be lost
+                next_proc.packet_lost += 1;
+            }
+            else{
+                next_proc.dispatcher_queues[queue_id].push_back(now.dq_item);
+            }
         }
         // get schedule id
         int schedule_id = now_proc.schedule_id;
-        if(!now_proc.dispatcher_queues[schedule_id].empty()  && !test_flow_occupied(now_proc.dispatcher_queues[schedule_id].front(), now_pipe)){
-            // if queue is not empty and first flow is not occupied
+        int queues_count = 0;
+        while(now_proc.dispatcher_queues[schedule_id].empty() || test_flow_occupied(now_proc.dispatcher_queues[schedule_id].front(), now_pipe)){
+            // if queue empty or first flow occupied
+            schedule_id = (schedule_id + 1) % dispatcher_queue_width;
+            queues_count += 1;
+            if(queues_count == dispatcher_queue_width) break;
+        }
+        next_proc.schedule_id = schedule_id;
+
+        if(queues_count == dispatcher_queue_width ){
+            next.enable1 = false;
+            return;
+        }
+        else {
             next.enable1 = true;
             auto dp_item = now_proc.dispatcher_queues[schedule_id].front();
             next.phv = dp_item.phv;
             next_proc.dispatcher_queues[schedule_id].erase(next_proc.dispatcher_queues[schedule_id].begin());
-            schedule_id = (schedule_id + 1) % dispatcher_queue_width;
         }
-        else{
-            next.enable1 = false;
-            schedule_id = (schedule_id + 1) % dispatcher_queue_width;
-        }
-        next_proc.schedule_id = schedule_id;
     }
 };
 
@@ -145,7 +157,7 @@ struct Operate: public Logic{
     Operate(int id): Logic(id){}
 
     void execute(const PipeLine* now, PipeLine* next) override{
-        for(int i = 1; i < PROCESSING_FUNCTION_NUM; i++){
+        for(int i = 1; i < processing_function_num; i++){
             next->processors[processor_id].op[i].phv = now->processors[processor_id].op[i-1].phv;
             next->processors[processor_id].op[i].enable1 = now->processors[processor_id].op[i-1].enable1;
         }

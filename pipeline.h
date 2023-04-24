@@ -36,44 +36,33 @@ struct RP2R_REG {
 struct ProcessorState {
     // flowblaze
     u32 schedule_id = 0;
-    std::array<std::vector<DispatcherQueueItem>, dispatcher_queue_width> dispatcher_queues;
+    std::array<std::vector<DispatcherQueueItem>, 16> dispatcher_queues;
 
     // statistics
-    int m_wait_queue = 0;
-    int m_schedule_queue = 0;
-    int total_packets = 0;
-    int wb_packets = 0;
-    int bp_packets = 0;
-    int hb_cycles = 0;
-    int po_normal = 0;
-    int piw_packet = 0;
-    int cc_send = 0;
-    int cc_received = 0;
-    int ro_empty = 0;
-    int p2r_schedule = 0;
-    int r2r_schedule = 0;
-    int max_dirty_cam = 0;
-    int rp2p_max = 0;
-    int r2p_stash_max = 0;
-    int write_stash_max = 0;
-    int p2r_max = 0;
-    int r2r_max = 0;
 
-    std::array<int, dispatcher_queue_width>  m_dispatcher_queue;
+    std::array<int, 16>  m_dispatcher_queue;
+    std::array<int, 16> total_dispatcher_queue;
+
+    int packet_lost = 0;
 
     ProcessorState& operator=(const ProcessorState &other) = default;
 
     void update(){
         for(int i = 0; i < dispatcher_queue_width; i++){
+            total_dispatcher_queue[i] += dispatcher_queues[i].size();
             if(dispatcher_queues[i].size() > m_dispatcher_queue[i]){
                 m_dispatcher_queue[i] = dispatcher_queues[i].size();
             }
         }
     }
 
-    void log(ofstream& output) {
+    void log(ofstream& output, int total_cycles) {
         for(int i = 0; i < dispatcher_queue_width; i++){
             output << i << "th queue max size: " << m_dispatcher_queue[i] << endl;
+        }
+        output << "=====" << endl;
+        for(int i = 0; i < dispatcher_queue_width; i++){
+            output << i << "th queue average size: " << total_dispatcher_queue[i] / total_cycles << endl;
         }
     }
 };
@@ -82,7 +71,7 @@ struct ProcessorRegister {
     GetKeysRegister getKeys{};
     HashRegister hashes{};
     DispatcherRegister dp{};
-    OperateRegister op[PROCESSING_FUNCTION_NUM]{};
+    OperateRegister op[250]{};
 };
 
 

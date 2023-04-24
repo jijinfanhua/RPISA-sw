@@ -107,5 +107,13 @@ std::array<u32, 4> u64_to_u16_array(u64 input)
     return output;
 }
 
-
+struct FiveTuple{
+    int time;
+    u64 src_ip;
+    u64 dst_ip;
+    u64 src_port;
+    u64 dst_port;
+    int protocol;
+    int pkt_length;
+};
 #endif //RPISA_SW_DEFS_H

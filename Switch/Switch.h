@@ -185,7 +185,7 @@ struct Switch
     }
 
     std::pair<u64, int> get_output_arrive_id() const{
-        OperateRegister &output = pipeline->processors[PROC_NUM-1].op[PROCESSING_FUNCTION_NUM-1];
+        OperateRegister &output = pipeline->processors[PROC_NUM-1].op[processing_function_num-1];
         if(output.enable1){
             u64 flow_id = u32_to_u64(output.phv[flow_id_in_phv[0]], output.phv[flow_id_in_phv[1]]);
             return {flow_id, output.phv[ID_IN_PHV]};
@@ -195,10 +195,10 @@ struct Switch
         }
     }
 
-    void Log(std::array<ofstream*, PROC_NUM> outputs, std::array<bool, PROC_NUM> enable){
+    void Log(std::array<ofstream*, PROC_NUM> outputs, std::array<bool, PROC_NUM> enable, int total_cycles){
         for(int i = 0; i < PROC_NUM; i++){
             if(enable[i]){
-                pipeline->proc_states[i].log(*outputs[i]);
+                pipeline->proc_states[i].log(*outputs[i], total_cycles);
             }
         }
     };

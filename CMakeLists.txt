@@ -3,6 +3,9 @@ project(RPISA_sw)
 
 set(CMAKE_CXX_STANDARD 14)
 
+set(CMAKE_C_COMPILER "gcc")
+set(CMAKE_CXX_COMPILER "g++")
+
 add_executable(RPISA_sw
         defs.h
         main.cpp
