@@ -76,34 +76,50 @@ int main(int argc, char** argv) {
     // tag 为 proc_num 位的独热码，哪一位为 1 代表有该 proc 的 tag.
 
     ifstream infile;
-    infile.open(PARENT_DIR + INPUT_FILE_NAME);
+    infile.open(argv[5]);
     init_outputs(PARENT_DIR);
 
     float empty_controller = 0;
     float throughput_ratio = stof(argv[2]);
+    write_back_ratio = stof(argv[3]);
+    test_write_proc_id = stoi(argv[4]);
 
     int cycle = 0;
     int pkt = 0;
     int output_pkt = 0;
+    int bubble_left = 0;
+    bool queue_oversize = false;
     std::vector<int> execute_latency;
     Switch switch_ = Switch();
     switch_.Config();
     for(int i = 0; i < stoi(argv[1]); i++) {
-//        if(cycle == 16348){
-//            DEBUG_ENABLE = true;
-//        }
-        empty_controller += throughput_ratio;
-        std::cout << "cycle: " << cycle << endl << endl;
-        if(empty_controller < 1){
+
+        if(cycle > stoi(argv[1])){
+            // add empty cycles to empty the pipeline
             switch_.Execute(0, Packet(), cycle);
         }
         else{
-            empty_controller -= 1;
-            string line;
-            getline(infile, line);
-            auto input = read_five_tuple_from_file(line);
-            pkt += 1;
-            switch_.Execute(1, input_to_packet(input), cycle);
+            empty_controller += throughput_ratio;
+            if(empty_controller < 1){
+                // add bubble to control throughput
+                switch_.Execute(0, Packet(), cycle);
+            }
+            else{
+                empty_controller -= 1;
+                if(bubble_left == 0){
+                    string line;
+                    getline(infile, line);
+                    auto input = read_five_tuple_from_file(line);
+                    bubble_left = input.pkt_length / 64;
+                    pkt += 1;
+                    switch_.Execute(1, input_to_packet(input), cycle);
+                }
+                else{
+                    // add bubble to balance pkt length
+                    switch_.Execute(0, Packet(), cycle);
+                    bubble_left--;
+                }
+            }
         }
 
         auto output_arrive_id = switch_.get_output_arrive_id();
@@ -117,12 +133,16 @@ int main(int argc, char** argv) {
                 arrive_id_by_flow.at(output_arrive_id.first).push_back(output_arrive_id.second);
             }
         }
+
+        queue_oversize = switch_.VerifyQueueOversize();
+        if(queue_oversize) break;
+
         cycle += 1;
     }
 
     switch_.Log(outputs, processor_selects);
 
-    testing_order();
+    *main_output << "queue oversize: " << queue_oversize << endl;
     *main_output << "output pkt: " << output_pkt << endl;
     *main_output << "input pkt: " << pkt << endl;
     *main_output << "average execute latency: " << average(execute_latency) << endl;

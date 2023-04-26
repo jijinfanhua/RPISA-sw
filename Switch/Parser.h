@@ -64,37 +64,6 @@ struct Parser {
     }
 };
 
-string division(string str, int m, int n, int & remain){
-    string result = "";
-    int a;
-    remain = 0;
-
-    for(int i = 0; i < str.size(); i++){
-        a = (n * remain + (str[i] - '0'));
-        str[i] = a / m + '0';
-        remain = a % m;
-    }
-    //去掉多余的0 比如10/2=05
-    int pos = 0;
-    while(str[pos] == '0'){
-        pos++;
-    }
-    return str.substr(pos);
-}
-
-string conversion(string str, int m, int n){
-    string result = "";
-    char c;
-    int a;
-    //因为去掉了多余的0，所以终止条件是字符串为空 例：当上一步运算结果为"0"时，实际上返回的结果为""
-    while(str.size() != 0){
-        str = division(str, m , n,a);
-        result = char(a + '0') +result;
-
-    }
-    return result;
-}
-
 Packet input_to_packet(FiveTuple input){
     Packet output = Packet();
     // src ip 32 bit; dst ip 32 bit; src_addr 16 bit; dst addr 16 bit; is_tcp 1 bit

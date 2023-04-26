@@ -5,6 +5,7 @@
 #ifndef RPISA_SW_SCHEDULE_H
 #define RPISA_SW_SCHEDULE_H
 
+#include <random>
 #include "../pipeline.h"
 
 // 所有对 dirty cam 的修改都需要同时修改 wait queue 和 schedule queue!!!
@@ -125,12 +126,20 @@ struct VerifyStateChange : public Logic
 
         // todo: change between
 //        if(processor_id == 3){
-            if(verifyReg.phv[ID_IN_PHV] % 2 == 0){
-                piwReg.state_changed = true;
-            }
-            else{
-                piwReg.state_changed = false;
-            }
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+
+        // 创建一个实值分布，范围从0（包含）到1（不包含）
+        std::uniform_real_distribution<> dis(0.0, 1.0);
+
+        // 生成随机数
+        double random_number = dis(gen);
+        if(random_number < write_back_ratio){
+            piwReg.state_changed = true;
+        }
+        else{
+            piwReg.state_changed = false;
+        }
 //        }
         // todo: change between
 
@@ -551,12 +560,20 @@ struct PO : public Logic
 
             next.enable1 = true;
             schedule_flow.left_pkt_num -= 1;
+            if(next_proc.dirty_cam.find(schedule_flow.flow_addr) == next_proc.dirty_cam.end()){
+                // 丢包
+                next.enable1 = false;
+                next_proc.p2p.erase(schedule_flow.flow_addr);
+                return;
+            }
             next_proc.dirty_cam.at(schedule_flow.flow_addr).left_pkt_num -= 1;
             // schedule the pkt to getAddr Module
             if(next_proc.p2p.find(schedule_flow.flow_addr) == next_proc.p2p.end() || next_proc.p2p.at(schedule_flow.flow_addr).size() == 0){
                 // 丢包
                 next.enable1 = false;
-                next_proc.schedule_queue.erase(next_proc.schedule_queue.begin()); // just delete, not add to the queue tail
+                if(next_proc.schedule_queue.size() != 0){
+                    next_proc.schedule_queue.erase(next_proc.schedule_queue.begin()); // just delete, not add to the queue tail
+                }
                 next_proc.dirty_cam.erase(schedule_flow.flow_addr);
                 next_proc.p2p.erase(schedule_flow.flow_addr);
                 return;

@@ -507,4 +507,15 @@ bool WEAK_CONSISTENCY = false;
 
 int pkt_pass_allow = 3;
 
+float write_back_ratio = 0.5;
+
+int test_write_proc_id = 2;
+
+int TEST_MAX_R2P = 16;
+int TEST_MAX_DIRTY_CAM = 64;
+int TEST_MAX_RP2P = 32;
+int TEST_MAX_WAIT_QUEUE = 64;
+int TEST_MAX_SCHEDULE_QUEUE = 64;
+int TEST_MAX_P2R = 8;
+int TEST_MAX_R2R = 8;
 #endif // RPISA_SW_DATAPLANE_CONFIG_H+

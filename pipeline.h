@@ -70,6 +70,7 @@ struct ProcessorState {
     int r2r_schedule = 0;
     int max_dirty_cam = 0;
     int rp2p_max = 0;
+    int p2p_stash_max = 0;
     int r2p_stash_max = 0;
     int write_stash_max = 0;
     int p2r_max = 0;
@@ -96,6 +97,9 @@ struct ProcessorState {
         if(r2p_stash.size() > r2p_stash_max){
             r2p_stash_max = r2p_stash.size();
         }
+        if(p2p.size() > p2p_stash_max){
+            p2p_stash_max = p2p.size();
+        }
         if(write_stash.size() > write_stash_max){
             r2p_stash_max = write_stash.size();
         }
@@ -108,14 +112,15 @@ struct ProcessorState {
     }
 
     void log(ofstream& output) {
-        output << "wait queue: " << m_wait_queue << endl;
+//        output << "wait queue: " << m_wait_queue << endl;
         output << "r2p: " << r2p_stash_max << endl;
+        output << "p2p: " << p2p_stash_max << endl;
 //        output << "write stash max: " << write_stash_max << endl;
-        output << "p2r: " << p2r_max << endl;
-        output << "r2r: " << r2r_max << endl;
+//        output << "p2r: " << p2r_max << endl;
+//        output << "r2r: " << r2r_max << endl;
         output << "rp2p: " << rp2p_max << endl;
         output << "dirty cam: " << max_dirty_cam << endl;
-        output << "schedule queue: " << m_schedule_queue << endl;
+//        output << "schedule queue: " << m_schedule_queue << endl;
 //        output << "wb_packets: " << wb_packets << endl;
 //        output << "bp_packets: " << bp_packets << endl;
 //        output << "total_packets: " << total_packets << endl;
