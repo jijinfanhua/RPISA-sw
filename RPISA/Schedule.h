@@ -135,9 +135,16 @@ struct VerifyStateChange : public Logic
         // 生成随机数
         double random_number = dis(gen);
         if(random_number < write_back_ratio){
-            piwReg.state_changed = true;
+//            if(next->proc_states[processor_id].oversize || next->proc_states[read_proc_ids[processor_id]].oversize){
+//                piwReg.state_changed = false;
+//                next->proc_states[processor_id].write_lost += 1;
+//            }
+//            else{
+                piwReg.state_changed = true;
+//            }
         }
         else{
+            // if queue oversize,
             piwReg.state_changed = false;
         }
 //        }
@@ -189,8 +196,9 @@ struct PIW : public Logic
             PIWRegister &second_piwReg = next->processors[processor_id].piw[1];
             const ProcessorState &now_proc = now->proc_states[processor_id];
             ProcessorState &next_proc = next->proc_states[processor_id]; // to send pkt/hb/write
+            const ProcessorState &read_proc = now->proc_states[read_proc_ids[processor_id]];
 
-            piw_first_cycle(first_piwReg, second_piwReg, now_proc, next_proc);
+            piw_first_cycle(first_piwReg, second_piwReg, now_proc, next_proc, read_proc);
 
             const PIWRegister &cur_second_piwReg = now->processors[processor_id].piw[1];
 
@@ -198,7 +206,7 @@ struct PIW : public Logic
             if (processor_id != PROCESSOR_NUM - 1)
             {
                 BaseRegister &getkeyReg = next->processors[processor_id + 1].getKeys;
-                handle_piw_write(cur_second_piwReg, now_proc, next_proc, now->proc_states[4]);
+                handle_piw_write(cur_second_piwReg, now_proc, next_proc, read_proc);
                 if (!cur_second_piwReg.pkt_backward && cur_second_piwReg.enable1)
                 {
                     getkeyReg.enable1 = cur_second_piwReg.enable1;
@@ -209,7 +217,7 @@ struct PIW : public Logic
             }
             else
             {
-                handle_piw_write(cur_second_piwReg, now_proc, next_proc, now->proc_states[4]);
+                handle_piw_write(cur_second_piwReg, now_proc, next_proc, read_proc);
             }
         }
         else
@@ -221,7 +229,7 @@ struct PIW : public Logic
     }
 
     void piw_first_cycle(const PIWRegister &now, PIWRegister &next, const ProcessorState &now_proc,
-                         ProcessorState &next_proc)
+                         ProcessorState &next_proc, const ProcessorState& read_proc)
     {
         // handle asyn RI's input -> cancel_dirty
         if (now.cd_come)
@@ -309,9 +317,16 @@ struct PIW : public Logic
                     else
                     {
                         next.state_writeback = false;
-                        next.pkt_backward = true;
-                        // statistics
-                        next_proc.bp_packets += 1;
+                        if(next_proc.oversize || read_proc.oversize){
+                            next.pkt_backward = false;
+                            next_proc.bp_lost += 1;
+                            next.enable1 = false;
+                        }
+                        else{
+                            next.pkt_backward = true;
+                            // statistics
+                            next_proc.bp_packets += 1;
+                        }
                     }
                 }
             }
@@ -324,9 +339,16 @@ struct PIW : public Logic
                 else
                 {
                     next.state_writeback = false;
-                    next.pkt_backward = true;
-                    // statistics
-                    next_proc.bp_packets += 1;
+                    if(next_proc.oversize || read_proc.oversize){
+                        next.pkt_backward = false;
+                        next_proc.bp_lost += 1;
+                        next.enable1 = false;
+                    }
+                    else{
+                        next.pkt_backward = true;
+                        // statistics
+                        next_proc.bp_packets += 1;
+                    }
                 }
             }
         }
@@ -336,7 +358,7 @@ struct PIW : public Logic
         next.hash_values = now.hash_values;
     }
 
-    void handle_piw_write(const PIWRegister &now, const ProcessorState &now_proc, ProcessorState &next_proc, const ProcessorState& r1_proc)
+    void handle_piw_write(const PIWRegister &now, const ProcessorState &now_proc, ProcessorState &next_proc, const ProcessorState& read_proc)
     {
         next_proc.hb_robin_flag = (now_proc.hb_robin_flag + 1) % cycles_per_hb;
 
@@ -456,6 +478,12 @@ struct PIR : public Logic {
             next.match_table_keys = now.match_table_keys;
             return;
         }
+        if(now_proc.oversize){
+            next.enable1 = false;
+            next.normal_pipe_schedule = false;
+            next_proc.bp_lost += 1;
+            return;
+        }
         // 判断tag,决定是否阻塞
         auto tag = now.phv[TAG_IN_PHV];
         u32 proc_bitmap = 1 << tags[processor_id];
@@ -564,6 +592,12 @@ struct PO : public Logic
                 // 丢包
                 next.enable1 = false;
                 next_proc.p2p.erase(schedule_flow.flow_addr);
+                for(auto it = next_proc.schedule_queue.begin(); it != next_proc.schedule_queue.end(); it++){
+                    if(it->flow_addr == schedule_flow.flow_addr){
+                        it = next_proc.schedule_queue.erase(it);
+                        if(it == next_proc.schedule_queue.end()) break;
+                    }
+                }
                 return;
             }
             next_proc.dirty_cam.at(schedule_flow.flow_addr).left_pkt_num -= 1;

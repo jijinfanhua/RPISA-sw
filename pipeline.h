@@ -53,6 +53,9 @@ struct ProcessorState {
     queue<RP2R_REG> r2r;
     int round_robin_flag = 0; // 0 is r2r, 1 is p2r
     int hb_robin_flag = 0;
+    int write_lost = 0;
+    int bp_lost = 0;
+    bool oversize = false;
 
     // statistics
     int m_wait_queue = 0;
@@ -91,14 +94,22 @@ struct ProcessorState {
         else if(write_dirty_cam.size() > max_dirty_cam && proc_types[id] == WRITE){
             max_dirty_cam = write_dirty_cam.size();
         }
-        if(r2p.size() + p2p.size() > rp2p_max){
-            rp2p_max = r2p.size() + p2p.size();
+        int r2p_item_num = 0;
+        for(auto flow: r2p){
+            r2p_item_num += flow.second.size();
         }
-        if(r2p_stash.size() > r2p_stash_max){
-            r2p_stash_max = r2p_stash.size();
+        int p2p_item_num = 0;
+        for(auto flow: p2p){
+            p2p_item_num += flow.second.size();
         }
-        if(p2p.size() > p2p_stash_max){
-            p2p_stash_max = p2p.size();
+        if(r2p_item_num + p2p_item_num > rp2p_max){
+            rp2p_max = r2p_item_num + p2p_item_num;
+        }
+        if(r2p_item_num > r2p_stash_max){
+            r2p_stash_max = r2p_item_num;
+        }
+        if(p2p_item_num > p2p_stash_max){
+            p2p_stash_max = p2p_item_num;
         }
         if(write_stash.size() > write_stash_max){
             r2p_stash_max = write_stash.size();
@@ -108,6 +119,14 @@ struct ProcessorState {
         }
         if(r2r.size() > r2r_max ){
             r2r_max = r2r.size();
+        }
+        if(r2p_item_num + p2p_item_num > TEST_MAX_RP2P || dirty_cam.size() > TEST_MAX_DIRTY_CAM ||
+           wait_queue.size() > TEST_MAX_WAIT_QUEUE || schedule_queue.size() > TEST_MAX_SCHEDULE_QUEUE ||
+           r2p_item_num > TEST_MAX_R2P || p2r.size() > TEST_MAX_P2R || r2r.size() > TEST_MAX_R2R || p2p_item_num > TEST_MAX_P2P) {
+            oversize = true;
+        }
+        else{
+            oversize = false;
         }
     }
 

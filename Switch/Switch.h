@@ -1270,18 +1270,6 @@ struct Switch
         }
     }
 
-    bool VerifyQueueOversize(){
-        for(int i = 0; i < PROCESSOR_NUM; i++){
-            auto proc_state = pipeline->proc_states[i];
-            if(proc_state.rp2p_max > TEST_MAX_RP2P || proc_state.max_dirty_cam > TEST_MAX_DIRTY_CAM ||
-            proc_state.m_wait_queue > TEST_MAX_WAIT_QUEUE || proc_state.m_schedule_queue > TEST_MAX_SCHEDULE_QUEUE ||
-            proc_state.r2p_stash_max > TEST_MAX_R2P || proc_state.p2r_max > TEST_MAX_P2R || proc_state.r2r_max > TEST_MAX_R2R){
-                return true;
-            }
-        }
-        return false;
-    }
-
     void Config()
     {
         for_testing();

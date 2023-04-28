@@ -94,6 +94,8 @@ int main(int argc, char** argv) {
     switch_.Config();
     for(int i = 0; i < stoi(argv[1]); i++) {
 
+//        cout << cycle << endl;
+
         if(cycle > stoi(argv[1])){
             // add empty cycles to empty the pipeline
             switch_.Execute(0, Packet(), cycle);
@@ -134,15 +136,20 @@ int main(int argc, char** argv) {
             }
         }
 
-        queue_oversize = switch_.VerifyQueueOversize();
-        if(queue_oversize) break;
-
         cycle += 1;
     }
 
     switch_.Log(outputs, processor_selects);
 
-    *main_output << "queue oversize: " << queue_oversize << endl;
+    int losts = 0;
+    for(auto proc_state: switch_.pipeline->proc_states){
+//        losts += proc_state.write_lost;
+        losts += proc_state.bp_lost;
+    }
+
+    float lost_rate = float(losts) / float(pkt);
+
+    *main_output << "lost rate: " << lost_rate << endl;
     *main_output << "output pkt: " << output_pkt << endl;
     *main_output << "input pkt: " << pkt << endl;
     *main_output << "average execute latency: " << average(execute_latency) << endl;
