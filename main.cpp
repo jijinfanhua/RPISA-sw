@@ -92,7 +92,7 @@ int main(int argc, char** argv) {
     std::vector<int> execute_latency;
     Switch switch_ = Switch();
     switch_.Config();
-    for(int i = 0; i < stoi(argv[1]); i++) {
+    for(int i = 0; i < stoi(argv[1]) + 10000; i++) {
 
 //        cout << cycle << endl;
 
@@ -112,7 +112,7 @@ int main(int argc, char** argv) {
                     string line;
                     getline(infile, line);
                     auto input = read_five_tuple_from_file(line);
-                    bubble_left = input.pkt_length / 8;
+                    bubble_left = input.pkt_length / 128;
                     pkt += 1;
                     switch_.Execute(1, input_to_packet(input), cycle);
                 }
