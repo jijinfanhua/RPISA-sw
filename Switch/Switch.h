@@ -1122,6 +1122,46 @@ void nat(){
     cycles_per_hb = 2;
 }
 
+void for_cross_testing(){
+    flow_id_in_phv = {171, 172};
+
+    ProcessorConfig proc0 = ProcessorConfig(0);
+    proc0.push_back_get_key_use_container(0, 8, 0);
+    proc0.push_back_get_key_use_container(64, 16, 1, 2);
+    proc0.push_back_get_key_use_container(65, 16, 3, 4);
+    proc0.push_back_get_key_use_container(160, 32, 5,6,7,8);
+    proc0.push_back_get_key_use_container(161, 32, 9, 10, 11, 12);
+
+    proc0.insert_gateway_entry({false}, {false}, {true});
+
+    proc0.matchTableConfig.match_table_num = 1;
+    auto& config_0 = proc0.matchTableConfig.matchTables[0];
+    config_0.config_match_table(
+            1, {171, 172},
+            1, 1, 1,
+            13, {0,1,2,3,4,5,6,7,8,9,10,11,12},
+            4, 40,
+            {10, 10, 10, 10},
+            {2, 2, 2, 2},
+            {{{0},{2},{4},{6}}},
+            {{{1},{3},{5},{7}}}
+    );
+
+    proc_types[0] = READ;
+    proc0.commit();
+
+    num_of_stateful_tables[0] = 1;
+    stateful_table_ids[0] = {0};
+
+    phv_id_to_save_hash_value[0][0] = {171, 172};
+
+    proc_types[test_write_proc_id] = WRITE;
+    read_proc_ids = {0};
+    write_proc_ids = {test_write_proc_id};
+    backward_cycle_num = 30 * test_write_proc_id;
+    cycles_per_hb = 1;
+}
+
 void for_testing(){
     flow_id_in_phv = {171, 172};
 
