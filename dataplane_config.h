@@ -511,6 +511,11 @@ float write_back_ratio = 0.5;
 
 int test_write_proc_id = 2;
 
+int test_cross_write_proc_id1 = 2;
+int test_cross_read_proc_id1 = 0;
+int test_cross_write_proc_id2 = 3;
+int test_cross_read_proc_id2 = 1;
+
 int TEST_MAX_R2P = 16;
 int TEST_MAX_DIRTY_CAM = 64;
 int TEST_MAX_RP2P = 32;

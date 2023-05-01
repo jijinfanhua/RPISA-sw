@@ -76,13 +76,16 @@ int main(int argc, char** argv) {
     // tag 为 proc_num 位的独热码，哪一位为 1 代表有该 proc 的 tag.
 
     ifstream infile;
-    infile.open(argv[5]);
+    infile.open(argv[8]);
     init_outputs(PARENT_DIR);
 
     float empty_controller = 0;
     float throughput_ratio = stof(argv[2]);
     write_back_ratio = stof(argv[3]);
-    test_write_proc_id = stoi(argv[4]);
+    test_cross_read_proc_id1 = stoi(argv[4]);
+    test_cross_write_proc_id1 = stoi(argv[5]);
+    test_cross_read_proc_id2 = stoi(argv[6]);
+    test_cross_write_proc_id2 = stoi(argv[7]);
 
     int cycle = 0;
     int pkt = 0;

@@ -1125,7 +1125,7 @@ void nat(){
 void for_cross_testing(){
     flow_id_in_phv = {171, 172};
 
-    ProcessorConfig proc0 = ProcessorConfig(0);
+    ProcessorConfig proc0 = ProcessorConfig(test_cross_read_proc_id1);
     proc0.push_back_get_key_use_container(0, 8, 0);
     proc0.push_back_get_key_use_container(64, 16, 1, 2);
     proc0.push_back_get_key_use_container(65, 16, 3, 4);
@@ -1146,20 +1146,54 @@ void for_cross_testing(){
             {{{0},{2},{4},{6}}},
             {{{1},{3},{5},{7}}}
     );
-
-    proc_types[0] = READ;
     proc0.commit();
 
-    num_of_stateful_tables[0] = 1;
-    stateful_table_ids[0] = {0};
+    ProcessorConfig proc1 = ProcessorConfig(test_cross_read_proc_id2);
+    proc1.push_back_get_key_use_container(0, 8, 0);
+    proc1.push_back_get_key_use_container(64, 16, 1, 2);
+    proc1.push_back_get_key_use_container(65, 16, 3, 4);
+    proc1.push_back_get_key_use_container(160, 32, 5,6,7,8);
+    proc1.push_back_get_key_use_container(161, 32, 9, 10, 11, 12);
 
-    phv_id_to_save_hash_value[0][0] = {171, 172};
+    proc1.insert_gateway_entry({false}, {false}, {true});
 
-    proc_types[test_write_proc_id] = WRITE;
+    proc1.matchTableConfig.match_table_num = 1;
+    auto& config_1 = proc1.matchTableConfig.matchTables[0];
+    config_1.config_match_table(
+            1, {173, 174},
+            1, 1, 1,
+            13, {0,1,2,3,4,5,6,7,8,9,10,11,12},
+            4, 40,
+            {10, 10, 10, 10},
+            {2, 2, 2, 2},
+            {{{0},{2},{4},{6}}},
+            {{{1},{3},{5},{7}}}
+    );
+
+    proc1.commit();
+
+    proc_types[test_cross_read_proc_id1] = READ;
+    proc_types[test_cross_read_proc_id2] = READ;
+
+    num_of_stateful_tables[test_cross_read_proc_id1] = 1;
+    stateful_table_ids[test_cross_read_proc_id1] = {0};
+
+    num_of_stateful_tables[test_cross_read_proc_id2] = 1;
+    stateful_table_ids[test_cross_read_proc_id2] = {0};
+
+    phv_id_to_save_hash_value[test_cross_read_proc_id1][0] = {171, 172};
+    phv_id_to_save_hash_value[test_cross_read_proc_id2][0] = {173, 174};
+
+    proc_types[test_cross_write_proc_id1] = WRITE;
+    proc_types[test_cross_write_proc_id2] = WRITE;
     read_proc_ids = {0};
-    write_proc_ids = {test_write_proc_id};
-    backward_cycle_num = 30 * test_write_proc_id;
-    cycles_per_hb = 1;
+    read_proc_ids[test_cross_write_proc_id1] = test_cross_read_proc_id1;
+    read_proc_ids[test_cross_write_proc_id2] = test_cross_read_proc_id2;
+    write_proc_ids = {0};
+    write_proc_ids[test_cross_read_proc_id1] = test_cross_write_proc_id1;
+    write_proc_ids[test_cross_read_proc_id2] = test_cross_write_proc_id2;
+    backward_cycle_num = 30 * (test_cross_write_proc_id1 - test_cross_read_proc_id1);
+    cycles_per_hb = 2;
 }
 
 void for_testing(){
@@ -1312,7 +1346,7 @@ struct Switch
 
     void Config()
     {
-        for_testing();
+        for_cross_testing();
 //        nat();
     }
 
