@@ -112,7 +112,7 @@ int main(int argc, char** argv) {
                     string line;
                     getline(infile, line);
                     auto input = read_five_tuple_from_file(line);
-                    bubble_left = input.pkt_length / 128;
+                    bubble_left = input.pkt_length / 64;
                     pkt += 1;
                     switch_.Execute(1, input_to_packet(input), cycle);
                 }
